@@ -12,6 +12,7 @@ const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
 let activeDrag: ActiveDrag | null = null
 let rafId: number | null = null
 let boxCount = 0
+const allDatasets: Dataset[] = []
 
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
@@ -234,6 +235,12 @@ export async function createPlot(
 
   const datasets = [cobalt, bivo]
 
+  for (const ds of datasets) {
+    if (!allDatasets.some(d => d.name === ds.name)) {
+      allDatasets.push(ds)
+    }
+  }
+
   svgDataMap.set(svg, datasets)
   drawPlot(svg, datasets, 400, 300)
 
@@ -267,6 +274,18 @@ export function getBoxCount(): number {
   return boxCount
 }
 
+export function getDatasets(): Dataset[] {
+  return allDatasets
+}
+
+function snapToGridThreshold(val: number, step: number = 200, threshold: number = 10): number {
+  const nearest = Math.round(val / step) * step
+  if (Math.abs(val - nearest) <= threshold) {
+    return nearest
+  }
+  return val
+}
+
 // Global mousemove & mouseup listeners for resize with snap to grid
 export function initPlotDragListeners(): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
@@ -279,7 +298,8 @@ export function initPlotDragListeners(): void {
     let newWidth = startWidth
     let newHeight = startHeight
 
-    const GRID_SIZE = 20
+    const GRID_SIZE = 200 // Major grid lines (every 200px)
+    const SNAP_THRESHOLD = 10 // Snap only when cursor is within 10px of a major grid line
     const margin = { l: 60, r: 20, t: 20, b: 50 }
     const minPlotW = 120
     const minPlotH = 80
@@ -287,36 +307,41 @@ export function initPlotDragListeners(): void {
     const startPlotW = startWidth - margin.l - margin.r
     const startPlotH = startHeight - margin.t - margin.b
 
-    if (dir.includes('right')) {
-      const rawRight = startLeft + margin.l + startPlotW + dx
-      const snappedRight = Math.round(rawRight / GRID_SIZE) * GRID_SIZE
-      const newPlotW = Math.max(minPlotW, snappedRight - (startLeft + margin.l))
-      newWidth = newPlotW + margin.l + margin.r
-    }
+    if (dir === 'left' || dir === 'top' || dir === 'top-left') {
+      // MOVE: Both X and Y axes move freely simultaneously with magnetic grid snap
+      const rawLeftFrame = startLeft + margin.l + dx
+      const snappedLeftFrame = snapToGridThreshold(rawLeftFrame, GRID_SIZE, SNAP_THRESHOLD)
+      newLeft = snappedLeftFrame - margin.l
 
-    if (dir.includes('left')) {
-      const rawLeft = startLeft + margin.l + dx
-      const snappedLeft = Math.round(rawLeft / GRID_SIZE) * GRID_SIZE
-      const maxLeft = startLeft + margin.l + startPlotW - minPlotW
-      const finalLeftFrame = Math.min(maxLeft, snappedLeft)
-      newLeft = finalLeftFrame - margin.l
-      newWidth = startLeft + startWidth - newLeft
-    }
+      const rawTopFrame = startTop + margin.t + dy
+      const snappedTopFrame = snapToGridThreshold(rawTopFrame, GRID_SIZE, SNAP_THRESHOLD)
+      newTop = snappedTopFrame - margin.t
+    } else {
+      if (dir.includes('right')) {
+        const rawRight = startLeft + margin.l + startPlotW + dx
+        const snappedRight = snapToGridThreshold(rawRight, GRID_SIZE, SNAP_THRESHOLD)
+        const newPlotW = Math.max(minPlotW, snappedRight - (startLeft + margin.l))
+        newWidth = newPlotW + margin.l + margin.r
+      }
 
-    if (dir.includes('bottom')) {
-      const rawBottom = startTop + margin.t + startPlotH + dy
-      const snappedBottom = Math.round(rawBottom / GRID_SIZE) * GRID_SIZE
-      const newPlotH = Math.max(minPlotH, snappedBottom - (startTop + margin.t))
-      newHeight = newPlotH + margin.t + margin.b
-    }
+      if (dir.includes('left')) {
+        const rawLeftFrame = startLeft + margin.l + dx
+        const snappedLeftFrame = snapToGridThreshold(rawLeftFrame, GRID_SIZE, SNAP_THRESHOLD)
+        newLeft = snappedLeftFrame - margin.l
+      }
 
-    if (dir.includes('top')) {
-      const rawTop = startTop + margin.t + dy
-      const snappedTop = Math.round(rawTop / GRID_SIZE) * GRID_SIZE
-      const maxTop = startTop + margin.t + startPlotH - minPlotH
-      const finalTopFrame = Math.min(maxTop, snappedTop)
-      newTop = finalTopFrame - margin.t
-      newHeight = startTop + startHeight - newTop
+      if (dir.includes('bottom')) {
+        const rawBottom = startTop + margin.t + startPlotH + dy
+        const snappedBottom = snapToGridThreshold(rawBottom, GRID_SIZE, SNAP_THRESHOLD)
+        const newPlotH = Math.max(minPlotH, snappedBottom - (startTop + margin.t))
+        newHeight = newPlotH + margin.t + margin.b
+      }
+
+      if (dir.includes('top')) {
+        const rawTopFrame = startTop + margin.t + dy
+        const snappedTopFrame = snapToGridThreshold(rawTopFrame, GRID_SIZE, SNAP_THRESHOLD)
+        newTop = snappedTopFrame - margin.t
+      }
     }
 
     svg.style.left = `${newLeft}px`

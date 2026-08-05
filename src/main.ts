@@ -1,55 +1,73 @@
 import './style.css'
-import { renderTitlebar } from './components/Titlebar.ts'
-import { renderMenubar } from './components/Menubar.ts'
-import { renderToolbar } from './components/Toolbar.ts'
-import { renderStatusbar } from './components/Statusbar.ts'
-import { renderContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
+import { initTitlebar } from './components/Titlebar.ts'
+import { initMenubar } from './components/Menubar.ts'
+import { initToolbar } from './components/Toolbar.ts'
+import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { createPlot, getActiveDrag, getBoxCount, initPlotDragListeners } from './components/Plot.ts'
+import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
+import {
+  initDataManagerDialog,
+  showDataManagerDialog,
+  globalDataManager,
+} from './components/DataManager.ts'
 
-const app = document.querySelector<HTMLDivElement>('#app')!
+const titlebarEl = document.querySelector<HTMLElement>('.titlebar')!
+const menubarEl = document.querySelector<HTMLElement>('.menubar')!
+const toolbarEl = document.querySelector<HTMLElement>('.toolbar')!
+const graphAreaEl = document.querySelector<HTMLElement>('.graph-area')!
+const ctxMenuEl = document.querySelector<HTMLElement>('#ctxMenu')!
+const propOverlayEl = document.querySelector<HTMLElement>('#propertyDialogOverlay')!
+const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 
-app.innerHTML = `
-<div class="app">
-  ${renderTitlebar()}
-  ${renderMenubar()}
-  ${renderToolbar()}
+// Initialize component logik & event listeners
+if (titlebarEl) initTitlebar(titlebarEl)
 
-  <!-- Main Workspace -->
-  <main class="workspace">
-    <div class="workspace-grid">
-      <div class="graph-area"></div>
-      <div class="workspace-right"></div>
-    </div>
+if (menubarEl) {
+  initMenubar(menubarEl, (menuName) => {
+    if (menuName === 'data') {
+      showDataManagerDialog(dmOverlayEl)
+    } else if (['graph', 'option', 'analyze', 'edit'].includes(menuName)) {
+      showPropertyDialog(propOverlayEl)
+    }
+  })
+}
 
-    <div class="scrollbar-v">
-      <div class="scroll-btn" title="Scroll up"><span class="material-symbols-outlined">arrow_drop_up</span></div>
-      <div class="scroll-btn" title="Scroll down"><span class="material-symbols-outlined">arrow_drop_down</span></div>
-    </div>
-    <div class="scrollbar-h">
-      <div class="scroll-btn" title="Scroll left"><span class="material-symbols-outlined">arrow_left</span></div>
-      <div class="scroll-btn" title="Scroll right"><span class="material-symbols-outlined">arrow_right</span></div>
-    </div>
-  </main>
+if (toolbarEl) {
+  initToolbar(toolbarEl, async (action, title) => {
+    if (action === 'new') {
+      const boxCount = getBoxCount()
+      const offset = (boxCount % 6) * 28
+      await createPlot(graphAreaEl, 40 + offset, 40 + offset)
+    } else if (action === 'open' || title === 'Open') {
+      showDataManagerDialog(dmOverlayEl)
+    } else if (action === 'chart' || action === 'text' || title === 'Chart') {
+      showPropertyDialog(propOverlayEl)
+    }
+  })
+}
 
-  ${renderStatusbar()}
-  ${renderContextMenu()}
-</div>
-`
+if (ctxMenuEl) {
+  initContextMenu(ctxMenuEl, (actionKey) => {
+    if (['property', 'xaxis', 'yaxis', 'uaxis', 'raxis', 'frame', 'string'].includes(actionKey)) {
+      showPropertyDialog(propOverlayEl)
+    }
+  })
+}
 
-const graphArea = app.querySelector<HTMLDivElement>('.graph-area')!
-const newBtn = app.querySelector<HTMLDivElement>('[data-action="new"]')!
-const ctxMenu = app.querySelector<HTMLDivElement>('#ctxMenu')!
-
-// Initialize plot drag & resize listeners
+// Initialize Plot drag & resize listeners
 initPlotDragListeners()
 
-newBtn.addEventListener('click', async () => {
-  const boxCount = getBoxCount()
-  const offset = (boxCount % 6) * 28
-  await createPlot(graphArea, 40 + offset, 40 + offset)
+// Initialize Property & Data Manager Dialogs
+if (propOverlayEl) initPropertyDialog(propOverlayEl)
+if (dmOverlayEl) initDataManagerDialog(dmOverlayEl)
+
+// Load initial datasets and spawn initial plot window on startup
+globalDataManager.loadInitialDatasets().then(() => {
+  createPlot(graphAreaEl, 40, 40)
 })
 
-graphArea.addEventListener('contextmenu', (e) => {
+// Right-click context menu event listener on plot graph area
+graphAreaEl.addEventListener('contextmenu', (e) => {
   if (getActiveDrag()) {
     e.preventDefault()
     return
@@ -57,10 +75,10 @@ graphArea.addEventListener('contextmenu', (e) => {
   const target = e.target as HTMLElement
   if (!target.closest('.plot-svg')) return
   e.preventDefault()
-  showContextMenu(ctxMenu, e.clientX, e.clientY)
+  showContextMenu(ctxMenuEl, e.clientX, e.clientY)
 })
 
-document.addEventListener('click', () => hideContextMenu(ctxMenu))
+document.addEventListener('click', () => hideContextMenu(ctxMenuEl))
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideContextMenu(ctxMenu)
+  if (e.key === 'Escape') hideContextMenu(ctxMenuEl)
 })

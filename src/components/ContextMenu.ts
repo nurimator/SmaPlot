@@ -1,20 +1,15 @@
-export function renderContextMenu(): string {
-  return `
-  <div class="context-menu" id="ctxMenu">
-    <div class="context-menu-item">Date property <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-separator"></div>
-    <div class="context-menu-item">X-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-menu-item">Y-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-menu-item">U-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-menu-item">R-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-separator"></div>
-    <div class="context-menu-item">Frame <span class="material-symbols-outlined">chevron_right</span></div>
-    <div class="context-separator"></div>
-    <div class="context-menu-item">String</div>
-    <div class="context-menu-item">Arrow</div>
-    <div class="context-menu-item">Rectangle</div>
-  </div>
-  `
+export function initContextMenu(
+  ctxMenu: HTMLElement,
+  onItemClick: (actionKey: string) => void
+): void {
+  const items = ctxMenu.querySelectorAll<HTMLElement>('.context-menu-item')
+  items.forEach((item) => {
+    item.addEventListener('click', () => {
+      const actionKey = item.getAttribute('data-ctx') || item.textContent?.trim() || ''
+      hideContextMenu(ctxMenu)
+      onItemClick(actionKey)
+    })
+  })
 }
 
 export function hideContextMenu(ctxMenu: HTMLElement): void {

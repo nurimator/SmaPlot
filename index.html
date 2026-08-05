@@ -17,7 +17,220 @@
     <title>Sma4Win - Scientific Data Analysis Software</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="app">
+        <!-- Title Bar -->
+        <header class="titlebar">
+          <div class="titlebar-left">
+            <div class="app-icon">
+              <span class="material-symbols-outlined">analytics</span>
+            </div>
+            <span class="app-title">Sma4Win - Untitled</span>
+          </div>
+          <div class="window-controls">
+            <button class="window-btn" title="Minimize"><span class="material-symbols-outlined" style="font-size:16px">remove</span></button>
+            <button class="window-btn" title="Maximize"><span class="material-symbols-outlined" style="font-size:14px">crop_square</span></button>
+            <button class="window-btn close" title="Close"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+          </div>
+        </header>
+
+        <!-- Menu Bar -->
+        <nav class="menubar">
+          <div class="menu-item" data-menu="file">File</div>
+          <div class="menu-item" data-menu="data">Data</div>
+          <div class="menu-item" data-menu="edit">Edit</div>
+          <div class="menu-item" data-menu="graph">Graph</div>
+          <div class="menu-item" data-menu="insert">Insert</div>
+          <div class="menu-item" data-menu="analyze">Analyze</div>
+          <div class="menu-item" data-menu="option">Option</div>
+          <div class="menu-item" data-menu="help">Help</div>
+        </nav>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="toolbar-btn" title="New" data-action="new"><span class="material-symbols-outlined">description</span></div>
+          <div class="toolbar-btn" title="Open" data-action="open"><span class="material-symbols-outlined">folder_open</span></div>
+          <div class="toolbar-btn" title="Save" data-action="save"><span class="material-symbols-outlined">save</span></div>
+          <div class="toolbar-btn" title="Print" data-action="print"><span class="material-symbols-outlined">print</span></div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-btn" title="Text" data-action="text"><span class="toolbar-icon-text">AB</span></div>
+          <div class="toolbar-btn active" title="Select" data-action="select"><div class="toolbar-icon-select"></div></div>
+          <div class="toolbar-btn" title="Line" data-action="line"><div class="toolbar-icon-line"></div></div>
+          <div class="toolbar-btn" title="Zoom" data-action="zoom"><span class="material-symbols-outlined">search</span></div>
+          <div class="toolbar-btn" title="Add Text" data-action="add-text"><span class="toolbar-icon-text-blue">A</span></div>
+          <div class="toolbar-btn" title="Clear" data-action="clear"><span class="toolbar-icon-text">C</span></div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-btn" title="Copy" data-action="copy"><span class="material-symbols-outlined">content_copy</span></div>
+          <div class="toolbar-btn" title="Chart" data-action="chart"><span class="material-symbols-outlined">show_chart</span></div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-btn" title="Warning" data-action="warning"><span class="material-symbols-outlined toolbar-icon-error">error</span></div>
+          <div class="toolbar-btn" title="Help" data-action="help"><span class="material-symbols-outlined toolbar-icon-help">help</span></div>
+        </div>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+          <div class="workspace-grid">
+            <div class="graph-area"></div>
+            <div class="workspace-right"></div>
+          </div>
+
+          <div class="scrollbar-v">
+            <div class="scroll-btn" title="Scroll up"><span class="material-symbols-outlined">arrow_drop_up</span></div>
+            <div class="scroll-btn" title="Scroll down"><span class="material-symbols-outlined">arrow_drop_down</span></div>
+          </div>
+          <div class="scrollbar-h">
+            <div class="scroll-btn" title="Scroll left"><span class="material-symbols-outlined">arrow_left</span></div>
+            <div class="scroll-btn" title="Scroll right"><span class="material-symbols-outlined">arrow_right</span></div>
+          </div>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="statusbar">
+          <div class="status-file">
+            <span class="status-dot status-dot-idle"></span>
+            <span id="statusFileText">No data</span>
+          </div>
+          <div class="status-coords" id="statusCoordsText">(0, 0)</div>
+          <div class="status-pos" id="statusPosText"></div>
+        </footer>
+
+        <!-- Context Menu -->
+        <div class="context-menu" id="ctxMenu">
+          <div class="context-menu-item" data-ctx="property">Date property <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-separator"></div>
+          <div class="context-menu-item" data-ctx="xaxis">X-Axis <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="yaxis">Y-Axis <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="uaxis">U-Axis <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="raxis">R-Axis <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-separator"></div>
+          <div class="context-menu-item" data-ctx="frame">Frame <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-separator"></div>
+          <div class="context-menu-item" data-ctx="string">String</div>
+          <div class="context-menu-item" data-ctx="arrow">Arrow</div>
+          <div class="context-menu-item" data-ctx="rectangle">Rectangle</div>
+        </div>
+
+        <!-- Property Dialog Modal -->
+        <div class="modal-overlay" id="propertyDialogOverlay" style="display: none;">
+          <div class="property-dialog" id="propertyDialog">
+            <div class="dialog-header">
+              <span class="dialog-title">Graph & Axis Properties</span>
+              <button class="dialog-close-btn" id="closePropDialogBtn">&times;</button>
+            </div>
+            <div class="dialog-tabs">
+              <button class="tab-btn active" data-tab="general">General</button>
+              <button class="tab-btn" data-tab="xaxis">X-Axis</button>
+              <button class="tab-btn" data-tab="yaxis">Y-Axis</button>
+              <button class="tab-btn" data-tab="datasets">Datasets</button>
+            </div>
+            <div class="dialog-content">
+              <div class="tab-content active" id="tab-general">
+                <div class="form-group">
+                  <label for="propGraphTitle">Graph Title</label>
+                  <input type="text" id="propGraphTitle" value="Sample Measurement Plot" class="form-input" />
+                </div>
+                <div class="form-group row">
+                  <label><input type="checkbox" id="propShowGrid" checked /> Show Grid Lines</label>
+                </div>
+                <div class="form-group row">
+                  <label><input type="checkbox" id="propShowLegend" checked /> Show Legend</label>
+                </div>
+              </div>
+
+              <div class="tab-content" id="tab-xaxis">
+                <div class="form-group">
+                  <label for="propXLabel">X Axis Label</label>
+                  <input type="text" id="propXLabel" value="Wavelength / Position" class="form-input" />
+                </div>
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label for="propXMin">Min Value</label>
+                    <input type="number" id="propXMin" placeholder="Auto" class="form-input" />
+                  </div>
+                  <div class="form-group">
+                    <label for="propXMax">Max Value</label>
+                    <input type="number" id="propXMax" placeholder="Auto" class="form-input" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-content" id="tab-yaxis">
+                <div class="form-group">
+                  <label for="propYLabel">Y Axis Label</label>
+                  <input type="text" id="propYLabel" value="Intensity / Absorbance" class="form-input" />
+                </div>
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label for="propYMin">Min Value</label>
+                    <input type="number" id="propYMin" placeholder="Auto" class="form-input" />
+                  </div>
+                  <div class="form-group">
+                    <label for="propYMax">Max Value</label>
+                    <input type="number" id="propYMax" placeholder="Auto" class="form-input" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-content" id="tab-datasets">
+                <div class="dataset-list" id="dialogDatasetList">
+                  <div class="dataset-item">
+                    <span class="ds-color-badge" style="background-color: #ef4444;"></span>
+                    <span class="ds-name">CoFeO</span>
+                    <button class="ds-toggle-btn">Visible</button>
+                  </div>
+                  <div class="dataset-item">
+                    <span class="ds-color-badge" style="background-color: #10b981;"></span>
+                    <span class="ds-name">BiVOTiO</span>
+                    <button class="ds-toggle-btn">Visible</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn-secondary" id="cancelPropBtn">Cancel</button>
+              <button class="btn btn-primary" id="applyPropBtn">Apply & OK</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Manager Modal -->
+        <div class="modal-overlay" id="dataManagerOverlay" style="display: none;">
+          <div class="data-manager-dialog" id="dataManagerDialog">
+            <div class="dialog-header">
+              <span class="dialog-title">Data Manager</span>
+              <button class="dialog-close-btn" id="closeDataManagerBtn">&times;</button>
+            </div>
+            <div class="data-manager-toolbar">
+              <button class="btn btn-sm" id="dmImportBtn">
+                <span class="material-symbols-outlined" style="font-size:16px">add</span> Import File
+              </button>
+              <button class="btn btn-sm btn-danger" id="dmClearBtn">Clear All</button>
+            </div>
+            <div class="data-manager-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Color</th>
+                    <th>Name</th>
+                    <th>Points</th>
+                    <th>X Min..Max</th>
+                    <th>Y Max</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dataManagerTableBody">
+                  <!-- Dynamic rows created via TypeScript DOM methods -->
+                </tbody>
+              </table>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn-secondary" id="closeDMBtn">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
