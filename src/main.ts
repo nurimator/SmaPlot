@@ -19,7 +19,7 @@ const ctxMenuEl = document.querySelector<HTMLElement>('#ctxMenu')!
 const propOverlayEl = document.querySelector<HTMLElement>('#propertyDialogOverlay')!
 const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 
-// Initialize component logik & event listeners
+// Initialize component logic & event listeners
 if (titlebarEl) initTitlebar(titlebarEl)
 
 if (menubarEl) {
@@ -46,9 +46,13 @@ if (toolbarEl) {
   })
 }
 
+// Right-click context menu actions:
+// "Date property" -> Open Data Manager Modal -> Select data -> Open Property Modal
 if (ctxMenuEl) {
   initContextMenu(ctxMenuEl, (actionKey) => {
-    if (['property', 'xaxis', 'yaxis', 'uaxis', 'raxis', 'frame', 'string'].includes(actionKey)) {
+    if (actionKey === 'property' || actionKey.toLowerCase().includes('date')) {
+      showDataManagerDialog(dmOverlayEl)
+    } else if (['xaxis', 'yaxis', 'uaxis', 'raxis', 'frame', 'string'].includes(actionKey)) {
       showPropertyDialog(propOverlayEl)
     }
   })
@@ -59,7 +63,13 @@ initPlotDragListeners()
 
 // Initialize Property & Data Manager Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
-if (dmOverlayEl) initDataManagerDialog(dmOverlayEl)
+
+// Data Manager callback: when a file is selected (OK / Property / Double click), transition to Property modal
+if (dmOverlayEl) {
+  initDataManagerDialog(dmOverlayEl, (selectedFileName) => {
+    showPropertyDialog(propOverlayEl, selectedFileName)
+  })
+}
 
 // Load initial datasets and spawn initial plot window on startup
 globalDataManager.loadInitialDatasets().then(() => {

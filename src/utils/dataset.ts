@@ -26,3 +26,23 @@ export async function loadDataset(path: string): Promise<Dataset> {
   }
   return { name, color, x, y }
 }
+
+export function evaluateMathExpr(expr: string, val: number, varName: 'x' | 'y'): number {
+  if (!expr || !expr.trim()) return val
+  const trimmed = expr.trim().toLowerCase()
+  if (trimmed === varName) return val
+
+  // Strictly enforce basic arithmetic only (+, -, *, /, parentheses, digits, decimal points, and variable)
+  const validCharsRegex = new RegExp(`^[0-9\\s\\+\\-\\*/\\(\\)${varName}\\.]+$`)
+  if (!validCharsRegex.test(trimmed)) {
+    return val
+  }
+
+  try {
+    const evaluator = new Function(varName, `return ${trimmed};`)
+    const res = evaluator(val)
+    return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : val
+  } catch {
+    return val
+  }
+}

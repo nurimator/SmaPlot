@@ -1,5 +1,6 @@
 import type { Dataset } from '../types.ts'
 import { loadDataset } from '../utils/dataset.ts'
+import { makeDraggable } from '../utils/draggable.ts'
 
 export class DataManager {
   private datasets: Dataset[] = []
@@ -55,88 +56,88 @@ export const globalDataManager = new DataManager()
 
 export function initDataManagerDialog(
   overlayEl: HTMLElement,
-  manager: DataManager = globalDataManager
+  onOpenProperty?: (selectedFileName?: string) => void
 ): void {
-  const closeBtn = overlayEl.querySelector('#closeDataManagerBtn')
+  const dialogEl = overlayEl.querySelector<HTMLElement>('#dataManagerDialog')
+  const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
+
+  if (dialogEl && headerEl) {
+    makeDraggable(dialogEl, headerEl)
+  }
+
+  const closeHeaderBtn = overlayEl.querySelector('#closeDataManagerBtn')
   const closeDMBtn = overlayEl.querySelector('#closeDMBtn')
-  const tbody = overlayEl.querySelector<HTMLTableSectionElement>('#dataManagerTableBody')
+  const okBtn = overlayEl.querySelector('#dmOkBtn')
+  const cancelBtn = overlayEl.querySelector('#dmCancelBtn')
+  const propBtn = overlayEl.querySelector('#dmPropBtn')
+
+  const upBtn = overlayEl.querySelector('#dmUpBtn')
+  const downBtn = overlayEl.querySelector('#dmDownBtn')
+  const allBtn = overlayEl.querySelector('#dmAllBtn')
+
+  const listBox = overlayEl.querySelector<HTMLElement>('#dmListBox')
 
   const hide = () => hideDataManagerDialog(overlayEl)
 
-  closeBtn?.addEventListener('click', hide)
+  closeHeaderBtn?.addEventListener('click', hide)
   closeDMBtn?.addEventListener('click', hide)
-  overlayEl.addEventListener('click', (e) => {
-    if (e.target === overlayEl) hide()
-  })
+  cancelBtn?.addEventListener('click', hide)
 
-  const refreshTable = () => {
-    if (!tbody) return
-    tbody.replaceChildren() // Clear table body safely without innerHTML
-
-    const datasets = manager.getDatasets()
-    datasets.forEach((ds, idx) => {
-      const tr = document.createElement('tr')
-
-      // # Column
-      const tdIndex = document.createElement('td')
-      tdIndex.textContent = String(idx + 1)
-
-      // Color Column
-      const tdColor = document.createElement('td')
-      const inputColor = document.createElement('input')
-      inputColor.type = 'color'
-      inputColor.value = ds.color
-      inputColor.className = 'color-picker-input'
-      inputColor.addEventListener('change', () => {
-        manager.updateDatasetColor(idx, inputColor.value)
-      })
-      tdColor.appendChild(inputColor)
-
-      // Name Column
-      const tdName = document.createElement('td')
-      const strongName = document.createElement('strong')
-      strongName.textContent = ds.name
-      tdName.appendChild(strongName)
-
-      // Points Column
-      const tdPoints = document.createElement('td')
-      tdPoints.textContent = String(ds.x.length)
-
-      // X Min..Max Column
-      const tdXRange = document.createElement('td')
-      const xMin = ds.x.length ? Math.min(...ds.x).toFixed(1) : '0'
-      const xMax = ds.x.length ? Math.max(...ds.x).toFixed(1) : '0'
-      tdXRange.textContent = `${xMin} .. ${xMax}`
-
-      // Y Max Column
-      const tdYMax = document.createElement('td')
-      const yMax = ds.y.length ? Math.max(...ds.y).toFixed(1) : '0'
-      tdYMax.textContent = yMax
-
-      // Actions Column
-      const tdActions = document.createElement('td')
-      const delBtn = document.createElement('button')
-      delBtn.className = 'btn-icon delete-ds-btn'
-      delBtn.title = 'Remove Dataset'
-
-      const iconSpan = document.createElement('span')
-      iconSpan.className = 'material-symbols-outlined'
-      iconSpan.style.fontSize = '16px'
-      iconSpan.textContent = 'delete'
-
-      delBtn.appendChild(iconSpan)
-      delBtn.addEventListener('click', () => {
-        manager.removeDataset(idx)
-      })
-      tdActions.appendChild(delBtn)
-
-      tr.append(tdIndex, tdColor, tdName, tdPoints, tdXRange, tdYMax, tdActions)
-      tbody.appendChild(tr)
-    })
+  const triggerPropertyModal = () => {
+    hide()
+    if (onOpenProperty) {
+      const selected = listBox?.querySelector<HTMLElement>('.dm-list-item.selected')
+      const fileName = selected?.getAttribute('data-filename') || 'Cobalt0.txt'
+      onOpenProperty(fileName)
+    }
   }
 
-  manager.subscribe(refreshTable)
-  refreshTable()
+  okBtn?.addEventListener('click', triggerPropertyModal)
+  propBtn?.addEventListener('click', triggerPropertyModal)
+
+  // List Box item click and double click interaction
+  if (listBox) {
+    const items = Array.from(listBox.querySelectorAll<HTMLElement>('.dm-list-item'))
+
+    const selectItem = (itemToSelect: HTMLElement) => {
+      items.forEach((item) => item.classList.remove('selected'))
+      itemToSelect.classList.add('selected')
+    }
+
+    items.forEach((item) => {
+      // Single click -> select file item
+      item.addEventListener('click', () => {
+        selectItem(item)
+      })
+
+      // Double click -> select file item AND open Property modal
+      item.addEventListener('dblclick', () => {
+        selectItem(item)
+        triggerPropertyModal()
+      })
+    })
+
+    // Up(U) button action -> move selected item up in list box
+    upBtn?.addEventListener('click', () => {
+      const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
+      if (selected && selected.previousElementSibling) {
+        listBox.insertBefore(selected, selected.previousElementSibling)
+      }
+    })
+
+    // Down(D) button action -> move selected item down in list box
+    downBtn?.addEventListener('click', () => {
+      const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
+      if (selected && selected.nextElementSibling) {
+        listBox.insertBefore(selected.nextElementSibling, selected)
+      }
+    })
+
+    // All(A) button action -> select all items
+    allBtn?.addEventListener('click', () => {
+      items.forEach((item) => item.classList.add('selected'))
+    })
+  }
 }
 
 export function showDataManagerDialog(overlayEl: HTMLElement): void {

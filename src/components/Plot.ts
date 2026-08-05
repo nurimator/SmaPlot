@@ -1,5 +1,5 @@
 import type { ActiveDrag, Dataset } from '../types.ts'
-import { loadDataset } from '../utils/dataset.ts'
+import { evaluateMathExpr, loadDataset } from '../utils/dataset.ts'
 import { formatTick, niceScale } from '../utils/scale.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -8,11 +8,20 @@ function createSVGElement<K extends keyof SVGElementTagNameMap>(tag: K): SVGElem
   return document.createElementNS(SVG_NS, tag) as SVGElementTagNameMap[K]
 }
 
+export interface PlotTransformOptions {
+  xTransCheck?: boolean
+  xExpr?: string
+  yTransCheck?: boolean
+  yExpr?: string
+}
+
 const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
+const svgTransMap = new WeakMap<SVGSVGElement, PlotTransformOptions>()
 let activeDrag: ActiveDrag | null = null
 let rafId: number | null = null
 let boxCount = 0
 const allDatasets: Dataset[] = []
+const activeSvgs: SVGSVGElement[] = []
 
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
@@ -22,11 +31,32 @@ export function drawPlot(
   svg: SVGSVGElement,
   datasets: Dataset[],
   explicitW?: number,
-  explicitH?: number
+  explicitH?: number,
+  transOpts?: PlotTransformOptions
 ): void {
   const w = explicitW || svg.clientWidth || parseFloat(svg.style.width) || 400
   const h = explicitH || svg.clientHeight || parseFloat(svg.style.height) || 300
   if (w <= 0 || h <= 0) return
+
+  if (transOpts) {
+    svgTransMap.set(svg, transOpts)
+  }
+  const currentTrans = transOpts || svgTransMap.get(svg) || {}
+
+  // Apply math expression transformation to X and Y coordinates
+  const processedDatasets: Dataset[] = datasets.map((ds) => {
+    const newX = ds.x.map((val) =>
+      currentTrans.xTransCheck && currentTrans.xExpr
+        ? evaluateMathExpr(currentTrans.xExpr, val, 'x')
+        : val
+    )
+    const newY = ds.y.map((val) =>
+      currentTrans.yTransCheck && currentTrans.yExpr
+        ? evaluateMathExpr(currentTrans.yExpr, val, 'y')
+        : val
+    )
+    return { ...ds, x: newX, y: newY }
+  })
 
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
   svg.innerHTML = ''
@@ -37,15 +67,19 @@ export function drawPlot(
 
   let xMin = Infinity,
     xMax = -Infinity
-  let yMin = 0,
+  let yMin = Infinity,
     yMax = -Infinity
-  for (const ds of datasets) {
+  for (const ds of processedDatasets) {
     for (let i = 0; i < ds.x.length; i++) {
       if (ds.x[i] < xMin) xMin = ds.x[i]
       if (ds.x[i] > xMax) xMax = ds.x[i]
+      if (ds.y[i] < yMin) yMin = ds.y[i]
       if (ds.y[i] > yMax) yMax = ds.y[i]
     }
   }
+
+  if (yMin === Infinity) yMin = 0
+  if (yMin > 0) yMin = 0
 
   const xScale = niceScale(xMin, xMax, 6)
   const yScale = niceScale(yMin, yMax, 5)
@@ -113,7 +147,7 @@ export function drawPlot(
   }
 
   // Data paths
-  for (const ds of datasets) {
+  for (const ds of processedDatasets) {
     const points: string[] = []
     for (let i = 0; i < ds.x.length; i++) {
       points.push(`${sx(ds.x[i]).toFixed(1)},${sy(ds.y[i]).toFixed(1)}`)
@@ -132,8 +166,8 @@ export function drawPlot(
   // Legend
   const legendX = Math.max(margin.l, margin.l + plotW - 110)
   const legendY = margin.t + 10
-  for (let i = 0; i < datasets.length; i++) {
-    const ds = datasets[i]
+  for (let i = 0; i < processedDatasets.length; i++) {
+    const ds = processedDatasets[i]
     const ly = legendY + i * 18
     const line = createSVGElement('line')
     line.setAttribute('x1', String(legendX))
@@ -212,6 +246,17 @@ export function drawPlot(
   addVisualHandle(fx + fw, fy + fh / 2)
 }
 
+export function updateAllPlotsTransform(transOpts: PlotTransformOptions): void {
+  for (const svg of activeSvgs) {
+    const ds = svgDataMap.get(svg)
+    if (ds) {
+      const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
+      const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
+      drawPlot(svg, ds, w, h, transOpts)
+    }
+  }
+}
+
 export async function createPlot(
   graphArea: HTMLElement,
   x: number,
@@ -227,6 +272,7 @@ export async function createPlot(
   svg.style.height = '300px'
 
   graphArea.appendChild(svg)
+  activeSvgs.push(svg)
 
   const [cobalt, bivo] = await Promise.all([
     loadDataset('/dummy-data/Cobalt0.txt'),
@@ -236,7 +282,7 @@ export async function createPlot(
   const datasets = [cobalt, bivo]
 
   for (const ds of datasets) {
-    if (!allDatasets.some(d => d.name === ds.name)) {
+    if (!allDatasets.some((d) => d.name === ds.name)) {
       allDatasets.push(ds)
     }
   }
