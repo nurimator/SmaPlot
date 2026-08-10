@@ -1,6 +1,7 @@
 import type { Dataset } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import {
+  getPlotDatasets,
   getSelectedPlotSvg,
   updatePlotVisual,
   type PlotVisualOptions,
@@ -184,7 +185,7 @@ function renderDatasetPreview(overlayEl: HTMLElement, dataset?: Dataset): void {
     return
   }
 
-  const displayName = dataset.fileName || `${dataset.name}.txt`
+  const displayName = dataset.filePath || dataset.fileName || `${dataset.name}.txt`
   if (fileBanner1) fileBanner1.textContent = displayName
   if (fileBanner2) fileBanner2.textContent = displayName
 
@@ -263,11 +264,24 @@ export function showPropertyDialog(
   let dataset: Dataset | undefined
 
   if (typeof datasetOrName === 'string') {
-    dataset = globalDataManager.getDatasets().find((d) => d.name === datasetOrName || d.fileName === datasetOrName)
+    dataset = globalDataManager.getDatasets().find((d) =>
+      d.filePath === datasetOrName ||
+      d.fileName === datasetOrName ||
+      d.name === datasetOrName ||
+      `${d.name}.txt` === datasetOrName
+    )
   } else if (datasetOrName) {
     dataset = datasetOrName
   } else {
-    dataset = globalDataManager.getDatasets()[0]
+    if (svg) {
+      const svgDatasets = getPlotDatasets(svg)
+      if (svgDatasets.length > 0) {
+        dataset = svgDatasets[0]
+      }
+    }
+    if (!dataset) {
+      dataset = globalDataManager.getDatasets()[0]
+    }
   }
 
   currentActiveDataset = dataset

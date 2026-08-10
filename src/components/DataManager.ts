@@ -10,7 +10,7 @@ export class DataManager {
   }
 
   public addDataset(ds: Dataset): void {
-    if (!this.datasets.some((d) => d.name === ds.name)) {
+    if (!this.datasets.some((d) => d.name === ds.name && d.filePath === ds.filePath)) {
       this.datasets.push(ds)
       this.notify()
     }
@@ -64,7 +64,8 @@ export function renderDataManagerListBox(
   datasets.forEach((ds, idx) => {
     const item = document.createElement('div')
     item.className = `dm-list-item${idx === 0 ? ' selected' : ''}`
-    item.setAttribute('data-filename', `${ds.name}.txt`)
+    const identifier = ds.filePath || ds.fileName || `${ds.name}.txt`
+    item.setAttribute('data-filename', identifier)
     item.setAttribute('data-color', ds.color)
 
     const indicator = document.createElement('span')
@@ -86,7 +87,7 @@ export function renderDataManagerListBox(
     item.addEventListener('dblclick', () => {
       listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
       item.classList.add('selected')
-      if (onOpenProperty) onOpenProperty(`${ds.name}.txt`)
+      if (onOpenProperty) onOpenProperty(identifier)
     })
 
     listBoxEl.appendChild(item)

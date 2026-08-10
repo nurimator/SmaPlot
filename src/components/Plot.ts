@@ -80,6 +80,10 @@ export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
   return svgSmpDocMap.get(svg)
 }
 
+export function getPlotDatasets(svg: SVGSVGElement): Dataset[] {
+  return svgDataMap.get(svg) || []
+}
+
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
 }
@@ -853,7 +857,7 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   currentDatasets.push(dataset)
   svgDataMap.set(svg, currentDatasets)
 
-  if (!allDatasets.some((d) => d.name === dataset.name)) {
+  if (!allDatasets.some((d) => d.name === dataset.name && d.filePath === dataset.filePath)) {
     allDatasets.push(dataset)
   }
   globalDataManager.addDataset(dataset)

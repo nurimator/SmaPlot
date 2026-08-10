@@ -4,10 +4,10 @@ export async function loadDataset(path: string): Promise<Dataset> {
   const res = await fetch(path)
   const text = await res.text()
   const fileName = path.split('/').pop() || 'Dataset.txt'
-  return parseDatasetContent(text, fileName)
+  return parseDatasetContent(text, fileName, path)
 }
 
-export function parseDatasetContent(text: string, fileName: string): Dataset {
+export function parseDatasetContent(text: string, fileName: string, filePath?: string): Dataset {
   const x: number[] = []
   const y: number[] = []
   const rawLines: string[][] = []
@@ -42,6 +42,7 @@ export function parseDatasetContent(text: string, fileName: string): Dataset {
     rawContent: text,
     rawLines,
     fileName,
+    filePath: filePath || fileName,
   }
 }
 

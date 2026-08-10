@@ -8,6 +8,7 @@ export interface Dataset {
   rawContent?: string
   rawLines?: string[][]
   fileName?: string
+  filePath?: string
   options?: PlotVisualOptions
 }
 

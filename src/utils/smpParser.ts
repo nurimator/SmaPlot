@@ -14,6 +14,7 @@ interface SmpSeriesSpec {
   color: string
   xExpr: string
   yExpr: string
+  filePath?: string
 }
 
 export interface ParseSmpResult {
@@ -104,7 +105,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       if (currentSection.match(/^\d+\s+/) || (currentSection.endsWith('.txt') && !currentSection.startsWith('AXIS'))) {
         const specHeader = currentSection
         const cleanName = specHeader.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-        i++ // path line
+        let filePath = ''
+        if (i < docLines.length) {
+          filePath = docLines[i].trim()
+          i++ // path line
+        }
         if (i < docLines.length) i++ // config 1
         let color = '#3b82f6'
         if (i < docLines.length) {
@@ -137,6 +142,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           color,
           xExpr,
           yExpr,
+          filePath,
         }
         currentSection = ''
         continue
@@ -345,6 +351,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         color: '#3b82f6',
         xExpr: 'x',
         yExpr: 'y',
+        filePath: '',
       }
       const data = datasetsMap[key]
 
@@ -355,6 +362,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         y: data.y,
         rawLines: data.rawLines,
         fileName: docBlock.name,
+        filePath: spec.filePath || `${docBlock.name} > ${spec.name}`,
         options: {
           show: true,
           lineColor: spec.color,
