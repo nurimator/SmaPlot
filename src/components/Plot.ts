@@ -472,7 +472,7 @@ export function drawPlot(
   if (legendItems.length > 0) {
     legendItems.forEach((item) => {
       const px = margin.l + (item.xNorm / 10000) * plotW
-      const py = margin.t + (1 - item.yNorm / 10000) * plotH
+      const py = margin.t + (item.yNorm / 10000) * plotH
 
       if (item.text.startsWith('%01E')) {
         // Series Legend Box e.g. %01ESG\n%02EKP\n%03EGS
