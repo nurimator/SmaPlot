@@ -327,6 +327,26 @@ export function drawPlot(
   svg.appendChild(frame)
 
   // ----------------------------------------------------
+  // SVG CLIP-PATH & PLOT CONTAINER (Clips series & annotations within box)
+  // ----------------------------------------------------
+  const clipId = `plot-clip-${Math.random().toString(36).substring(2, 9)}`
+  const defs = createSVGElement('defs')
+  const clipPath = createSVGElement('clipPath')
+  clipPath.setAttribute('id', clipId)
+  const clipRect = createSVGElement('rect')
+  clipRect.setAttribute('x', String(margin.l))
+  clipRect.setAttribute('y', String(margin.t))
+  clipRect.setAttribute('width', String(plotW))
+  clipRect.setAttribute('height', String(plotH))
+  clipPath.appendChild(clipRect)
+  defs.appendChild(clipPath)
+  svg.appendChild(defs)
+
+  const seriesGroup = createSVGElement('g')
+  seriesGroup.setAttribute('clip-path', `url(#${clipId})`)
+  svg.appendChild(seriesGroup)
+
+  // ----------------------------------------------------
   // 4-AXIS INSIDE TICKS & MINOR SUB-TICKS ENGINE
   // ----------------------------------------------------
   const subDivsX = smpDoc?.axisX.subDivs || 5
@@ -513,7 +533,7 @@ export function drawPlot(
     if (aLine.style === 'dashed') {
       l.setAttribute('stroke-dasharray', '4 4')
     }
-    svg.appendChild(l)
+    seriesGroup.appendChild(l)
   })
 
   // ----------------------------------------------------
@@ -652,7 +672,7 @@ export function drawPlot(
           bar.setAttribute('fill', paintColor)
           bar.setAttribute('stroke', strokeColor)
           bar.setAttribute('stroke-width', strokeWidth)
-          svg.appendChild(bar)
+          seriesGroup.appendChild(bar)
         }
       } else {
         // Draw Line Path / Face Area Fill
@@ -674,7 +694,7 @@ export function drawPlot(
             areaPath.setAttribute('fill', strokeColor)
             areaPath.setAttribute('fill-opacity', '0.35')
             areaPath.setAttribute('stroke', 'none')
-            svg.appendChild(areaPath)
+            seriesGroup.appendChild(areaPath)
           }
 
           // Top boundary curve line
@@ -686,7 +706,7 @@ export function drawPlot(
           if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
           path.setAttribute('stroke-linejoin', 'round')
           path.setAttribute('stroke-linecap', 'round')
-          svg.appendChild(path)
+          seriesGroup.appendChild(path)
         }
 
         // Draw Dot / Symbol Markers based on exact Plot type shape with pitch interval
@@ -704,7 +724,7 @@ export function drawPlot(
               circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
               circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
               circle.setAttribute('stroke-width', '1')
-              svg.appendChild(circle)
+              seriesGroup.appendChild(circle)
             } else if (plotType === 'square' || plotType === 'filled_square') {
               const rect = createSVGElement('rect')
               rect.setAttribute('x', String(px - dotSize))
@@ -714,7 +734,7 @@ export function drawPlot(
               rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
               rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
               rect.setAttribute('stroke-width', '1')
-              svg.appendChild(rect)
+              seriesGroup.appendChild(rect)
             } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
               const poly = createSVGElement('polygon')
               const p1 = `${px},${py - dotSize}`
@@ -724,7 +744,7 @@ export function drawPlot(
               poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
               poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
               poly.setAttribute('stroke-width', '1')
-              svg.appendChild(poly)
+              seriesGroup.appendChild(poly)
             }
           }
         }
