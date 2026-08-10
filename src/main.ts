@@ -168,6 +168,13 @@ if (ctxMenuEl) {
   })
 }
 
+// Click on empty area outside any plot box deselects the current plot
+graphAreaEl.addEventListener('mousedown', (e) => {
+  const target = e.target as HTMLElement
+  if (target.closest('.plot-svg')) return
+  setSelectedPlotSvg(null)
+})
+
 // Double click on plot area axis or labels to open Axis dialog
 graphAreaEl.addEventListener('dblclick', (e) => {
   const target = e.target as HTMLElement

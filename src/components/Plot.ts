@@ -85,11 +85,15 @@ export function getActiveDrag(): ActiveDrag | null {
 }
 
 export function setSelectedPlotSvg(svg: SVGSVGElement | null): void {
+  if (svg === selectedPlotSvg) return
+  const prev = selectedPlotSvg
   selectedPlotSvg = svg
+  if (prev) updatePlotVisual(prev)
+  if (svg) updatePlotVisual(svg)
 }
 
 export function getSelectedPlotSvg(): SVGSVGElement | null {
-  return selectedPlotSvg || activeSvgs[activeSvgs.length - 1] || null
+  return selectedPlotSvg
 }
 
 export function updatePlotVisual(svg: SVGSVGElement): void {
@@ -784,62 +788,64 @@ export function drawPlot(
     }
   }
 
-  // Edge and Corner drag handles aligned with plot frame box
-  const hs = 10
-  const addHandle = (x: number, y: number, width: number, height: number, dir: string) => {
-    const r = createSVGElement('rect')
-    r.setAttribute('x', String(x))
-    r.setAttribute('y', String(y))
-    r.setAttribute('width', String(Math.max(1, width)))
-    r.setAttribute('height', String(Math.max(1, height)))
-    r.setAttribute('fill', 'transparent')
-    r.setAttribute('data-dir', dir)
-    r.setAttribute('class', `handle handle-${dir}`)
-    svg.appendChild(r)
+  // Edge and Corner drag handles aligned with plot frame box (selected plots only)
+  if (svg === getSelectedPlotSvg()) {
+    const hs = 10
+    const addHandle = (x: number, y: number, width: number, height: number, dir: string) => {
+      const r = createSVGElement('rect')
+      r.setAttribute('x', String(x))
+      r.setAttribute('y', String(y))
+      r.setAttribute('width', String(Math.max(1, width)))
+      r.setAttribute('height', String(Math.max(1, height)))
+      r.setAttribute('fill', 'transparent')
+      r.setAttribute('data-dir', dir)
+      r.setAttribute('class', `handle handle-${dir}`)
+      svg.appendChild(r)
+    }
+
+    const fx = margin.l
+    const fy = margin.t
+    const fw = plotW
+    const fh = plotH
+
+    // Edges on plot frame
+    addHandle(fx + hs, fy - hs / 2, fw - 2 * hs, hs, 'top')
+    addHandle(fx + hs, fy + fh - hs / 2, fw - 2 * hs, hs, 'bottom')
+    addHandle(fx - hs / 2, fy + hs, hs, fh - 2 * hs, 'left')
+    addHandle(fx + fw - hs / 2, fy + hs, hs, fh - 2 * hs, 'right')
+
+    // Corners on plot frame
+    addHandle(fx - hs / 2, fy - hs / 2, hs, hs, 'top-left')
+    addHandle(fx + fw - hs / 2, fy - hs / 2, hs, hs, 'top-right')
+    addHandle(fx - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-left')
+    addHandle(fx + fw - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-right')
+
+    // Visual control dots
+    const addVisualHandle = (cx: number, cy: number) => {
+      const dot = createSVGElement('rect')
+      dot.setAttribute('x', String(cx - 3))
+      dot.setAttribute('y', String(cy - 3))
+      dot.setAttribute('width', '6')
+      dot.setAttribute('height', '6')
+      dot.setAttribute('fill', '#2563eb')
+      dot.setAttribute('stroke', '#ffffff')
+      dot.setAttribute('stroke-width', '1')
+      dot.setAttribute('style', 'pointer-events: none;')
+      svg.appendChild(dot)
+    }
+
+    // 4 corners of plot frame
+    addVisualHandle(fx, fy)
+    addVisualHandle(fx + fw, fy)
+    addVisualHandle(fx, fy + fh)
+    addVisualHandle(fx + fw, fy + fh)
+
+    // 4 edge midpoints of plot frame
+    addVisualHandle(fx + fw / 2, fy)
+    addVisualHandle(fx + fw / 2, fy + fh)
+    addVisualHandle(fx, fy + fh / 2)
+    addVisualHandle(fx + fw, fy + fh / 2)
   }
-
-  const fx = margin.l
-  const fy = margin.t
-  const fw = plotW
-  const fh = plotH
-
-  // Edges on plot frame
-  addHandle(fx + hs, fy - hs / 2, fw - 2 * hs, hs, 'top')
-  addHandle(fx + hs, fy + fh - hs / 2, fw - 2 * hs, hs, 'bottom')
-  addHandle(fx - hs / 2, fy + hs, hs, fh - 2 * hs, 'left')
-  addHandle(fx + fw - hs / 2, fy + hs, hs, fh - 2 * hs, 'right')
-
-  // Corners on plot frame
-  addHandle(fx - hs / 2, fy - hs / 2, hs, hs, 'top-left')
-  addHandle(fx + fw - hs / 2, fy - hs / 2, hs, hs, 'top-right')
-  addHandle(fx - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-left')
-  addHandle(fx + fw - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-right')
-
-  // Visual control dots
-  const addVisualHandle = (cx: number, cy: number) => {
-    const dot = createSVGElement('rect')
-    dot.setAttribute('x', String(cx - 3))
-    dot.setAttribute('y', String(cy - 3))
-    dot.setAttribute('width', '6')
-    dot.setAttribute('height', '6')
-    dot.setAttribute('fill', '#2563eb')
-    dot.setAttribute('stroke', '#ffffff')
-    dot.setAttribute('stroke-width', '1')
-    dot.setAttribute('style', 'pointer-events: none;')
-    svg.appendChild(dot)
-  }
-
-  // 4 corners of plot frame
-  addVisualHandle(fx, fy)
-  addVisualHandle(fx + fw, fy)
-  addVisualHandle(fx, fy + fh)
-  addVisualHandle(fx + fw, fy + fh)
-
-  // 4 edge midpoints of plot frame
-  addVisualHandle(fx + fw / 2, fy)
-  addVisualHandle(fx + fw / 2, fy + fh)
-  addVisualHandle(fx, fy + fh / 2)
-  addVisualHandle(fx + fw, fy + fh / 2)
 }
 
 export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
