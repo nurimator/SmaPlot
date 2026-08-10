@@ -58,7 +58,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 4px 8px;
   background-color: #fff;
   border-bottom: 1px solid var(--slate-200);
   user-select: none;
@@ -68,14 +68,14 @@ body {
 .titlebar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .app-icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   background-color: var(--blue-600);
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,11 +83,11 @@ body {
 
 .app-icon .material-symbols-outlined {
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .app-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--slate-700);
 }
@@ -95,16 +95,16 @@ body {
 .window-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .window-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 3px;
   background: none;
   border: none;
   padding: 0;
@@ -125,8 +125,8 @@ body {
 /* ===== Menu Bar ===== */
 .menubar {
   display: flex;
-  font-size: 14px;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 2px 4px;
   background-color: #fff;
   border-bottom: 1px solid var(--slate-200);
   user-select: none;
@@ -135,8 +135,8 @@ body {
 
 .menu-item {
   position: relative;
-  padding: 4px 12px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
   color: var(--slate-600);
   cursor: default;
   transition: background-color 0.15s;
@@ -158,9 +158,9 @@ body {
   box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  min-width: 170px;
+  min-width: 160px;
   z-index: 200;
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .menu-dropdown.open {
@@ -168,7 +168,7 @@ body {
 }
 
 .dropdown-item {
-  padding: 6px 14px;
+  padding: 4px 10px;
   font-size: 12px;
   color: var(--slate-700);
   cursor: pointer;
@@ -207,7 +207,7 @@ body {
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
   min-width: 140px;
   z-index: 220;
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .dropdown-item.has-submenu:hover > .menu-submenu,
@@ -218,31 +218,35 @@ body {
 .dropdown-separator {
   height: 1px;
   background-color: var(--slate-200);
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 /* ===== Toolbar ===== */
 .toolbar {
   display: flex;
-  padding: 6px 8px;
+  padding: 3px 6px;
   background-color: #fff;
   border-bottom: 1px solid var(--slate-200);
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   user-select: none;
   flex-shrink: 0;
 }
 
 .toolbar-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   color: var(--slate-600);
   transition: all 0.15s ease;
+}
+
+.toolbar-btn .material-symbols-outlined {
+  font-size: 16px;
 }
 
 .toolbar-btn:hover {
@@ -257,26 +261,26 @@ body {
 
 .toolbar-sep {
   width: 1px;
-  height: 24px;
+  height: 16px;
   background-color: var(--slate-200);
-  margin: 0 6px;
+  margin: 0 4px;
 }
 
 .toolbar-icon-text {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   font-family: var(--font-sans);
 }
 
 .toolbar-icon-select {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   background-color: var(--sky-500);
   border-radius: 2px;
 }
 
 .toolbar-icon-line {
-  width: 16px;
+  width: 13px;
   height: 2px;
   background-color: var(--rose-500);
   transform: rotate(45deg);
@@ -284,7 +288,7 @@ body {
 }
 
 .toolbar-icon-text-blue {
-  font-size: 14px;
+  font-size: 11px;
   color: var(--blue-500);
   font-style: italic;
   font-weight: 600;
