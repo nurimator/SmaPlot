@@ -1,3 +1,5 @@
+import { updateStatusCoords } from '../components/Statusbar.ts'
+
 let currentZoom = 1.0
 let panX = 0
 let panY = 0
@@ -131,6 +133,19 @@ export function initCanvasZoom(
 
   // Initial centering
   centerCanvas(container, graphAreaEl, statusEl)
+
+  // Live Sma4Win coordinate tracking (0..300 statusbar units, 50 units per major grid block)
+  graphAreaEl.addEventListener('mousemove', (e: MouseEvent) => {
+    const rect = graphAreaEl.getBoundingClientRect()
+    const mouseX = (e.clientX - rect.left) / currentZoom
+    const mouseY = (e.clientY - rect.top) / currentZoom
+
+    if (mouseX >= 0 && mouseX <= 600 && mouseY >= 0 && mouseY <= 600) {
+      const statusX = Math.round(mouseX * 0.5)
+      const statusY = Math.round(mouseY * 0.5)
+      updateStatusCoords(document.body, statusX, statusY)
+    }
+  })
 
   window.addEventListener('resize', () => {
     clampPan(container)

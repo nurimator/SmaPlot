@@ -17,6 +17,6 @@ export function updateStatusFile(container: HTMLElement, fileName: string, activ
 export function updateStatusCoords(container: HTMLElement, x: number, y: number): void {
   const coordsEl = container.querySelector('#statusCoordsText')
   if (coordsEl) {
-    coordsEl.textContent = `(${x.toFixed(1)}, ${y.toFixed(1)})`
+    coordsEl.textContent = `(${Math.round(x)}, ${Math.round(y)})`
   }
 }
