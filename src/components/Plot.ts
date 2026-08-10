@@ -76,6 +76,10 @@ export function setPlotSmpDoc(svg: SVGSVGElement, doc: SmpPlotDoc): void {
   svgSmpDocMap.set(svg, doc)
 }
 
+export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
+  return svgSmpDocMap.get(svg)
+}
+
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
 }

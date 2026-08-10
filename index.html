@@ -397,6 +397,209 @@
             </div>
           </div>
         </div>
+
+        <!-- Axis Dialog Modal -->
+        <div class="modal-overlay" id="axisDialogOverlay" style="display: none;">
+          <div class="axis-dialog" id="axisDialog">
+            <div class="dialog-header">
+              <span class="dialog-title" id="axisDialogTitle">X-axis</span>
+              <div class="header-btns">
+                <button class="dialog-help-btn" id="helpAxisBtn" title="Help">?</button>
+                <button class="dialog-close-btn" id="closeAxisDialogBtn" title="Close">&times;</button>
+              </div>
+            </div>
+            <div class="dialog-tabs">
+              <button class="tab-btn active" data-tab="axis-scale">scale</button>
+              <button class="tab-btn" data-tab="axis-tick">tick</button>
+              <button class="tab-btn" data-tab="axis-label">label</button>
+            </div>
+            <div class="dialog-content">
+              <!-- Tab: scale -->
+              <div class="tab-content active" id="tab-axis-scale">
+                <div class="axis-scale-top-row">
+                  <label class="checkbox-label"><input type="checkbox" id="axisDraw" checked /> Draw</label>
+                  <label class="checkbox-label"><input type="checkbox" id="axisAutoStep" checked /> Auto step</label>
+                </div>
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">From:</label>
+                    <input type="number" id="axisFrom" value="0" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Increment:</label>
+                    <input type="number" id="axisIncrement" value="20" class="form-input-num full-width" />
+                  </div>
+                </div>
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">To:</label>
+                    <input type="number" id="axisTo" value="100" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Division:</label>
+                    <input type="number" id="axisDivision" value="5" min="1" max="20" class="form-input-num full-width" />
+                  </div>
+                </div>
+
+                <fieldset class="axis-fieldset">
+                  <legend>Type</legend>
+                  <div class="axis-radio-grid">
+                    <label class="radio-label"><input type="radio" name="axisType" value="linear" checked /> Linear</label>
+                    <label class="radio-label"><input type="radio" name="axisType" value="log10" /> Log10</label>
+                    <label class="radio-label"><input type="radio" name="axisType" value="log10_normal" /> Log10(normal)</label>
+                    <label class="radio-label"><input type="radio" name="axisType" value="inverse" /> Inverse(?)</label>
+                    <label class="radio-label"><input type="radio" name="axisType" value="inverse_normal" /> Inverse(normal)</label>
+                  </div>
+                </fieldset>
+
+                <div class="axis-scale-bottom-opts">
+                  <label class="checkbox-label"><input type="checkbox" id="axisCommon" checked /> <span id="axisCommonLabel">Common with U-axis</span></label>
+                  <label class="checkbox-label"><input type="checkbox" id="axisLinkOther" /> link with other graph</label>
+                </div>
+              </div>
+
+              <!-- Tab: tick -->
+              <div class="tab-content" id="tab-axis-tick">
+                <fieldset class="axis-fieldset">
+                  <legend>Major tick</legend>
+                  <div class="axis-tick-row">
+                    <label class="checkbox-label"><input type="checkbox" id="axisMajorIn" checked /> in</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisMajorOut" /> out</label>
+                    <label class="form-field-label" style="margin-left: 8px;">Color</label>
+                    <input type="color" id="axisMajorColor" value="#000000" class="color-picker-box" />
+                    <label class="form-field-label">width</label>
+                    <input type="number" id="axisMajorWidth" value="0.4" step="0.1" class="form-input-num width-sm" />
+                  </div>
+                  <div class="axis-tick-row">
+                    <select id="axisMajorStyle" class="form-select width-md">
+                      <option value="solid">Solid</option>
+                      <option value="dashed" selected>Dashed</option>
+                      <option value="dotted">Dotted</option>
+                    </select>
+                    <label class="form-field-label">Pitch</label>
+                    <input type="number" id="axisMajorPitch" value="3" class="form-input-num width-sm" />
+                    <label class="form-field-label">length</label>
+                    <input type="number" id="axisMajorLength" value="3" class="form-input-num width-sm" />
+                  </div>
+                  <div class="axis-tick-row">
+                    <label class="checkbox-label"><input type="checkbox" id="axisDrawLimitation" /> draw limitation</label>
+                  </div>
+                  <div class="axis-tick-row">
+                    <span class="form-field-label">draw range(%)</span>
+                    <input type="number" id="axisRangeMin" value="0" class="form-input-num width-sm" /> -
+                    <input type="number" id="axisRangeMax" value="100" class="form-input-num width-sm" />
+                  </div>
+                  <div class="axis-tick-row align-center">
+                    <span class="form-field-label">crossing point</span>
+                    <select id="axisCrossingPoint" class="form-select width-md">
+                      <option value="auto" selected>Auto</option>
+                      <option value="zero">Zero</option>
+                    </select>
+                  </div>
+                </fieldset>
+
+                <fieldset class="axis-fieldset" style="margin-top: 8px;">
+                  <legend>Minor</legend>
+                  <div class="axis-tick-row">
+                    <label class="checkbox-label"><input type="checkbox" id="axisMinorIn" checked /> in</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisMinorOut" /> out</label>
+                    <label class="form-field-label" style="margin-left: 8px;">Color</label>
+                    <input type="color" id="axisMinorColor" value="#000000" class="color-picker-box" />
+                    <label class="form-field-label">width</label>
+                    <input type="number" id="axisMinorWidth" value="0.4" step="0.1" class="form-input-num width-sm" />
+                  </div>
+                  <div class="axis-tick-row">
+                    <select id="axisMinorStyle" class="form-select width-md">
+                      <option value="dotted" selected>Dotted</option>
+                      <option value="solid">Solid</option>
+                      <option value="dashed">Dashed</option>
+                    </select>
+                    <label class="form-field-label">Pitch</label>
+                    <input type="number" id="axisMinorPitch" value="3" class="form-input-num width-sm" />
+                    <label class="form-field-label">length</label>
+                    <input type="number" id="axisMinorLength" value="1.5" step="0.5" class="form-input-num width-sm" />
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- Tab: label -->
+              <div class="tab-content" id="tab-axis-label">
+                <div class="axis-label-grid-2col">
+                  <div class="axis-label-col">
+                    <label class="checkbox-label"><input type="checkbox" id="axisDrawLabels" checked /> draw labels</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisZeroDraw" checked /> 0.0 draw</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisDrawExponent" checked /> draw exponent</label>
+                  </div>
+                  <div class="axis-label-col">
+                    <label class="checkbox-label"><input type="checkbox" id="axisZeroCommon" /> 0 is common</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisZeroAsZero" /> zero draw as 0</label>
+                    <label class="checkbox-label"><input type="checkbox" id="axisAddPlusSign" /> add +sign</label>
+                  </div>
+                </div>
+
+                <div class="prop-grid-2col" style="margin-top: 8px;">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Font</label>
+                    <select id="axisFontFamily" class="form-select full-width">
+                      <option value="Times New Roman" selected>Times New Roman</option>
+                      <option value="Inter, sans-serif">Inter</option>
+                      <option value="Arial, sans-serif">Arial</option>
+                      <option value="Cambria, serif">Cambria</option>
+                      <option value="Courier New, monospace">Courier New</option>
+                    </select>
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Color</label>
+                    <input type="color" id="axisLabelColor" value="#000000" class="color-picker-box full-width" />
+                  </div>
+                </div>
+
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Style</label>
+                    <select id="axisFontStyle" class="form-select full-width">
+                      <option value="regular" selected>Regular</option>
+                      <option value="bold">Bold</option>
+                      <option value="italic">Italic</option>
+                    </select>
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Size</label>
+                    <input type="number" id="axisFontSize" value="20" min="6" max="72" class="form-input-num full-width" />
+                  </div>
+                </div>
+
+                <div class="axis-tick-row" style="margin-top: 6px;">
+                  <span class="form-field-label">Shift</span>
+                  <span class="form-field-label" style="margin-left: 12px;">right</span>
+                  <input type="number" id="axisShiftRight" value="0" class="form-input-num width-sm" />
+                  <span class="form-field-label">down</span>
+                  <input type="number" id="axisShiftDown" value="1" class="form-input-num width-sm" />
+                </div>
+                <div class="axis-tick-row">
+                  <span class="form-field-label">label</span>
+                  <input type="number" id="axisLabel1" value="1" class="form-input-num width-sm" />
+                  <span class="form-field-label">label</span>
+                  <input type="number" id="axisLabel2" value="-1" class="form-input-num width-sm" />
+                  <span class="form-field-label">interval</span>
+                  <input type="number" id="axisInterval" value="1" class="form-input-num width-sm" />
+                </div>
+                <div class="axis-tick-row">
+                  <span class="form-field-label">figures</span>
+                  <input type="number" id="axisFigures" value="5" class="form-input-num width-sm" />
+                  <span class="form-field-label">decimals</span>
+                  <input type="number" id="axisDecimals" value="5" class="form-input-num width-sm" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="dialog-footer">
+              <button class="btn btn-primary" id="applyAxisBtn">OK</button>
+              <button class="btn btn-secondary" id="cancelAxisBtn">Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -713,7 +713,8 @@ body {
 }
 
 .property-dialog,
-.data-manager-dialog {
+.data-manager-dialog,
+.axis-dialog {
   position: absolute;
   pointer-events: auto;
   background: #ffffff;
@@ -739,6 +740,75 @@ body {
   width: 460px;
   height: 380px;
   max-height: 90vh;
+}
+
+.axis-dialog {
+  width: 420px;
+  height: 440px;
+  max-height: 92vh;
+}
+
+.axis-scale-top-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.axis-fieldset {
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  background: #fafafa;
+}
+
+.axis-fieldset legend {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--slate-700);
+  padding: 0 4px;
+}
+
+.axis-radio-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.axis-scale-bottom-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.axis-tick-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.width-sm {
+  width: 54px !important;
+}
+
+.width-md {
+  width: 110px !important;
+}
+
+.axis-label-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.axis-label-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 @keyframes modalPopIn {

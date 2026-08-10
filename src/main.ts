@@ -21,6 +21,7 @@ import {
   initDataManagerDialog,
   showDataManagerDialog,
 } from './components/DataManager.ts'
+import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { parseSmpContent } from './utils/smpParser.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
@@ -34,6 +35,7 @@ const statusCoordsEl = document.querySelector<HTMLElement>('#statusCoordsText')!
 const ctxMenuEl = document.querySelector<HTMLElement>('#ctxMenu')!
 const propOverlayEl = document.querySelector<HTMLElement>('#propertyDialogOverlay')!
 const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
+const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
@@ -152,17 +154,37 @@ if (ctxMenuEl) {
   initContextMenu(ctxMenuEl, (actionKey) => {
     if (actionKey === 'property' || actionKey.toLowerCase().includes('date')) {
       showDataManagerDialog(dmOverlayEl)
-    } else if (['xaxis', 'yaxis', 'uaxis', 'raxis', 'frame', 'string'].includes(actionKey)) {
+    } else if (actionKey === 'xaxis') {
+      showAxisDialog(axisOverlayEl, 'x')
+    } else if (actionKey === 'yaxis') {
+      showAxisDialog(axisOverlayEl, 'y')
+    } else if (actionKey === 'uaxis') {
+      showAxisDialog(axisOverlayEl, 'u')
+    } else if (actionKey === 'raxis') {
+      showAxisDialog(axisOverlayEl, 'r')
+    } else if (['frame', 'string', 'arrow', 'rectangle'].includes(actionKey)) {
       showPropertyDialog(propOverlayEl)
     }
   })
 }
 
+// Double click on plot area axis or labels to open Axis dialog
+graphAreaEl.addEventListener('dblclick', (e) => {
+  const target = e.target as HTMLElement
+  const svg = target.closest('.plot-svg') as SVGSVGElement | null
+  if (svg && axisOverlayEl) {
+    setSelectedPlotSvg(svg)
+    const isY = e.clientY < svg.getBoundingClientRect().top + svg.getBoundingClientRect().height / 2
+    showAxisDialog(axisOverlayEl, isY ? 'y' : 'x', svg)
+  }
+})
+
 // Initialize Plot drag & resize listeners
 initPlotDragListeners()
 
-// Initialize Property & Data Manager Dialogs
+// Initialize Property, Data Manager & Axis Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
+if (axisOverlayEl) initAxisDialog(axisOverlayEl)
 
 // Data Manager callback: when a file is selected, transition to Property modal
 if (dmOverlayEl) {
