@@ -4,6 +4,7 @@ import { parseSmpContent } from '../utils/smpParser.ts'
 import { formatTick, niceScale } from '../utils/scale.ts'
 import { globalDataManager } from './DataManager.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
+import { showTitleDialog } from './TitleDialog.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -44,6 +45,17 @@ let activeDrag: ActiveDrag | null = null
 let selectedPlotSvg: SVGSVGElement | null = null
 let rafId: number | null = null
 let boxCount = 0
+
+interface ActiveLegendItemDrag {
+  svg: SVGSVGElement
+  itemIdx: number
+  startX: number
+  startY: number
+  startXNorm: number
+  startYNorm: number
+}
+let activeLegendItemDrag: ActiveLegendItemDrag | null = null
+let selectedLegendIndex: number = -1
 const allDatasets: Dataset[] = []
 const activeSvgs: SVGSVGElement[] = []
 
@@ -617,13 +629,54 @@ export function drawPlot(
   // ----------------------------------------------------
   const legendItems = smpDoc?.legendItems || []
   if (legendItems.length > 0) {
-    legendItems.forEach((item) => {
+    legendItems.forEach((item, itemIdx) => {
       const isRotated = item.rotation !== 0
       const px = margin.l + (item.xNorm / 10000) * plotW
       const renderPx = px
       const py = isRotated
         ? margin.t + plotH / 2
         : margin.t + (item.yNorm / 10000) * plotH
+
+      const isSelected = selectedLegendIndex === itemIdx && svg === getSelectedPlotSvg()
+
+      let lastClickTime = 0
+
+      const openTitleModal = (e: MouseEvent) => {
+        e.stopPropagation()
+        setSelectedPlotSvg(svg)
+        selectedLegendIndex = itemIdx
+        updatePlotVisual(svg)
+        const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')
+        if (titleOverlayEl) {
+          showTitleDialog(titleOverlayEl, itemIdx, svg)
+        }
+      }
+
+      const handleLegendMouseDown = (e: MouseEvent) => {
+        if (e.button !== 0) return
+        e.stopPropagation()
+        setSelectedPlotSvg(svg)
+        selectedLegendIndex = itemIdx
+        updatePlotVisual(svg)
+
+        const now = Date.now()
+        if (now - lastClickTime < 350 || e.detail >= 2) {
+          lastClickTime = 0
+          openTitleModal(e)
+          return
+        }
+        lastClickTime = now
+
+        activeLegendItemDrag = {
+          svg,
+          itemIdx,
+          startX: e.clientX,
+          startY: e.clientY,
+          startXNorm: item.xNorm,
+          startYNorm: item.yNorm,
+        }
+        document.body.style.userSelect = 'none'
+      }
 
       if (item.text.startsWith('%01E')) {
         // Series Legend Box e.g. %01ESG\n%02EKP\n%03EGS
@@ -644,6 +697,9 @@ export function drawPlot(
             legLine.setAttribute('y2', String(legY))
             legLine.setAttribute('stroke', color)
             legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
+            legLine.style.cursor = 'move'
+            legLine.addEventListener('mousedown', handleLegendMouseDown)
+            legLine.addEventListener('dblclick', openTitleModal)
             svg.appendChild(legLine)
 
             const legTxt = createSVGElement('text')
@@ -654,6 +710,9 @@ export function drawPlot(
             legTxt.setAttribute('font-weight', String(item.fontWeight))
             legTxt.setAttribute('fill', '#000000')
             legTxt.textContent = labelText
+            legTxt.style.cursor = 'move'
+            legTxt.addEventListener('mousedown', handleLegendMouseDown)
+            legTxt.addEventListener('dblclick', openTitleModal)
             svg.appendChild(legTxt)
 
             legY += 11
@@ -675,7 +734,64 @@ export function drawPlot(
           textEl.setAttribute('text-anchor', renderPx < margin.l + plotW / 2 ? 'start' : 'middle')
         }
         textEl.textContent = item.text
+        textEl.style.cursor = 'move'
+        textEl.addEventListener('mousedown', handleLegendMouseDown)
+        textEl.addEventListener('dblclick', openTitleModal)
         svg.appendChild(textEl)
+      }
+
+      if (isSelected) {
+        let boxX = renderPx - 4
+        let boxY = py - 12
+        let boxW = 80
+        let boxH = 20
+
+        if (item.text.startsWith('%01E')) {
+          boxW = 60
+          boxH = item.text.split('\n').length * 11 + 6
+          boxY = py - 6
+        } else if (isRotated) {
+          boxX = renderPx - 10
+          boxY = py - 50
+          boxW = 20
+          boxH = 100
+        } else {
+          boxW = Math.max(40, item.text.length * 7 + 8)
+          boxH = (item.fontSize || 12) + 6
+          boxY = py - (item.fontSize || 12)
+        }
+
+        const cyanBox = createSVGElement('rect')
+        cyanBox.setAttribute('x', String(boxX))
+        cyanBox.setAttribute('y', String(boxY))
+        cyanBox.setAttribute('width', String(boxW))
+        cyanBox.setAttribute('height', String(boxH))
+        cyanBox.setAttribute('stroke', '#00ffff')
+        cyanBox.setAttribute('stroke-width', '1.5')
+        cyanBox.setAttribute('fill', 'none')
+        cyanBox.setAttribute('stroke-dasharray', '3 3')
+        cyanBox.style.cursor = 'move'
+        cyanBox.addEventListener('mousedown', handleLegendMouseDown)
+        cyanBox.addEventListener('dblclick', openTitleModal)
+        svg.appendChild(cyanBox)
+
+        const corners = [
+          { x: boxX - 2, y: boxY - 2 },
+          { x: boxX + boxW - 2, y: boxY - 2 },
+          { x: boxX - 2, y: boxY + boxH - 2 },
+          { x: boxX + boxW - 2, y: boxY + boxH - 2 },
+        ]
+        corners.forEach((c) => {
+          const handle = createSVGElement('rect')
+          handle.setAttribute('x', String(c.x))
+          handle.setAttribute('y', String(c.y))
+          handle.setAttribute('width', '4')
+          handle.setAttribute('height', '4')
+          handle.setAttribute('fill', '#00ffff')
+          handle.setAttribute('stroke', '#009999')
+          handle.setAttribute('stroke-width', '0.5')
+          svg.appendChild(handle)
+        })
       }
     })
   } else {
@@ -1073,6 +1189,36 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
 // Global mousemove & mouseup listeners for resize with snap to grid
 export function initPlotDragListeners(): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (activeLegendItemDrag) {
+      const { svg, itemIdx, startX, startY, startXNorm, startYNorm } = activeLegendItemDrag
+      const smpDoc = getPlotSmpDoc(svg)
+      if (smpDoc && smpDoc.legendItems[itemIdx]) {
+        const zoom = getCanvasZoom()
+        const dx = (e.clientX - startX) / zoom
+        const dy = (e.clientY - startY) / zoom
+
+        const widthPx = parseFloat(svg.style.width) || 500
+        const heightPx = parseFloat(svg.style.height) || 350
+        const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+        const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+        const dxNorm = Math.round((dx / plotW) * 10000)
+        const dyNorm = Math.round((dy / plotH) * 10000)
+
+        const item = smpDoc.legendItems[itemIdx]
+        item.xNorm = startXNorm + dxNorm
+        item.yNorm = startYNorm + dyNorm
+
+        updatePlotVisual(svg)
+
+        const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')
+        if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
+          showTitleDialog(titleOverlayEl, itemIdx, svg)
+        }
+      }
+      return
+    }
+
     if (!activeDrag) return
     const { svg, dir, startX, startY, startLeft, startTop, startWidth, startHeight } = activeDrag
     const zoom = getCanvasZoom()
@@ -1153,6 +1299,11 @@ export function initPlotDragListeners(): void {
   })
 
   document.addEventListener('mouseup', () => {
+    if (activeLegendItemDrag) {
+      activeLegendItemDrag = null
+      document.body.style.userSelect = ''
+    }
+
     if (!activeDrag) return
     const { svg } = activeDrag
     activeDrag = null

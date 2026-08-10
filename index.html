@@ -605,6 +605,114 @@
           </div>
         </div>
       </div>
+
+    <!-- Title / Text Editor Modal Overlay -->
+    <div class="modal-overlay" id="titleOverlay" style="display: none;">
+      <div class="dialog-window title-dialog" id="titleDialog">
+        <div class="dialog-header">
+          <div class="dialog-title">Title</div>
+          <button class="dialog-close-btn" id="closeTitleDialogBtn">&times;</button>
+        </div>
+        <div class="dialog-body title-dialog-body">
+          <div class="title-form-row">
+            <label class="title-field-label" for="titleStringText">String</label>
+            <textarea id="titleStringText" rows="3" class="title-textarea"></textarea>
+          </div>
+
+          <div class="title-grid-row">
+            <div class="title-col-left">
+              <div class="title-inline-group">
+                <label for="titleRotate">Rotate</label>
+                <select id="titleRotate" class="form-select width-sm">
+                  <option value="0" selected>0</option>
+                  <option value="90">90</option>
+                  <option value="180">180</option>
+                  <option value="270">270</option>
+                </select>
+                <span style="margin: 0 4px;">x</span>
+                <input type="number" id="titlePosX" class="form-input-num width-sm" value="0" />
+              </div>
+
+              <div class="title-inline-group" style="margin-top: 4px;">
+                <span style="margin-left: 54px; margin-right: 4px;">y</span>
+                <input type="number" id="titlePosY" class="form-input-num width-sm" value="0" />
+              </div>
+
+              <div class="title-checkbox-row" style="margin-top: 8px;">
+                <label class="checkbox-label"><input type="checkbox" id="titleHideBg" /> hide background</label>
+              </div>
+
+              <fieldset class="title-alignment-fieldset" style="margin-top: 6px;">
+                <legend>alignment</legend>
+                <div class="radio-group-inline">
+                  <label class="radio-label"><input type="radio" name="titleAlign" value="left" checked /> left</label>
+                  <label class="radio-label"><input type="radio" name="titleAlign" value="right" /> right</label>
+                </div>
+                <div class="radio-group-inline">
+                  <label class="radio-label"><input type="radio" name="titleAlign" value="center" /> center</label>
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="title-col-right">
+              <div class="title-font-grid">
+                <div class="form-field-stacked">
+                  <label class="title-field-label">Size</label>
+                  <select id="titleSize" class="form-select width-sm">
+                    <option value="10">10</option>
+                    <option value="12">12</option>
+                    <option value="14">14</option>
+                    <option value="16" selected>16</option>
+                    <option value="18">18</option>
+                    <option value="20">20</option>
+                  </select>
+                </div>
+                <div class="form-field-stacked">
+                  <label class="title-field-label">Font</label>
+                  <select id="titleFont" class="form-select width-md">
+                    <option value="cambria" selected>cambria</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Inter, sans-serif">Inter</option>
+                  </select>
+                </div>
+                <div class="form-field-stacked">
+                  <label class="title-field-label">Option font</label>
+                  <select id="titleOptionFont" class="form-select width-md">
+                    <option value="Symbol" selected>Symbol</option>
+                    <option value="Merriweather Light">Merriweather Light</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="title-font-grid" style="margin-top: 6px;">
+                <div class="form-field-stacked">
+                  <label class="title-field-label">Style</label>
+                  <select id="titleStyle" class="form-select width-md">
+                    <option value="Regular" selected>Regular</option>
+                    <option value="Bold">Bold</option>
+                    <option value="Italic">Italic</option>
+                    <option value="Bold Italic">Bold Italic</option>
+                  </select>
+                </div>
+                <div class="form-field-stacked">
+                  <label class="title-field-label">Color</label>
+                  <input type="color" id="titleColor" value="#000000" class="color-picker-box" />
+                </div>
+              </div>
+
+              <div class="title-button-matrix" style="margin-top: 10px;">
+                <button class="btn btn-secondary" id="titleHelpBtn">Help</button>
+                <button class="btn btn-secondary" id="titleDeleteBtn">Delete</button>
+                <button class="btn btn-secondary" id="titlePutBtn">Put</button>
+                <button class="btn btn-primary" id="titleOkBtn">OK</button>
+                <button class="btn btn-secondary" id="titleCancelBtn">Cancel</button>
+                <button class="btn btn-secondary" id="titleSaveBtn">save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

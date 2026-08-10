@@ -714,7 +714,8 @@ body {
 
 .property-dialog,
 .data-manager-dialog,
-.axis-dialog {
+.axis-dialog,
+.title-dialog {
   position: absolute;
   pointer-events: auto;
   background: #ffffff;
@@ -746,6 +747,87 @@ body {
   width: 420px;
   height: 440px;
   max-height: 92vh;
+}
+
+.title-dialog {
+  width: 520px;
+  height: 350px;
+  max-height: 90vh;
+}
+
+.title-dialog-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.title-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.title-field-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--slate-700);
+  min-width: 42px;
+}
+
+.title-textarea {
+  flex: 1;
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  padding: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+  background-color: var(--white);
+}
+
+.title-grid-row {
+  display: flex;
+  gap: 16px;
+}
+
+.title-col-left {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title-col-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title-inline-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.title-alignment-fieldset {
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.title-font-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.title-button-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
 }
 
 .axis-scale-top-row {
