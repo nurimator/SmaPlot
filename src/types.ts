@@ -34,6 +34,15 @@ export interface SmpAxisSpec {
   fontWeight: number
 }
 
+export interface SmpLineAnnotation {
+  x1Norm: number
+  y1Norm: number
+  x2Norm: number
+  y2Norm: number
+  style?: string
+  width?: number
+}
+
 export interface SmpPlotDoc {
   name: string
   left: number
@@ -46,6 +55,7 @@ export interface SmpPlotDoc {
   axisTop?: SmpAxisSpec
   axisRight?: SmpAxisSpec
   legendItems: SmpLegendItem[]
+  annotationLines?: SmpLineAnnotation[]
   xLabel?: string
   yLabel?: string
 }

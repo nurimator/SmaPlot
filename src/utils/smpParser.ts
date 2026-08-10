@@ -1,4 +1,4 @@
-import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpMetadata, SmpPlotDoc } from '../types.ts'
+import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -78,6 +78,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let axisRight: SmpAxisSpec | undefined
 
     const legendItems: SmpLegendItem[] = []
+    const annotationLines: SmpLineAnnotation[] = []
     let xLabel: string | undefined
     let yLabel: string | undefined
 
@@ -171,10 +172,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length) {
           const parts2 = docLines[i].trim().split(/\s+/)
           if (parts2.length >= 6) {
-            axisSpec.showTicks = parts2[2] === '1'
-            axisSpec.showSubTicks = parts2[3] === '1'
-            axisSpec.showLabels = parts2[4] === '1'
-            axisSpec.insideTicks = parts2[5] !== '0'
+            axisSpec.showTicks = parts2[3] === '1'
+            axisSpec.insideTicks = parts2[4] === '1'
+            axisSpec.showLabels = parts2[5] === '1'
           }
           i++
         }
@@ -251,6 +251,23 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               })
             }
           }
+          continue
+        } else if (line === '0') {
+          i++
+          if (i < docLines.length) {
+            const coords = docLines[i].trim().split(/\s+/)
+            if (coords.length >= 4) {
+              const x1Norm = parseFloat(coords[0])
+              const y1Norm = parseFloat(coords[1])
+              const x2Norm = parseFloat(coords[2])
+              const y2Norm = parseFloat(coords[3])
+              if (!isNaN(x1Norm) && !isNaN(y1Norm) && !isNaN(x2Norm) && !isNaN(y2Norm)) {
+                annotationLines.push({ x1Norm, y1Norm, x2Norm, y2Norm, style: 'dashed', width: 1 })
+              }
+            }
+            i++
+          }
+          continue
         }
         i++
         continue
@@ -366,6 +383,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       axisTop,
       axisRight,
       legendItems,
+      annotationLines,
       xLabel,
       yLabel,
     })

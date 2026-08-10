@@ -370,15 +370,17 @@ export function drawPlot(
       svg.appendChild(tTick)
 
       // X Label
-      const label = createSVGElement('text')
-      label.setAttribute('x', String(px))
-      label.setAttribute('y', String(margin.t + plotH + 18))
-      label.setAttribute('text-anchor', 'middle')
-      label.setAttribute('font-size', '11')
-      label.setAttribute('font-family', smpDoc?.axisX.fontFamily || 'Inter, system-ui, sans-serif')
-      label.setAttribute('fill', '#1e293b')
-      label.textContent = formatTick(v)
-      svg.appendChild(label)
+      if (smpDoc?.axisX.showLabels !== false) {
+        const label = createSVGElement('text')
+        label.setAttribute('x', String(px))
+        label.setAttribute('y', String(margin.t + plotH + 18))
+        label.setAttribute('text-anchor', 'middle')
+        label.setAttribute('font-size', '11')
+        label.setAttribute('font-family', smpDoc?.axisX.fontFamily || 'Inter, system-ui, sans-serif')
+        label.setAttribute('fill', '#1e293b')
+        label.textContent = formatTick(v)
+        svg.appendChild(label)
+      }
     }
 
     // Minor Sub-ticks between v and next v
@@ -444,15 +446,17 @@ export function drawPlot(
       svg.appendChild(rTick)
 
       // Y Label
-      const label = createSVGElement('text')
-      label.setAttribute('x', String(margin.l - 8))
-      label.setAttribute('y', String(py + 4))
-      label.setAttribute('text-anchor', 'end')
-      label.setAttribute('font-size', '11')
-      label.setAttribute('font-family', smpDoc?.axisY.fontFamily || 'Inter, system-ui, sans-serif')
-      label.setAttribute('fill', '#1e293b')
-      label.textContent = formatTick(v)
-      svg.appendChild(label)
+      if (smpDoc?.axisY.showLabels !== false) {
+        const label = createSVGElement('text')
+        label.setAttribute('x', String(margin.l - 8))
+        label.setAttribute('y', String(py + 4))
+        label.setAttribute('text-anchor', 'end')
+        label.setAttribute('font-size', '11')
+        label.setAttribute('font-family', smpDoc?.axisY.fontFamily || 'Inter, system-ui, sans-serif')
+        label.setAttribute('fill', '#1e293b')
+        label.textContent = formatTick(v)
+        svg.appendChild(label)
+      }
     }
 
     // Minor Sub-ticks between v and next v
@@ -484,6 +488,29 @@ export function drawPlot(
       }
     }
   }
+
+  // ----------------------------------------------------
+  // ANNOTATION LINES (Normalized Coordinates)
+  // ----------------------------------------------------
+  const annotationLines = smpDoc?.annotationLines || []
+  annotationLines.forEach((aLine) => {
+    const x1 = margin.l + (aLine.x1Norm / 100) * plotW
+    const y1 = margin.t + (1 - aLine.y1Norm / 100) * plotH
+    const x2 = margin.l + (aLine.x2Norm / 100) * plotW
+    const y2 = margin.t + (1 - aLine.y2Norm / 100) * plotH
+
+    const l = createSVGElement('line')
+    l.setAttribute('x1', String(x1))
+    l.setAttribute('y1', String(y1))
+    l.setAttribute('x2', String(x2))
+    l.setAttribute('y2', String(y2))
+    l.setAttribute('stroke', '#000000')
+    l.setAttribute('stroke-width', String(aLine.width || 1))
+    if (aLine.style === 'dashed') {
+      l.setAttribute('stroke-dasharray', '4 4')
+    }
+    svg.appendChild(l)
+  })
 
   // ----------------------------------------------------
   // LEGEND ITEMS & ANNOTATIONS (10000ths Normalized Coordinates)
