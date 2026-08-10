@@ -618,8 +618,12 @@ export function drawPlot(
   const legendItems = smpDoc?.legendItems || []
   if (legendItems.length > 0) {
     legendItems.forEach((item) => {
+      const isRotated = item.rotation !== 0
       const px = margin.l + (item.xNorm / 10000) * plotW
-      const py = margin.t + (item.yNorm / 10000) * plotH
+      const renderPx = px
+      const py = isRotated
+        ? margin.t + plotH / 2
+        : margin.t + (item.yNorm / 10000) * plotH
 
       if (item.text.startsWith('%01E')) {
         // Series Legend Box e.g. %01ESG\n%02EKP\n%03EGS
@@ -634,41 +638,41 @@ export function drawPlot(
             const color = ds?.options?.lineColor || ds?.color || '#000000'
 
             const legLine = createSVGElement('line')
-            legLine.setAttribute('x1', String(px))
+            legLine.setAttribute('x1', String(renderPx))
             legLine.setAttribute('y1', String(legY))
-            legLine.setAttribute('x2', String(px + 24))
+            legLine.setAttribute('x2', String(renderPx + 16))
             legLine.setAttribute('y2', String(legY))
             legLine.setAttribute('stroke', color)
-            legLine.setAttribute('stroke-width', '2')
+            legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
             svg.appendChild(legLine)
 
             const legTxt = createSVGElement('text')
-            legTxt.setAttribute('x', String(px + 30))
-            legTxt.setAttribute('y', String(legY + 4))
-            legTxt.setAttribute('font-size', String(item.fontSize || 11))
-            legTxt.setAttribute('font-family', item.fontFamily)
+            legTxt.setAttribute('x', String(renderPx + 20))
+            legTxt.setAttribute('y', String(legY + 3))
+            legTxt.setAttribute('font-size', '10')
+            legTxt.setAttribute('font-family', item.fontFamily || 'Cambria, Times New Roman, serif')
             legTxt.setAttribute('font-weight', String(item.fontWeight))
             legTxt.setAttribute('fill', '#000000')
             legTxt.textContent = labelText
             svg.appendChild(legTxt)
 
-            legY += 16
+            legY += 11
           }
         })
       } else {
         const textEl = createSVGElement('text')
-        textEl.setAttribute('x', String(px))
+        textEl.setAttribute('x', String(renderPx))
         textEl.setAttribute('y', String(py))
         textEl.setAttribute('font-size', String(item.fontSize || 12))
         textEl.setAttribute('font-family', item.fontFamily)
         textEl.setAttribute('font-weight', String(item.fontWeight))
         textEl.setAttribute('fill', '#000000')
 
-        if (item.rotation !== 0) {
-          textEl.setAttribute('transform', `rotate(${item.rotation} ${px} ${py})`)
+        if (isRotated) {
+          textEl.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
           textEl.setAttribute('text-anchor', 'middle')
         } else {
-          textEl.setAttribute('text-anchor', px < margin.l + plotW / 2 ? 'start' : 'middle')
+          textEl.setAttribute('text-anchor', renderPx < margin.l + plotW / 2 ? 'start' : 'middle')
         }
         textEl.textContent = item.text
         svg.appendChild(textEl)
@@ -827,8 +831,9 @@ export function drawPlot(
       }
     }
 
-  // Legend
-  if (processedDatasets.length > 0) {
+  // Fallback Legend if not provided by smpDoc legendItems
+  const hasSeriesLegendInDoc = (smpDoc?.legendItems || []).some((item) => item.text.startsWith('%01E'))
+  if (processedDatasets.length > 0 && !hasSeriesLegendInDoc) {
     const legendX = Math.max(margin.l, margin.l + plotW - 110)
     const legendY = margin.t + 10
     let drawnLegends = 0
@@ -837,7 +842,7 @@ export function drawPlot(
       const dsOpts = ds.options || {}
       if (dsOpts.show === false) continue
 
-      const ly = legendY + drawnLegends * 18
+      const ly = legendY + drawnLegends * 11
       const line = createSVGElement('line')
       line.setAttribute('x1', String(legendX))
       line.setAttribute('y1', String(ly))
@@ -848,11 +853,11 @@ export function drawPlot(
       svg.appendChild(line)
 
       const text = createSVGElement('text')
-      text.setAttribute('x', String(legendX + 22))
-      text.setAttribute('y', String(ly + 4))
-      text.setAttribute('font-size', '11')
-      text.setAttribute('font-family', 'Inter, system-ui, sans-serif')
-      text.setAttribute('fill', '#334155')
+      text.setAttribute('x', String(legendX + 20))
+      text.setAttribute('y', String(ly + 3))
+      text.setAttribute('font-size', '10')
+      text.setAttribute('font-family', 'Cambria, Times New Roman, serif')
+      text.setAttribute('fill', '#000000')
       text.textContent = ds.name
       svg.appendChild(text)
 
