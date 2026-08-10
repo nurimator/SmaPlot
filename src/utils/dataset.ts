@@ -3,28 +3,46 @@ import type { Dataset } from '../types.ts'
 export async function loadDataset(path: string): Promise<Dataset> {
   const res = await fetch(path)
   const text = await res.text()
+  const fileName = path.split('/').pop() || 'Dataset.txt'
+  return parseDatasetContent(text, fileName)
+}
+
+export function parseDatasetContent(text: string, fileName: string): Dataset {
   const x: number[] = []
   const y: number[] = []
-  for (const line of text.split('\n')) {
+  const rawLines: string[][] = []
+
+  for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue
-    const parts = line.split(/\s+/)
+    const parts = line.trim().split(/\s+/)
+    rawLines.push(parts)
     if (parts.length >= 2) {
-      x.push(parseFloat(parts[0]))
-      y.push(parseFloat(parts[1]))
+      const px = parseFloat(parts[0])
+      const py = parseFloat(parts[1])
+      if (!isNaN(px) && !isNaN(py)) {
+        x.push(px)
+        y.push(py)
+      }
     }
   }
-  const fileName = path.split('/').pop()?.replace('.txt', '') || 'Dataset'
-  let name = fileName
-  let color = '#000'
-  if (fileName.includes('Cobalt') || fileName.includes('CoFe')) {
-    name = 'CoFeO'
-    color = '#ef4444'
+
+  const cleanName = fileName.replace(/\.txt$/i, '')
+  const PALETTE = ['#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
+  let hash = 0
+  for (let i = 0; i < cleanName.length; i++) {
+    hash = (hash << 5) - hash + cleanName.charCodeAt(i)
   }
-  if (fileName.includes('BiVO') || fileName.includes('BiVOTiO')) {
-    name = 'BiVOTiO'
-    color = '#10b981'
+  const color = PALETTE[Math.abs(hash) % PALETTE.length]
+
+  return {
+    name: cleanName,
+    color,
+    x,
+    y,
+    rawContent: text,
+    rawLines,
+    fileName,
   }
-  return { name, color, x, y }
 }
 
 export function evaluateMathExpr(expr: string, val: number, varName: 'x' | 'y'): number {

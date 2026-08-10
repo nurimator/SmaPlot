@@ -17,6 +17,7 @@
     <title>Sma4Win - Scientific Data Analysis Software</title>
   </head>
   <body>
+    <input type="file" id="globalFileInput" accept=".txt,.smp,.SMP" multiple style="display: none;" />
     <div id="app">
       <div class="app">
         <!-- Title Bar -->
@@ -36,10 +37,36 @@
 
         <!-- Menu Bar -->
         <nav class="menubar">
-          <div class="menu-item" data-menu="file">File</div>
-          <div class="menu-item" data-menu="data">Data</div>
+          <div class="menu-item" data-menu="file">
+            File
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="new">New</div>
+              <div class="dropdown-item" data-action="open">Open...</div>
+            </div>
+          </div>
+          <div class="menu-item" data-menu="data">
+            Data
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="data_manager">Data Manager...</div>
+            </div>
+          </div>
           <div class="menu-item" data-menu="edit">Edit</div>
-          <div class="menu-item" data-menu="graph">Graph</div>
+          <div class="menu-item" data-menu="graph">
+            Graph
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="clear_all_scale">Clear All Scale</div>
+              <div class="dropdown-item has-submenu" data-action="clear_scale">
+                <span>Clear Scale</span>
+                <span class="material-symbols-outlined dropdown-arrow">chevron_right</span>
+                <div class="menu-submenu">
+                  <div class="dropdown-item" data-action="clear_scale_x">X axis</div>
+                  <div class="dropdown-item" data-action="clear_scale_y">Y axis</div>
+                </div>
+              </div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="property">Property...</div>
+            </div>
+          </div>
           <div class="menu-item" data-menu="insert">Insert</div>
           <div class="menu-item" data-menu="analyze">Analyze</div>
           <div class="menu-item" data-menu="option">Option</div>
@@ -128,12 +155,18 @@
             <div class="dialog-content">
               <!-- Tab: file -->
               <div class="tab-content active" id="tab-file">
-                <!-- Top File Path Banner -->
-                <div class="file-path-banner">
-                  <span id="propFilePathText">C:\Repository\sma4win-replica\dummy-data\Cobalt0.txt</span>
+                <!-- Top File Banner Row with Path + Save & Browse Buttons -->
+                <div class="file-banner-row">
+                  <div class="file-path-banner">
+                    <span id="propFilePathText">No file loaded</span>
+                  </div>
+                  <div class="banner-actions">
+                    <button class="btn btn-sm" id="propSaveBtn1">Save</button>
+                    <button class="btn btn-sm" id="propBrowseBtn1">Browse</button>
+                  </div>
                 </div>
 
-                <!-- Row 1: Checkbox Show + Dropdown tanpa label berisi deretan karakter strip (Left) & Save Button (Right) -->
+                <!-- Row 1: Checkbox Show & Line Pattern Dropdown -->
                 <div class="prop-form-row align-center">
                   <div class="prop-inline-group">
                     <label class="checkbox-label"><input type="checkbox" id="propFileShow" checked /> Show</label>
@@ -143,47 +176,43 @@
                       <option value="dotted">· · · · · · · ·</option>
                     </select>
                   </div>
-                  <button class="btn btn-sm" id="propSaveBtn1">Save</button>
                 </div>
 
-                <!-- Row 2: X(U) & Y(R) Column Dropdowns (Left) & Browse Button (Right) -->
-                <div class="prop-form-row align-start">
-                  <div class="column-selection-container">
-                    <!-- X(U) Column & 2 Radio Buttons Vertically Below -->
-                    <div class="col-field-group">
-                      <label class="field-title">X(U) Column</label>
-                      <select id="propXColumn" class="form-select">
-                        <option value="1">Col 1</option>
-                        <option value="2">Col 2</option>
-                      </select>
-                      <div class="vertical-radio-group">
-                        <label class="radio-label"><input type="radio" name="errorBarX" value="plus_plus" /> Error Bar (+,+)</label>
-                        <label class="radio-label"><input type="radio" name="errorBarX" value="plus_minus" checked /> Error Bar (+/-)</label>
-                      </div>
-                    </div>
-
-                    <!-- Y(R) Column & 2 Radio Buttons Vertically Below -->
-                    <div class="col-field-group">
-                      <label class="field-title">Y(R) Column</label>
-                      <select id="propYColumn" class="form-select">
-                        <option value="2">Col 2</option>
-                        <option value="1">Col 1</option>
-                      </select>
-                      <div class="vertical-radio-group">
-                        <label class="radio-label"><input type="radio" name="errorBarY" value="plus_plus" /> Error Bar (+,+)</label>
-                        <label class="radio-label"><input type="radio" name="errorBarY" value="plus_minus" checked /> Error Bar (+/-)</label>
-                      </div>
+                <!-- Row 2: X(U) & Y(R) Column Selections (2-Column Grid) -->
+                <div class="prop-grid-2col">
+                  <!-- X(U) Column & Error Bar Radios -->
+                  <div class="col-field-group">
+                    <label class="form-field-label">X(U) Column</label>
+                    <select id="propXColumn" class="form-select full-width">
+                      <option value="1" selected>Col 1</option>
+                      <option value="2">Col 2</option>
+                      <option value="3">Col 3</option>
+                      <option value="4">Col 4</option>
+                    </select>
+                    <div class="vertical-radio-group">
+                      <label class="radio-label"><input type="radio" name="errorBarX" value="plus_plus" /> Error Bar (+,+)</label>
+                      <label class="radio-label"><input type="radio" name="errorBarX" value="plus_minus" /> Error Bar (+/-)</label>
                     </div>
                   </div>
-                  <button class="btn btn-sm" id="propBrowseBtn1">Browse</button>
+
+                  <!-- Y(R) Column & Error Bar Radios -->
+                  <div class="col-field-group">
+                    <label class="form-field-label">Y(R) Column</label>
+                    <select id="propYColumn" class="form-select full-width">
+                      <option value="1">Col 1</option>
+                      <option value="2" selected>Col 2</option>
+                      <option value="3">Col 3</option>
+                      <option value="4">Col 4</option>
+                    </select>
+                    <div class="vertical-radio-group">
+                      <label class="radio-label"><input type="radio" name="errorBarY" value="plus_plus" /> Error Bar (+,+)</label>
+                      <label class="radio-label"><input type="radio" name="errorBarY" value="plus_minus" /> Error Bar (+/-)</label>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Large Inset Data Preview Box -->
+                <!-- Large Inset Data Preview Box (No Header) -->
                 <div class="data-preview-box" id="propDataPreview" tabindex="0">
-                  <div class="preview-table-header">
-                    <span>X (Col 1)</span>
-                    <span>Y (Col 2)</span>
-                  </div>
                   <div class="preview-data-rows" id="propPreviewRows">
                     <div class="preview-row"><span>300.0</span><span>0.0042</span></div>
                     <div class="preview-row"><span>300.5</span><span>0.0048</span></div>
@@ -199,84 +228,89 @@
 
               <!-- Tab: plot -->
               <div class="tab-content" id="tab-plot">
-                <!-- Top File Path Banner -->
-                <div class="file-path-banner">
-                  <span id="propPlotFilePathText">C:\Repository\sma4win-replica\dummy-data\Cobalt0.txt</span>
-                </div>
-
-                <!-- Row 1: Plot type (default: No Dot) & Line type (default: Solid) (Left) & Save Button (Right) -->
-                <div class="prop-form-row align-center">
-                  <div class="prop-inline-group">
-                    <div class="form-field-inline">
-                      <label for="propPlotType">Plot type</label>
-                      <select id="propPlotType" class="form-select">
-                        <option value="no_dot" selected>No Dot</option>
-                        <option value="line_symbol">Line + Symbol</option>
-                        <option value="scatter">Scatter Only</option>
-                        <option value="bar">Bar Chart</option>
-                      </select>
-                    </div>
-                    <div class="form-field-inline">
-                      <label for="propLineType">Line type</label>
-                      <select id="propLineType" class="form-select">
-                        <option value="solid" selected>Solid</option>
-                        <option value="continuous">Continuous</option>
-                        <option value="step">Step</option>
-                        <option value="spline">Spline</option>
-                      </select>
-                    </div>
+                <!-- Top File Banner Row with Path + Save & Browse Buttons -->
+                <div class="file-banner-row">
+                  <div class="file-path-banner">
+                    <span id="propPlotFilePathText">No file loaded</span>
                   </div>
-                  <button class="btn btn-sm" id="propSaveBtn2">Save</button>
-                </div>
-
-                <!-- Row 2: 3 Color Pickers: Dot color (black), Paint (white), Line (green) (Left) & Browse Button (Right) -->
-                <div class="prop-form-row align-center">
-                  <div class="colors-row">
-                    <div class="color-item">
-                      <label>Dot color</label>
-                      <input type="color" id="propDotColor" value="#000000" class="color-picker-box" />
-                    </div>
-                    <div class="color-item">
-                      <label>Paint</label>
-                      <input type="color" id="propPaintColor" value="#ffffff" class="color-picker-box" />
-                    </div>
-                    <div class="color-item">
-                      <label>Line</label>
-                      <input type="color" id="propLineColor" value="#10b981" class="color-picker-box" />
-                    </div>
-                  </div>
-                  <button class="btn btn-sm" id="propBrowseBtn2">Browse</button>
-                </div>
-
-                <!-- Row 3: 3 Small Numeric Input Fields (Size, Width, Pitch) -->
-                <div class="numerics-row">
-                  <div class="num-item">
-                    <label>Size</label>
-                    <input type="number" id="propSizeInput" value="3" min="1" max="20" class="form-input-num" />
-                  </div>
-                  <div class="num-item">
-                    <label>Width</label>
-                    <input type="number" id="propWidthInput" value="1" min="1" max="10" class="form-input-num" />
-                  </div>
-                  <div class="num-item">
-                    <label>Pitch</label>
-                    <input type="number" id="propPitchInput" value="1" min="1" max="10" class="form-input-num" />
+                  <div class="banner-actions">
+                    <button class="btn btn-sm" id="propSaveBtn2">Save</button>
+                    <button class="btn btn-sm" id="propBrowseBtn2">Browse</button>
                   </div>
                 </div>
 
-                <!-- Row 4: Brush Dropdown (filled) (Left) & Real-time Line Sample Square Box (Right) -->
-                <div class="brush-preview-row">
-                  <div class="form-field-inline flex-1">
-                    <label for="propBrushSelect">Brush</label>
-                    <select id="propBrushSelect" class="form-select">
+                <!-- Row 1: Plot type & Line type (2-Column Grid) -->
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label" for="propPlotType">Plot type</label>
+                    <select id="propPlotType" class="form-select full-width">
+                      <option value="no_dot" selected>No Dot</option>
+                      <option value="circle">circle</option>
+                      <option value="triangle">triangle</option>
+                      <option value="square">square</option>
+                      <option value="filled_circle">filled circle</option>
+                      <option value="filled_triangle">filled triangle</option>
+                      <option value="filled_square">filled square</option>
+                    </select>
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label" for="propLineType">Line type</label>
+                    <select id="propLineType" class="form-select full-width">
+                      <option value="no_line">No Line</option>
+                      <option value="solid" selected>Solid</option>
+                      <option value="dotted">dotted</option>
+                      <option value="dash_dot">Dash Dot</option>
+                      <option value="dash_dot_dot">dash Dot Dot</option>
+                      <option value="face">face</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Row 2: 3-Column Color Pickers (Dot color, Paint, Line) -->
+                <div class="prop-grid-3col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Dot color</label>
+                    <input type="color" id="propDotColor" value="#000000" class="color-picker-box full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Paint</label>
+                    <input type="color" id="propPaintColor" value="#ffffff" class="color-picker-box full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Line</label>
+                    <input type="color" id="propLineColor" value="#10b981" class="color-picker-box full-width" />
+                  </div>
+                </div>
+
+                <!-- Row 3: 3-Column Numeric Inputs (Size, Width, Pitch) -->
+                <div class="prop-grid-3col">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Size</label>
+                    <input type="number" id="propSizeInput" value="3" min="1" max="20" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Width</label>
+                    <input type="number" id="propWidthInput" value="1" min="1" max="10" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Pitch</label>
+                    <input type="number" id="propPitchInput" value="1" min="1" max="10" class="form-input-num full-width" />
+                  </div>
+                </div>
+
+                <!-- Row 4: Brush & Line Sample Preview (2-Column Grid) -->
+                <div class="prop-grid-2col align-end">
+                  <div class="form-field-stacked">
+                    <label class="form-field-label" for="propBrushSelect">Brush</label>
+                    <select id="propBrushSelect" class="form-select full-width">
                       <option value="filled" selected>filled</option>
                       <option value="solid">solid</option>
                       <option value="dash">dash</option>
                       <option value="dot">dot</option>
                     </select>
                   </div>
-                  <div class="sample-box-wrapper">
-                    <label>Sample Preview</label>
+                  <div class="form-field-stacked">
+                    <label class="form-field-label">Sample Preview</label>
                     <div class="line-sample-preview-box" id="propLineSamplePreview">
                       <div class="sample-line" id="sampleLineElement"></div>
                     </div>
@@ -335,14 +369,7 @@
             <div class="data-manager-body">
               <!-- Left Side: Inset Border List Box -->
               <div class="dm-list-box" id="dmListBox" tabindex="0">
-                <div class="dm-list-item selected" data-filename="Cobalt0.txt" data-color="#ef4444">
-                  <span class="dm-line-indicator" style="background-color: #ef4444;"></span>
-                  <span class="dm-item-text">Cobalt0.txt</span>
-                </div>
-                <div class="dm-list-item" data-filename="BiVO4TiO2 PKM.txt" data-color="#10b981">
-                  <span class="dm-line-indicator" style="background-color: #10b981;"></span>
-                  <span class="dm-item-text">BiVO4TiO2 PKM.txt</span>
-                </div>
+                <div style="padding: 12px 8px; color: #94a3b8; font-size: 12px; text-align: center;">No datasets loaded</div>
               </div>
 
               <!-- Right Side: Action Buttons -->

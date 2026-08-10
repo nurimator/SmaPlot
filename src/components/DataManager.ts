@@ -1,29 +1,19 @@
 import type { Dataset } from '../types.ts'
-import { loadDataset } from '../utils/dataset.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 
 export class DataManager {
   private datasets: Dataset[] = []
   private listeners: (() => void)[] = []
 
-  public async loadInitialDatasets(): Promise<Dataset[]> {
-    if (this.datasets.length === 0) {
-      const [cobalt, bivo] = await Promise.all([
-        loadDataset('/dummy-data/Cobalt0.txt'),
-        loadDataset('/dummy-data/BiVO4TiO2 PKM.txt'),
-      ])
-      this.datasets = [cobalt, bivo]
-    }
-    return this.datasets
-  }
-
   public getDatasets(): Dataset[] {
     return [...this.datasets]
   }
 
   public addDataset(ds: Dataset): void {
-    this.datasets.push(ds)
-    this.notify()
+    if (!this.datasets.some((d) => d.name === ds.name)) {
+      this.datasets.push(ds)
+      this.notify()
+    }
   }
 
   public removeDataset(index: number): void {
@@ -53,6 +43,55 @@ export class DataManager {
 }
 
 export const globalDataManager = new DataManager()
+
+export function renderDataManagerListBox(
+  listBoxEl: HTMLElement,
+  datasets: Dataset[],
+  onOpenProperty?: (fileName: string) => void
+): void {
+  listBoxEl.innerHTML = ''
+  if (datasets.length === 0) {
+    const emptyMsg = document.createElement('div')
+    emptyMsg.style.padding = '12px 8px'
+    emptyMsg.style.color = '#94a3b8'
+    emptyMsg.style.fontSize = '12px'
+    emptyMsg.style.textAlign = 'center'
+    emptyMsg.textContent = 'No datasets loaded'
+    listBoxEl.appendChild(emptyMsg)
+    return
+  }
+
+  datasets.forEach((ds, idx) => {
+    const item = document.createElement('div')
+    item.className = `dm-list-item${idx === 0 ? ' selected' : ''}`
+    item.setAttribute('data-filename', `${ds.name}.txt`)
+    item.setAttribute('data-color', ds.color)
+
+    const indicator = document.createElement('span')
+    indicator.className = 'dm-line-indicator'
+    indicator.style.backgroundColor = ds.color
+
+    const text = document.createElement('span')
+    text.className = 'dm-item-text'
+    text.textContent = `${ds.name}.txt`
+
+    item.appendChild(indicator)
+    item.appendChild(text)
+
+    item.addEventListener('click', () => {
+      listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
+      item.classList.add('selected')
+    })
+
+    item.addEventListener('dblclick', () => {
+      listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
+      item.classList.add('selected')
+      if (onOpenProperty) onOpenProperty(`${ds.name}.txt`)
+    })
+
+    listBoxEl.appendChild(item)
+  })
+}
 
 export function initDataManagerDialog(
   overlayEl: HTMLElement,
@@ -87,7 +126,7 @@ export function initDataManagerDialog(
     hide()
     if (onOpenProperty) {
       const selected = listBox?.querySelector<HTMLElement>('.dm-list-item.selected')
-      const fileName = selected?.getAttribute('data-filename') || 'Cobalt0.txt'
+      const fileName = selected?.getAttribute('data-filename') || 'Dataset.txt'
       onOpenProperty(fileName)
     }
   }
@@ -95,29 +134,20 @@ export function initDataManagerDialog(
   okBtn?.addEventListener('click', triggerPropertyModal)
   propBtn?.addEventListener('click', triggerPropertyModal)
 
-  // List Box item click and double click interaction
   if (listBox) {
-    const items = Array.from(listBox.querySelectorAll<HTMLElement>('.dm-list-item'))
+    renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
+      hide()
+      if (onOpenProperty) onOpenProperty(fn)
+    })
 
-    const selectItem = (itemToSelect: HTMLElement) => {
-      items.forEach((item) => item.classList.remove('selected'))
-      itemToSelect.classList.add('selected')
-    }
-
-    items.forEach((item) => {
-      // Single click -> select file item
-      item.addEventListener('click', () => {
-        selectItem(item)
-      })
-
-      // Double click -> select file item AND open Property modal
-      item.addEventListener('dblclick', () => {
-        selectItem(item)
-        triggerPropertyModal()
+    globalDataManager.subscribe(() => {
+      renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
+        hide()
+        if (onOpenProperty) onOpenProperty(fn)
       })
     })
 
-    // Up(U) button action -> move selected item up in list box
+    // Up(U) button action
     upBtn?.addEventListener('click', () => {
       const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
       if (selected && selected.previousElementSibling) {
@@ -125,7 +155,7 @@ export function initDataManagerDialog(
       }
     })
 
-    // Down(D) button action -> move selected item down in list box
+    // Down(D) button action
     downBtn?.addEventListener('click', () => {
       const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
       if (selected && selected.nextElementSibling) {
@@ -133,9 +163,9 @@ export function initDataManagerDialog(
       }
     })
 
-    // All(A) button action -> select all items
+    // All(A) button action
     allBtn?.addEventListener('click', () => {
-      items.forEach((item) => item.classList.add('selected'))
+      listBox.querySelectorAll('.dm-list-item').forEach((item) => item.classList.add('selected'))
     })
   }
 }

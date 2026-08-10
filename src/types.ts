@@ -1,9 +1,70 @@
+import type { PlotVisualOptions } from './components/Plot.ts'
+
 export interface Dataset {
   name: string
   color: string
   x: number[]
   y: number[]
+  rawContent?: string
+  rawLines?: string[][]
+  fileName?: string
+  options?: PlotVisualOptions
 }
+
+export interface SmpLegendItem {
+  text: string
+  xNorm: number
+  yNorm: number
+  rotation: number
+  fontFamily: string
+  fontSize: number
+  fontWeight: number
+}
+
+export interface SmpAxisSpec {
+  min: number
+  max: number
+  step: number
+  subDivs: number
+  showTicks: boolean
+  showSubTicks: boolean
+  showLabels: boolean
+  insideTicks: boolean
+  fontFamily: string
+  fontWeight: number
+}
+
+export interface SmpPlotDoc {
+  name: string
+  left: number
+  top: number
+  width: number
+  height: number
+  datasets: Dataset[]
+  axisX: SmpAxisSpec
+  axisY: SmpAxisSpec
+  axisTop?: SmpAxisSpec
+  axisRight?: SmpAxisSpec
+  legendItems: SmpLegendItem[]
+  xLabel?: string
+  yLabel?: string
+}
+
+export interface SmpMetadata {
+  docs: SmpPlotDoc[]
+  // Legacy flat properties for single plot backwards compatibility
+  xMin?: number
+  xMax?: number
+  xStep?: number
+  yMin?: number
+  yMax?: number
+  yStep?: number
+  xLabel?: string
+  yLabel?: string
+  annotations?: { text: string; x: number; y: number }[]
+  guideLines?: { x1: number; y1: number; x2: number; y2: number }[]
+}
+
 
 export interface NiceScaleResult {
   min: number
@@ -21,3 +82,4 @@ export interface ActiveDrag {
   startWidth: number
   startHeight: number
 }
+
