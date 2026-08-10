@@ -928,7 +928,7 @@ export function getDatasets(): Dataset[] {
   return allDatasets
 }
 
-function snapToGridThreshold(val: number, step: number = 200, threshold: number = 10): number {
+function snapToGridThreshold(val: number, step: number = 100, threshold: number = 6): number {
   const nearest = Math.round(val / step) * step
   if (Math.abs(val - nearest) <= threshold) {
     return nearest
@@ -949,8 +949,8 @@ export function initPlotDragListeners(): void {
     let newWidth = startWidth
     let newHeight = startHeight
 
-    const GRID_SIZE = 10 // Minor grid step (10px per minor grid square, 60x60 grid)
-    const SNAP_THRESHOLD = 5 // Magnetic snap threshold
+    const GRID_SIZE = 100 // Major grid step (100px per major grid square = 50 statusbar units)
+    const SNAP_THRESHOLD = 6 // Magnetic snap threshold (only snaps when within 6px of major grid lines)
     const margin = PLOT_MARGIN
     const minPlotW = 120
     const minPlotH = 80
