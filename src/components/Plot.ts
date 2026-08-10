@@ -47,6 +47,27 @@ let boxCount = 0
 const allDatasets: Dataset[] = []
 const activeSvgs: SVGSVGElement[] = []
 
+export const SMP_SCALE = 0.02
+
+export function getSvgRectForSmpDoc(doc: SmpPlotDoc): {
+  svgLeft: number
+  svgTop: number
+  svgWidth: number
+  svgHeight: number
+} {
+  const frameLeft = doc.left * SMP_SCALE
+  const frameTop = doc.top * SMP_SCALE
+  const frameWidth = doc.width * SMP_SCALE
+  const frameHeight = doc.height * SMP_SCALE
+
+  const svgLeft = frameLeft - PLOT_MARGIN.l
+  const svgTop = frameTop - PLOT_MARGIN.t
+  const svgWidth = frameWidth + PLOT_MARGIN.l + PLOT_MARGIN.r
+  const svgHeight = frameHeight + PLOT_MARGIN.t + PLOT_MARGIN.b
+
+  return { svgLeft, svgTop, svgWidth, svgHeight }
+}
+
 export function setPlotSmpMeta(svg: SVGSVGElement, meta: SmpMetadata): void {
   svgSmpMetaMap.set(svg, meta)
 }
@@ -54,8 +75,6 @@ export function setPlotSmpMeta(svg: SVGSVGElement, meta: SmpMetadata): void {
 export function setPlotSmpDoc(svg: SVGSVGElement, doc: SmpPlotDoc): void {
   svgSmpDocMap.set(svg, doc)
 }
-
-
 
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
@@ -811,19 +830,14 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
             if (smpMeta.docs && smpMeta.docs.length > 0) {
               for (let d = 0; d < smpMeta.docs.length; d++) {
                 const doc = smpMeta.docs[d]
-                const px = Math.round((doc.left / 24000) * 600)
-                const py = Math.round((doc.top / 24000) * 600)
-                const pw = Math.round((doc.width / 24000) * 600)
-                const ph = Math.round((doc.height / 24000) * 600)
+                const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
 
-                let targetSvg = d === 0 ? svg : (graphArea ? await createPlot(graphArea, px, py, []) : svg)
+                let targetSvg = d === 0 ? svg : (graphArea ? await createPlot(graphArea, svgLeft, svgTop, [], svgWidth, svgHeight) : svg)
                 if (targetSvg) {
-                  if (d > 0) {
-                    targetSvg.style.left = `${px}px`
-                    targetSvg.style.top = `${py}px`
-                    targetSvg.style.width = `${pw}px`
-                    targetSvg.style.height = `${ph}px`
-                  }
+                  targetSvg.style.left = `${svgLeft}px`
+                  targetSvg.style.top = `${svgTop}px`
+                  targetSvg.style.width = `${svgWidth}px`
+                  targetSvg.style.height = `${svgHeight}px`
                   setPlotSmpDoc(targetSvg, doc)
                   setPlotSmpMeta(targetSvg, smpMeta)
                   for (const ds of doc.datasets) {
@@ -856,7 +870,9 @@ export async function createPlot(
   graphArea: HTMLElement,
   x: number,
   y: number,
-  initialDatasets: Dataset[] = []
+  initialDatasets: Dataset[] = [],
+  width: number = 400,
+  height: number = 300
 ): Promise<SVGSVGElement> {
   boxCount++
 
@@ -864,8 +880,8 @@ export async function createPlot(
   svg.setAttribute('class', 'plot-svg')
   svg.style.left = `${x}px`
   svg.style.top = `${y}px`
-  svg.style.width = '400px'
-  svg.style.height = '300px'
+  svg.style.width = `${width}px`
+  svg.style.height = `${height}px`
 
   graphArea.appendChild(svg)
   activeSvgs.push(svg)
@@ -873,7 +889,7 @@ export async function createPlot(
 
   svgDataMap.set(svg, initialDatasets)
   setupPlotFileDrop(svg)
-  drawPlot(svg, initialDatasets, 400, 300)
+  drawPlot(svg, initialDatasets, width, height)
 
   svg.addEventListener('click', () => setSelectedPlotSvg(svg))
 

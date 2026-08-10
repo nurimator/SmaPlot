@@ -10,6 +10,7 @@ import {
   getActiveDrag,
   getBoxCount,
   getSelectedPlotSvg,
+  getSvgRectForSmpDoc,
   initPlotDragListeners,
   setPlotSmpDoc,
   setPlotSmpMeta,
@@ -97,25 +98,30 @@ if (globalFileInput) {
             if (smpMeta.docs && smpMeta.docs.length > 0) {
               for (let d = 0; d < smpMeta.docs.length; d++) {
                 const doc = smpMeta.docs[d]
-                const px = Math.round((doc.left / 24000) * 600)
-                const py = Math.round((doc.top / 24000) * 600)
-                const pw = Math.round((doc.width / 24000) * 600)
-                const ph = Math.round((doc.height / 24000) * 600)
+                const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
 
                 let targetSvg = d === 0 ? getSelectedPlotSvg() : null
                 if (!targetSvg) {
-                  targetSvg = await createPlot(graphAreaEl, px, py, [])
-                } else if (d > 0) {
-                  targetSvg.style.left = `${px}px`
-                  targetSvg.style.top = `${py}px`
-                  targetSvg.style.width = `${pw}px`
-                  targetSvg.style.height = `${ph}px`
+                  targetSvg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
+                } else {
+                  targetSvg.style.left = `${svgLeft}px`
+                  targetSvg.style.top = `${svgTop}px`
+                  targetSvg.style.width = `${svgWidth}px`
+                  targetSvg.style.height = `${svgHeight}px`
                 }
                 setPlotSmpDoc(targetSvg, doc)
                 setPlotSmpMeta(targetSvg, smpMeta)
                 for (const ds of doc.datasets) {
                   addDatasetToPlot(targetSvg, ds)
                 }
+              }
+              const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+              if (statusFileEl) {
+                statusFileEl.textContent = `1:${file.name}`
+              }
+              const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
+              if (statusDotEl) {
+                statusDotEl.classList.remove('status-dot-idle')
               }
             }
           }
@@ -175,14 +181,21 @@ async function initApp() {
       if (smpMeta.docs && smpMeta.docs.length > 0) {
         for (let d = 0; d < smpMeta.docs.length; d++) {
           const doc = smpMeta.docs[d]
-          const px = Math.round((doc.left / 24000) * 600)
-          const py = Math.round((doc.top / 24000) * 600)
-          const svg = await createPlot(graphAreaEl, px, py, [])
+          const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
+          const svg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
           setPlotSmpDoc(svg, doc)
           setPlotSmpMeta(svg, smpMeta)
           for (const ds of doc.datasets) {
             addDatasetToPlot(svg, ds)
           }
+        }
+        const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+        if (statusFileEl) {
+          statusFileEl.textContent = '1:FTIR.SMP'
+        }
+        const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
+        if (statusDotEl) {
+          statusDotEl.classList.remove('status-dot-idle')
         }
       }
     } else {
@@ -223,19 +236,22 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
           if (smpMeta.docs && smpMeta.docs.length > 0) {
             for (let d = 0; d < smpMeta.docs.length; d++) {
               const doc = smpMeta.docs[d]
-              const px = Math.round((doc.left / 24000) * 600 + d * 30)
-              const py = Math.round((doc.top / 24000) * 600 + d * 30)
-              const pw = Math.round((doc.width / 24000) * 600)
-              const ph = Math.round((doc.height / 24000) * 600)
+              const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
 
-              const svg = await createPlot(graphAreaEl, px, py, [])
-              svg.style.width = `${pw}px`
-              svg.style.height = `${ph}px`
+              const svg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
               setPlotSmpDoc(svg, doc)
               setPlotSmpMeta(svg, smpMeta)
               for (const ds of doc.datasets) {
                 addDatasetToPlot(svg, ds)
               }
+            }
+            const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+            if (statusFileEl) {
+              statusFileEl.textContent = `1:${file.name}`
+            }
+            const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
+            if (statusDotEl) {
+              statusDotEl.classList.remove('status-dot-idle')
             }
           }
         }
