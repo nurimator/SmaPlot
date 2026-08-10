@@ -7,7 +7,9 @@ import {
   addDatasetToPlot,
   clearPlotScale,
   createPlot,
+  exportPlotToSmpDoc,
   getActiveDrag,
+  getAllPlotSvgs,
   getBoxCount,
   getSelectedPlotSvg,
   getSvgRectForSmpDoc,
@@ -24,6 +26,7 @@ import {
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { parseSmpContent } from './utils/smpParser.ts'
+import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')!
@@ -46,6 +49,20 @@ if (workspaceEl && graphAreaEl) {
 // Initialize component logic & event listeners
 if (titlebarEl) initTitlebar(titlebarEl)
 
+function handleSaveProject(): void {
+  const svgs = getAllPlotSvgs(graphAreaEl)
+  if (svgs.length === 0) {
+    alert('No plots available in workspace to export.')
+    return
+  }
+
+  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
+  const content = serializeSmpProject(docs)
+  const firstDocName = docs[0]?.name
+  const fileName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
+  downloadFile(content, fileName)
+}
+
 if (menubarEl) {
   initMenubar(menubarEl, (action) => {
     if (action === 'data' || action === 'data_manager') {
@@ -58,6 +75,8 @@ if (menubarEl) {
       clearPlotScale('y')
     } else if (action === 'open') {
       if (globalFileInput) globalFileInput.click()
+    } else if (['save', 'save_as', 'export_smp'].includes(action)) {
+      handleSaveProject()
     } else if (action === 'new') {
       const boxCount = getBoxCount()
       const offset = (boxCount % 6) * 28
@@ -76,6 +95,8 @@ if (toolbarEl) {
       await createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
     } else if (action === 'open' || title === 'Open') {
       if (globalFileInput) globalFileInput.click()
+    } else if (action === 'save' || title === 'Save') {
+      handleSaveProject()
     } else if (action === 'chart' || action === 'text' || title === 'Chart') {
       showPropertyDialog(propOverlayEl)
     }

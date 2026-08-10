@@ -13,13 +13,18 @@ export interface Dataset {
 }
 
 export interface SmpLegendItem {
+  type?: 'text' | 'annotation'
   text: string
+  rawText?: string
   xNorm: number
   yNorm: number
   rotation: number
   fontFamily: string
   fontSize: number
   fontWeight: number
+  x2Norm?: number
+  y2Norm?: number
+  rawLine?: string
 }
 
 export interface SmpAxisSpec {

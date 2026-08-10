@@ -1,12 +1,14 @@
 import type { Dataset } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import {
+  exportPlotToSmpDoc,
   getPlotDatasets,
   getSelectedPlotSvg,
   updatePlotVisual,
   type PlotVisualOptions,
 } from './Plot.ts'
 import { globalDataManager } from './DataManager.ts'
+import { downloadFile, serializeSmpDoc } from '../utils/smpExporter.ts'
 
 let currentActiveDataset: Dataset | undefined
 let currentTargetSvg: SVGSVGElement | null = null
@@ -86,6 +88,24 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     applyVisualOptions()
     hide()
   })
+
+  const propSaveBtn1 = overlayEl.querySelector('#propSaveBtn1')
+  const propSaveBtn2 = overlayEl.querySelector('#propSaveBtn2')
+
+  const handleSave = () => {
+    const svg = currentTargetSvg || getSelectedPlotSvg()
+    if (svg) {
+      const doc = exportPlotToSmpDoc(svg, currentActiveDataset?.name ? `${currentActiveDataset.name}.SMP` : 'FTIR.SMP')
+      const smpContent = serializeSmpDoc(doc)
+      const fileName = currentActiveDataset?.fileName?.endsWith('.SMP') ? currentActiveDataset.fileName : (currentActiveDataset?.name ? `${currentActiveDataset.name}.SMP` : 'Project.SMP')
+      downloadFile(smpContent, fileName)
+    } else {
+      alert('No active plot to save.')
+    }
+  }
+
+  propSaveBtn1?.addEventListener('click', handleSave)
+  propSaveBtn2?.addEventListener('click', handleSave)
 
   // Real-time update listeners on ALL property controls
   fileShow?.addEventListener('change', applyVisualOptions)

@@ -217,7 +217,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             const yNorm = parseFloat(posParts[1])
             i++
             if (i < docLines.length) {
-              const txt = docLines[i].trim().replace(/\\n/g, '\n').replace(/@/g, '')
+              const rawTxt = docLines[i].trim()
+              const txt = rawTxt.replace(/\\n/g, '\n').replace(/@/g, '')
               i++
               let rotation = 0
               let fontWeight = 400
@@ -239,6 +240,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 fontFamily = docLines[i].trim() || 'Inter, sans-serif'
                 i++
               }
+              // Skip remaining font spec 2 & 3 lines for item 8 (4 lines total: spec2, name2, spec3, name3)
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
+              if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 8
 
               if (txt.toLowerCase().includes('wavenumber') || txt.toLowerCase().includes('2 theta') || txt.toLowerCase().includes('wavelength')) {
                 xLabel = txt.replace('cm^-1', 'cm⁻¹')
@@ -247,7 +254,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               }
 
               legendItems.push({
+                type: 'text',
                 text: txt,
+                rawText: rawTxt,
                 xNorm,
                 yNorm,
                 rotation,
@@ -261,7 +270,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         } else if (line === '0') {
           i++
           if (i < docLines.length) {
-            const coords = docLines[i].trim().split(/\s+/)
+            const rawLineStr = docLines[i].trim()
+            const coords = rawLineStr.split(/\s+/)
             if (coords.length >= 4) {
               const x1Norm = parseFloat(coords[0])
               const y1Norm = parseFloat(coords[1])
@@ -269,9 +279,23 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               const y2Norm = parseFloat(coords[3])
               if (!isNaN(x1Norm) && !isNaN(y1Norm) && !isNaN(x2Norm) && !isNaN(y2Norm)) {
                 annotationLines.push({ x1Norm, y1Norm, x2Norm, y2Norm, style: 'dashed', width: 1 })
+                legendItems.push({
+                  type: 'annotation',
+                  text: '',
+                  rawLine: rawLineStr,
+                  xNorm: x1Norm,
+                  yNorm: y1Norm,
+                  x2Norm,
+                  y2Norm,
+                  rotation: 0,
+                  fontFamily: '',
+                  fontSize: 0,
+                  fontWeight: 0,
+                })
               }
             }
             i++
+            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 0
           }
           continue
         }
@@ -327,7 +351,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         continue
       }
 
-      if (line.startsWith('#')) continue
+      if (line.startsWith('#')) {
+        datasetsMap[activeDataHeader].rawLines.push([line])
+        continue
+      }
 
       const parts = line.split(/\s+/)
       if (parts.length >= 2) {

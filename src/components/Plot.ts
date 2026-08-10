@@ -1,4 +1,4 @@
-import type { ActiveDrag, Dataset, SmpMetadata, SmpPlotDoc } from '../types.ts'
+import type { ActiveDrag, Dataset, SmpAxisSpec, SmpMetadata, SmpPlotDoc } from '../types.ts'
 import { evaluateMathExpr, parseDatasetContent } from '../utils/dataset.ts'
 import { parseSmpContent } from '../utils/smpParser.ts'
 import { formatTick, niceScale } from '../utils/scale.ts'
@@ -82,6 +82,74 @@ export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
 
 export function getPlotDatasets(svg: SVGSVGElement): Dataset[] {
   return svgDataMap.get(svg) || []
+}
+
+export function getAllPlotSvgs(graphArea: HTMLElement): SVGSVGElement[] {
+  return Array.from(graphArea.querySelectorAll<SVGSVGElement>('.plot-svg'))
+}
+
+export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP'): SmpPlotDoc {
+  const existingDoc = svgSmpDocMap.get(svg)
+  const datasets = svgDataMap.get(svg) || []
+  const baseScale = svgBaseScaleMap.get(svg)
+
+  const leftPx = parseFloat(svg.style.left) || 40
+  const topPx = parseFloat(svg.style.top) || 40
+  const widthPx = parseFloat(svg.style.width) || 500
+  const heightPx = parseFloat(svg.style.height) || 350
+
+  const frameLeft = leftPx + PLOT_MARGIN.l
+  const frameTop = topPx + PLOT_MARGIN.t
+  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+  const left = Math.round(frameLeft / SMP_SCALE)
+  const top = Math.round(frameTop / SMP_SCALE)
+  const width = Math.round(frameWidth / SMP_SCALE)
+  const height = Math.round(frameHeight / SMP_SCALE)
+
+  const axisX: SmpAxisSpec = existingDoc?.axisX || {
+    min: baseScale?.xMin ?? 0,
+    max: baseScale?.xMax ?? 10,
+    step: baseScale ? Math.round((baseScale.xMax - baseScale.xMin) / 5) || 2 : 2,
+    subDivs: 5,
+    showTicks: true,
+    showSubTicks: true,
+    showLabels: true,
+    insideTicks: true,
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+  }
+
+  const axisY: SmpAxisSpec = existingDoc?.axisY || {
+    min: baseScale?.yMin ?? 0,
+    max: baseScale?.yMax ?? 10,
+    step: baseScale ? Math.round((baseScale.yMax - baseScale.yMin) / 5) || 2 : 2,
+    subDivs: 5,
+    showTicks: true,
+    showSubTicks: true,
+    showLabels: true,
+    insideTicks: true,
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+  }
+
+  return {
+    name: existingDoc?.name || defaultName,
+    left,
+    top,
+    width,
+    height,
+    datasets,
+    axisX,
+    axisY,
+    axisTop: existingDoc?.axisTop,
+    axisRight: existingDoc?.axisRight,
+    legendItems: existingDoc?.legendItems || [],
+    annotationLines: existingDoc?.annotationLines || [],
+    xLabel: existingDoc?.xLabel,
+    yLabel: existingDoc?.yLabel,
+  }
 }
 
 export function getActiveDrag(): ActiveDrag | null {
