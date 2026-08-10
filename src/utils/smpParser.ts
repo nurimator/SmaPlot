@@ -72,8 +72,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let docWidth = 10000
     let docHeight = 10000
 
-    let axisX = createDefaultAxis(0, 10, 2)
-    let axisY = createDefaultAxis(0, 10, 2)
+    let axisX = createDefaultAxis(0, 100, 20)
+    let axisY = createDefaultAxis(0, 100, 20)
     let axisTop: SmpAxisSpec | undefined
     let axisRight: SmpAxisSpec | undefined
 
@@ -157,7 +157,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       if (currentSection.startsWith('AXIS-')) {
         const axisIdx = parseInt(currentSection.replace('AXIS-', ''), 10)
         const parts1 = line.split(/\s+/)
-        let axisSpec: SmpAxisSpec = createDefaultAxis(0, 10, 2)
+        let axisSpec: SmpAxisSpec = createDefaultAxis(0, 100, 20)
         if (parts1.length >= 3) {
           axisSpec.min = parseFloat(parts1[0])
           axisSpec.max = parseFloat(parts1[1])

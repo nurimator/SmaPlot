@@ -22,15 +22,23 @@ import {
 } from './components/DataManager.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { parseSmpContent } from './utils/smpParser.ts'
+import { initCanvasZoom } from './utils/canvasZoom.ts'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')!
 const menubarEl = document.querySelector<HTMLElement>('.menubar')!
 const toolbarEl = document.querySelector<HTMLElement>('.toolbar')!
 const graphAreaEl = document.querySelector<HTMLElement>('.graph-area')!
+const workspaceEl = document.querySelector<HTMLElement>('.workspace') || document.body
+const statusCoordsEl = document.querySelector<HTMLElement>('#statusCoordsText')!
 const ctxMenuEl = document.querySelector<HTMLElement>('#ctxMenu')!
 const propOverlayEl = document.querySelector<HTMLElement>('#propertyDialogOverlay')!
 const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
+
+// Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
+if (workspaceEl && graphAreaEl) {
+  initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
+}
 
 // Initialize component logic & event listeners
 if (titlebarEl) initTitlebar(titlebarEl)
@@ -89,10 +97,10 @@ if (globalFileInput) {
             if (smpMeta.docs && smpMeta.docs.length > 0) {
               for (let d = 0; d < smpMeta.docs.length; d++) {
                 const doc = smpMeta.docs[d]
-                const px = Math.round((doc.left / 20000) * 600 + 40)
-                const py = Math.round((doc.top / 20000) * 500 + 40)
-                const pw = Math.round((doc.width / 20000) * 600)
-                const ph = Math.round((doc.height / 20000) * 500)
+                const px = Math.round((doc.left / 24000) * 600)
+                const py = Math.round((doc.top / 24000) * 600)
+                const pw = Math.round((doc.width / 24000) * 600)
+                const ph = Math.round((doc.height / 24000) * 600)
 
                 let targetSvg = d === 0 ? getSelectedPlotSvg() : null
                 if (!targetSvg) {
@@ -167,8 +175,8 @@ async function initApp() {
       if (smpMeta.docs && smpMeta.docs.length > 0) {
         for (let d = 0; d < smpMeta.docs.length; d++) {
           const doc = smpMeta.docs[d]
-          const px = Math.round((doc.left / 20000) * 600 + 40)
-          const py = Math.round((doc.top / 20000) * 500 + 40)
+          const px = Math.round((doc.left / 24000) * 600)
+          const py = Math.round((doc.top / 24000) * 600)
           const svg = await createPlot(graphAreaEl, px, py, [])
           setPlotSmpDoc(svg, doc)
           setPlotSmpMeta(svg, smpMeta)
@@ -193,8 +201,6 @@ initApp()
 window.addEventListener('dragover', (e) => e.preventDefault())
 window.addEventListener('drop', (e) => e.preventDefault())
 
-const workspaceEl = document.querySelector<HTMLElement>('.workspace') || document.body
-
 workspaceEl.addEventListener('dragover', (e: DragEvent) => {
   e.preventDefault()
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
@@ -217,10 +223,10 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
           if (smpMeta.docs && smpMeta.docs.length > 0) {
             for (let d = 0; d < smpMeta.docs.length; d++) {
               const doc = smpMeta.docs[d]
-              const px = Math.round((doc.left / 20000) * 600 + 40 + d * 30)
-              const py = Math.round((doc.top / 20000) * 500 + 40 + d * 30)
-              const pw = Math.round((doc.width / 20000) * 600)
-              const ph = Math.round((doc.height / 20000) * 500)
+              const px = Math.round((doc.left / 24000) * 600 + d * 30)
+              const py = Math.round((doc.top / 24000) * 600 + d * 30)
+              const pw = Math.round((doc.width / 24000) * 600)
+              const ph = Math.round((doc.height / 24000) * 600)
 
               const svg = await createPlot(graphAreaEl, px, py, [])
               svg.style.width = `${pw}px`

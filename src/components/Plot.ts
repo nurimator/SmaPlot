@@ -3,6 +3,7 @@ import { evaluateMathExpr, parseDatasetContent } from '../utils/dataset.ts'
 import { parseSmpContent } from '../utils/smpParser.ts'
 import { formatTick, niceScale } from '../utils/scale.ts'
 import { globalDataManager } from './DataManager.ts'
+import { getCanvasZoom } from '../utils/canvasZoom.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -810,10 +811,10 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
             if (smpMeta.docs && smpMeta.docs.length > 0) {
               for (let d = 0; d < smpMeta.docs.length; d++) {
                 const doc = smpMeta.docs[d]
-                const px = Math.round((doc.left / 20000) * 600 + 40)
-                const py = Math.round((doc.top / 20000) * 500 + 40)
-                const pw = Math.round((doc.width / 20000) * 600)
-                const ph = Math.round((doc.height / 20000) * 500)
+                const px = Math.round((doc.left / 24000) * 600)
+                const py = Math.round((doc.top / 24000) * 600)
+                const pw = Math.round((doc.width / 24000) * 600)
+                const ph = Math.round((doc.height / 24000) * 600)
 
                 let targetSvg = d === 0 ? svg : (graphArea ? await createPlot(graphArea, px, py, []) : svg)
                 if (targetSvg) {
@@ -924,15 +925,16 @@ export function initPlotDragListeners(): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
     if (!activeDrag) return
     const { svg, dir, startX, startY, startLeft, startTop, startWidth, startHeight } = activeDrag
-    const dx = e.clientX - startX
-    const dy = e.clientY - startY
+    const zoom = getCanvasZoom()
+    const dx = (e.clientX - startX) / zoom
+    const dy = (e.clientY - startY) / zoom
     let newLeft = startLeft
     let newTop = startTop
     let newWidth = startWidth
     let newHeight = startHeight
 
-    const GRID_SIZE = 20 // Grid lines every 20px (matching background grid)
-    const SNAP_THRESHOLD = 8 // Magnetic snap threshold
+    const GRID_SIZE = 10 // Minor grid step (10px per minor grid square, 60x60 grid)
+    const SNAP_THRESHOLD = 5 // Magnetic snap threshold
     const margin = PLOT_MARGIN
     const minPlotW = 120
     const minPlotH = 80

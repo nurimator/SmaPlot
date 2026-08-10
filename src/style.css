@@ -311,32 +311,40 @@ body {
 
 .workspace-grid {
   flex: 1;
-  background-color: #fff;
-  background-image:
-    linear-gradient(to right, rgba(203, 213, 225, 0.8) 1.5px, transparent 1.5px),
-    linear-gradient(rgba(203, 213, 225, 0.8) 1.5px, transparent 1.5px),
-    linear-gradient(to right, rgba(226, 232, 240, 0.6) 1px, transparent 1px),
-    linear-gradient(rgba(226, 232, 240, 0.6) 1px, transparent 1px);
-  background-size:
-    200px 200px,
-    200px 200px,
-    20px 20px,
-    20px 20px;
+  background-color: #f8fafc;
   border-radius: 8px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   border: 1px solid var(--slate-200);
   position: relative;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
 }
 
-/* ===== Graph Area ===== */
+.workspace-grid::-webkit-scrollbar,
+.workspace::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Graph Area (6x6 Major Grid Page Canvas) ===== */
 .graph-area {
-  width: 50%;
-  min-width: 500px;
-  height: 100%;
+  width: 601px;
+  height: 601px;
+  min-width: 601px;
+  min-height: 601px;
   position: relative;
-  padding: 24px;
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.75) 1.5px, transparent 1.5px),
+    linear-gradient(rgba(148, 163, 184, 0.75) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(226, 232, 240, 0.65) 1px, transparent 1px),
+    linear-gradient(rgba(226, 232, 240, 0.65) 1px, transparent 1px);
+  background-size:
+    100px 100px,
+    100px 100px,
+    10px 10px,
+    10px 10px;
+  border-right: 1.5px solid rgba(148, 163, 184, 0.75);
+  border-bottom: 1.5px solid rgba(148, 163, 184, 0.75);
 }
 
 /* ===== SVG Plot (no container) ===== */
@@ -383,7 +391,30 @@ body {
   border-left: 1px solid var(--slate-200);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  z-index: 50;
+}
+
+.scrollbar-v-track {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  background-color: #f1f5f9;
+}
+
+.scrollbar-v-thumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 0;
+  height: 40px;
+  min-height: 20px;
+  background-color: #cbd5e1;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.scrollbar-v-thumb:hover, .scrollbar-v-thumb:active {
+  background-color: #94a3b8;
 }
 
 .scrollbar-h {
@@ -395,7 +426,30 @@ body {
   background-color: var(--slate-50);
   border-top: 1px solid var(--slate-200);
   display: flex;
-  justify-content: space-between;
+  z-index: 50;
+}
+
+.scrollbar-h-track {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  background-color: #f1f5f9;
+}
+
+.scrollbar-h-thumb {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  width: 40px;
+  min-width: 20px;
+  background-color: #cbd5e1;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.scrollbar-h-thumb:hover, .scrollbar-h-thumb:active {
+  background-color: #94a3b8;
 }
 
 .scroll-btn {
