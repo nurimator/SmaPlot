@@ -3,6 +3,7 @@ import { initTitlebar } from './components/Titlebar.ts'
 import { initMenubar } from './components/Menubar.ts'
 import { initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
+import { initMarqueeSelection } from './components/MarqueeSelection.ts'
 import {
   addDatasetToPlot,
   clearPlotScale,
@@ -216,6 +217,14 @@ graphAreaEl.addEventListener('dblclick', (e) => {
 
 // Initialize Plot drag & resize listeners
 initPlotDragListeners()
+
+// Initialize Marquee Drag Selection & SVG Clipboard Copy
+const marqueeCtxMenuEl = document.querySelector<HTMLElement>('#marqueeCtxMenu')
+const statusFileTextEl = document.querySelector<HTMLElement>('#statusFileText')
+if (marqueeCtxMenuEl) {
+  initMarqueeSelection(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
+}
+
 
 // Initialize Property, Data Manager & Axis Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)

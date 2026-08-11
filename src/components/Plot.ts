@@ -627,15 +627,44 @@ export function drawPlot(
   // ----------------------------------------------------
   // LEGEND ITEMS & ANNOTATIONS (10000ths Normalized Coordinates)
   // ----------------------------------------------------
+  if (smpDoc && smpDoc.legendItems.length === 0) {
+    const xLbl = smpMeta?.xLabel || smpDoc?.xLabel
+    const yLbl = smpMeta?.yLabel || smpDoc?.yLabel
+    if (xLbl) {
+      smpDoc.legendItems.push({
+        type: 'text',
+        text: xLbl,
+        rawText: xLbl,
+        xNorm: 2400,
+        yNorm: 11400,
+        rotation: 0,
+        fontFamily: 'cambria',
+        fontSize: 12,
+        fontWeight: 400,
+      })
+    }
+    if (yLbl) {
+      smpDoc.legendItems.push({
+        type: 'text',
+        text: yLbl,
+        rawText: yLbl,
+        xNorm: -400,
+        yNorm: 7000,
+        rotation: -90,
+        fontFamily: 'cambria',
+        fontSize: 12,
+        fontWeight: 400,
+      })
+    }
+  }
+
   const legendItems = smpDoc?.legendItems || []
   if (legendItems.length > 0) {
     legendItems.forEach((item, itemIdx) => {
       const isRotated = item.rotation !== 0
       const px = margin.l + (item.xNorm / 10000) * plotW
       const renderPx = px
-      const py = isRotated
-        ? margin.t + plotH / 2
-        : margin.t + (item.yNorm / 10000) * plotH
+      const py = margin.t + (item.yNorm / 10000) * plotH
 
       const isSelected = selectedLegendIndex === itemIdx && svg === getSelectedPlotSvg()
 
@@ -1154,6 +1183,19 @@ export async function createPlot(
     const rect = svg.getBoundingClientRect()
     const parentRect = graphArea.getBoundingClientRect()
 
+    const smpDoc = getPlotSmpDoc(svg)
+    const margin = PLOT_MARGIN
+    const curW = parseFloat(svg.style.width) || rect.width
+    const curH = parseFloat(svg.style.height) || rect.height
+    const startPlotW = Math.max(10, curW - margin.l - margin.r)
+    const startPlotH = Math.max(10, curH - margin.t - margin.b)
+    const initialItemPositions = smpDoc?.legendItems.map((item) => ({
+      xPx: (item.xNorm / 10000) * startPlotW,
+      yPx: (item.yNorm / 10000) * startPlotH,
+      x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
+      y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
+    }))
+
     activeDrag = {
       svg,
       dir,
@@ -1161,8 +1203,9 @@ export async function createPlot(
       startY: e.clientY,
       startLeft: parseFloat(svg.style.left) || rect.left - parentRect.left,
       startTop: parseFloat(svg.style.top) || rect.top - parentRect.top,
-      startWidth: parseFloat(svg.style.width) || rect.width,
-      startHeight: parseFloat(svg.style.height) || rect.height,
+      startWidth: curW,
+      startHeight: curH,
+      initialItemPositions,
     }
     document.body.style.userSelect = 'none'
   })
@@ -1293,6 +1336,27 @@ export function initPlotDragListeners(): void {
     rafId = requestAnimationFrame(() => {
       if (!currentDrag) return
       const ds = svgDataMap.get(currentDrag.svg)
+      const smpDoc = getPlotSmpDoc(currentDrag.svg)
+
+      const newPlotW = Math.max(10, newWidth - margin.l - margin.r)
+      const newPlotH = Math.max(10, newHeight - margin.t - margin.b)
+
+      if (smpDoc && currentDrag.initialItemPositions && smpDoc.legendItems) {
+        smpDoc.legendItems.forEach((item, idx) => {
+          const initPos = currentDrag.initialItemPositions?.[idx]
+          if (initPos) {
+            item.xNorm = Math.round((initPos.xPx / newPlotW) * 10000)
+            item.yNorm = Math.round((initPos.yPx / newPlotH) * 10000)
+            if (item.x2Norm !== undefined && initPos.x2Px !== undefined) {
+              item.x2Norm = Math.round((initPos.x2Px / newPlotW) * 10000)
+            }
+            if (item.y2Norm !== undefined && initPos.y2Px !== undefined) {
+              item.y2Norm = Math.round((initPos.y2Px / newPlotH) * 10000)
+            }
+          }
+        })
+      }
+
       if (ds) drawPlot(currentDrag.svg, ds, newWidth, newHeight)
       rafId = null
     })

@@ -514,6 +514,17 @@ body {
   margin: 4px 0;
 }
 
+/* ===== Marquee Selection Box ===== */
+.marquee-selection-box {
+  position: absolute;
+  border: 1.5px dashed #0284c7;
+  background-color: rgba(56, 189, 248, 0.18);
+  pointer-events: none;
+  z-index: 99;
+  box-sizing: border-box;
+}
+
+
 /* ===== Status Bar ===== */
 .statusbar {
   display: flex;

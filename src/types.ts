@@ -97,5 +97,7 @@ export interface ActiveDrag {
   startTop: number
   startWidth: number
   startHeight: number
+  initialItemPositions?: { xPx: number; yPx: number; x2Px?: number; y2Px?: number }[]
 }
+
 
