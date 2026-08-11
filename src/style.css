@@ -726,7 +726,8 @@ body {
 .property-dialog,
 .data-manager-dialog,
 .axis-dialog,
-.title-dialog {
+.title-dialog,
+.arrow-dialog {
   position: absolute;
   pointer-events: auto;
   background: #ffffff;
@@ -763,6 +764,12 @@ body {
 .title-dialog {
   width: 520px;
   height: 350px;
+  max-height: 90vh;
+}
+
+.arrow-dialog {
+  width: 440px;
+  height: 340px;
   max-height: 90vh;
 }
 

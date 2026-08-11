@@ -48,6 +48,14 @@ export interface SmpLineAnnotation {
   y2Norm: number
   style?: string
   width?: number
+  arrowhead?: number
+  pitch?: number
+  shape?: string
+  spread?: number
+  shut?: number
+  unitX?: 'mm' | 'xa' | 'ua'
+  unitY?: 'mm' | 'ya' | 'ra'
+  color?: string
 }
 
 export interface SmpPlotDoc {
@@ -99,6 +107,7 @@ export interface ActiveDrag {
   startWidth: number
   startHeight: number
   initialItemPositions?: { xPx: number; yPx: number; x2Px?: number; y2Px?: number }[]
+  initialAnnotationPositions?: { x1Px: number; y1Px: number; x2Px: number; y2Px: number }[]
 }
 
 

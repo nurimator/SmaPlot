@@ -723,6 +723,99 @@
         </div>
       </div>
     </div>
+
+    <!-- Arrow / Line Annotation Modal Overlay -->
+    <div class="modal-overlay" id="arrowOverlay" style="display: none;">
+      <div class="dialog-window arrow-dialog" id="arrowDialog" style="width: 440px;">
+        <div class="dialog-header">
+          <div class="dialog-title">Arrow</div>
+          <button class="dialog-close-btn" id="closeArrowDialogBtn">&times;</button>
+        </div>
+        <div class="dialog-body arrow-dialog-body" style="padding: 12px;">
+          <div class="arrow-form-row" style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-field-stacked">
+              <label class="title-field-label">arrowhead</label>
+              <input type="number" id="arrowheadInput" value="0.5" step="0.1" class="form-input-num width-sm" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">width</label>
+              <input type="number" id="arrowWidthInput" value="0.4" step="0.1" class="form-input-num width-sm" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Color</label>
+              <input type="color" id="arrowColorInput" value="#000000" class="color-picker-box" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Line type</label>
+              <select id="arrowLineTypeSelect" class="form-select width-md">
+                <option value="Dashed" selected>Dashed</option>
+                <option value="Solid">Solid</option>
+                <option value="Dotted">Dotted</option>
+              </select>
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Pitch</label>
+              <input type="number" id="arrowPitchInput" value="3" class="form-input-num width-sm" />
+            </div>
+          </div>
+
+          <div class="arrow-xy-grid" style="margin-top: 10px;">
+            <div style="display: flex; gap: 12px; margin-left: 54px; margin-bottom: 2px; font-weight: bold; font-size: 11px;">
+              <span>X</span>
+              <span style="margin-left: 28px;">Y</span>
+            </div>
+            <div class="arrow-xy-row" style="display: flex; align-items: center; gap: 8px;">
+              <span class="form-field-label" style="width: 42px;">Start</span>
+              <input type="number" id="arrowXStartInput" value="18" class="form-input-num width-sm" />
+              <input type="number" id="arrowYStartInput" value="92" class="form-input-num width-sm" />
+            </div>
+            <div class="arrow-xy-row" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+              <span class="form-field-label" style="width: 42px;">End</span>
+              <input type="number" id="arrowXEndInput" value="18" class="form-input-num width-sm" />
+              <input type="number" id="arrowYEndInput" value="20" class="form-input-num width-sm" />
+            </div>
+          </div>
+
+          <div class="arrow-units-row" style="margin-top: 10px; display: flex; gap: 12px;">
+            <fieldset class="axis-fieldset" style="flex: 1; margin: 0; padding: 6px;">
+              <legend style="font-size: 11px;">unit of X position</legend>
+              <label class="radio-label"><input type="radio" name="arrowUnitX" value="mm" checked /> mm</label>
+              <label class="radio-label"><input type="radio" name="arrowUnitX" value="xa" /> X-a:</label>
+              <label class="radio-label"><input type="radio" name="arrowUnitX" value="ua" /> U-a</label>
+            </fieldset>
+
+            <fieldset class="axis-fieldset" style="flex: 1; margin: 0; padding: 6px;">
+              <legend style="font-size: 11px;">unit of Y position</legend>
+              <label class="radio-label"><input type="radio" name="arrowUnitY" value="mm" checked /> mm</label>
+              <label class="radio-label"><input type="radio" name="arrowUnitY" value="ya" /> Y-a:</label>
+              <label class="radio-label"><input type="radio" name="arrowUnitY" value="ra" /> R-a</label>
+            </fieldset>
+          </div>
+
+          <div class="arrow-shape-row" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+            <label class="title-field-label">shape</label>
+            <select id="arrowShapeSelect" class="form-select width-md">
+              <option value="line" selected>— (Line)</option>
+              <option value="arrow_end">&rarr; (Right Arrow)</option>
+              <option value="arrow_start">&larr; (Left Arrow)</option>
+              <option value="arrow_both">&harr; (Double Arrow)</option>
+            </select>
+            <label class="title-field-label">spread</label>
+            <input type="number" id="arrowSpreadInput" value="0.3" step="0.1" class="form-input-num width-sm" />
+            <label class="title-field-label">shut</label>
+            <input type="number" id="arrowShutInput" value="1" class="form-input-num width-sm" />
+          </div>
+
+          <div class="arrow-button-row" style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="btn btn-secondary" id="arrowMouseBtn">Mouse</button>
+            <button class="btn btn-secondary" id="arrowSaveBtn">Save</button>
+            <button class="btn btn-primary" id="arrowOkBtn">OK</button>
+            <button class="btn btn-secondary" id="arrowDeleteBtn">Delete</button>
+            <button class="btn btn-secondary" id="arrowCancelBtn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

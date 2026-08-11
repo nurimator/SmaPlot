@@ -26,6 +26,7 @@ import {
 } from './components/DataManager.ts'
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
+import { initArrowDialog } from './components/ArrowDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { parseSmpContent } from './utils/smpParser.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
@@ -42,6 +43,7 @@ const propOverlayEl = document.querySelector<HTMLElement>('#propertyDialogOverla
 const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
+const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
@@ -52,6 +54,7 @@ if (workspaceEl && graphAreaEl) {
 // Initialize component logic & event listeners
 if (titlebarEl) initTitlebar(titlebarEl)
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
+if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 
 function handleSaveProject(): void {
   const svgs = getAllPlotSvgs(graphAreaEl)

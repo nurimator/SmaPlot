@@ -5,6 +5,7 @@ import { formatTick, niceScale } from '../utils/scale.ts'
 import { globalDataManager } from './DataManager.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 import { showTitleDialog } from './TitleDialog.ts'
+import { showArrowDialog } from './ArrowDialog.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -56,6 +57,21 @@ interface ActiveLegendItemDrag {
 }
 let activeLegendItemDrag: ActiveLegendItemDrag | null = null
 let selectedLegendIndex: number = -1
+
+interface ActiveAnnotationDrag {
+  svg: SVGSVGElement
+  annotationIdx: number
+  targetType: 'start' | 'end' | 'line'
+  startX: number
+  startY: number
+  startX1Norm: number
+  startY1Norm: number
+  startX2Norm: number
+  startY2Norm: number
+}
+let activeAnnotationDrag: ActiveAnnotationDrag | null = null
+let selectedAnnotationIndex: number = -1
+
 const allDatasets: Dataset[] = []
 const activeSvgs: SVGSVGElement[] = []
 
@@ -605,23 +621,102 @@ export function drawPlot(
   // ANNOTATION LINES (Normalized Coordinates)
   // ----------------------------------------------------
   const annotationLines = smpDoc?.annotationLines || []
-  annotationLines.forEach((aLine) => {
+  annotationLines.forEach((aLine, aIdx) => {
     const x1 = margin.l + (aLine.x1Norm / 100) * plotW
     const y1 = margin.t + (aLine.y1Norm / 100) * plotH
     const x2 = margin.l + (aLine.x2Norm / 100) * plotW
     const y2 = margin.t + (aLine.y2Norm / 100) * plotH
+
+    const isSelected = selectedAnnotationIndex === aIdx && svg === getSelectedPlotSvg()
+
+    const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
+      if (e.button !== 0) return
+      e.stopPropagation()
+      setSelectedPlotSvg(svg)
+      selectedAnnotationIndex = aIdx
+      selectedLegendIndex = -1
+      updatePlotVisual(svg)
+
+      activeAnnotationDrag = {
+        svg,
+        annotationIdx: aIdx,
+        targetType,
+        startX: e.clientX,
+        startY: e.clientY,
+        startX1Norm: aLine.x1Norm,
+        startY1Norm: aLine.y1Norm,
+        startX2Norm: aLine.x2Norm,
+        startY2Norm: aLine.y2Norm,
+      }
+    }
 
     const l = createSVGElement('line')
     l.setAttribute('x1', String(x1))
     l.setAttribute('y1', String(y1))
     l.setAttribute('x2', String(x2))
     l.setAttribute('y2', String(y2))
-    l.setAttribute('stroke', '#000000')
+    l.setAttribute('stroke', aLine.color || '#000000')
     l.setAttribute('stroke-width', String(aLine.width || 1))
     if (aLine.style === 'dashed') {
       l.setAttribute('stroke-dasharray', '4 4')
     }
+    l.style.cursor = 'pointer'
+    l.addEventListener('mousedown', handleMouseDown('line'))
+    l.addEventListener('dblclick', (e: MouseEvent) => {
+      e.stopPropagation()
+      setSelectedPlotSvg(svg)
+      selectedAnnotationIndex = aIdx
+      selectedLegendIndex = -1
+      updatePlotVisual(svg)
+      const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+      if (arrowOverlayEl) {
+        showArrowDialog(arrowOverlayEl, aIdx, svg)
+      }
+    })
     seriesGroup.appendChild(l)
+
+    if (isSelected) {
+      const cyanLine = createSVGElement('line')
+      cyanLine.setAttribute('x1', String(x1))
+      cyanLine.setAttribute('y1', String(y1))
+      cyanLine.setAttribute('x2', String(x2))
+      cyanLine.setAttribute('y2', String(y2))
+      cyanLine.setAttribute('stroke', '#00ffff')
+      cyanLine.setAttribute('stroke-width', '1.5')
+      cyanLine.setAttribute('stroke-dasharray', '3 3')
+      cyanLine.style.cursor = 'move'
+      cyanLine.addEventListener('mousedown', handleMouseDown('line'))
+      cyanLine.addEventListener('dblclick', (e: MouseEvent) => {
+        e.stopPropagation()
+        const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+        if (arrowOverlayEl) showArrowDialog(arrowOverlayEl, aIdx, svg)
+      })
+      svg.appendChild(cyanLine)
+
+      const handle1 = createSVGElement('rect')
+      handle1.setAttribute('x', String(x1 - 3))
+      handle1.setAttribute('y', String(y1 - 3))
+      handle1.setAttribute('width', '6')
+      handle1.setAttribute('height', '6')
+      handle1.setAttribute('fill', '#00ffff')
+      handle1.setAttribute('stroke', '#009999')
+      handle1.setAttribute('stroke-width', '0.5')
+      handle1.style.cursor = 'crosshair'
+      handle1.addEventListener('mousedown', handleMouseDown('start'))
+      svg.appendChild(handle1)
+
+      const handle2 = createSVGElement('rect')
+      handle2.setAttribute('x', String(x2 - 3))
+      handle2.setAttribute('y', String(y2 - 3))
+      handle2.setAttribute('width', '6')
+      handle2.setAttribute('height', '6')
+      handle2.setAttribute('fill', '#00ffff')
+      handle2.setAttribute('stroke', '#009999')
+      handle2.setAttribute('stroke-width', '0.5')
+      handle2.style.cursor = 'crosshair'
+      handle2.addEventListener('mousedown', handleMouseDown('end'))
+      svg.appendChild(handle2)
+    }
   })
 
   // ----------------------------------------------------
@@ -1242,6 +1337,12 @@ export async function createPlot(
       x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
       y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
     }))
+    const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => ({
+      x1Px: (aLine.x1Norm / 100) * startPlotW,
+      y1Px: (aLine.y1Norm / 100) * startPlotH,
+      x2Px: (aLine.x2Norm / 100) * startPlotW,
+      y2Px: (aLine.y2Norm / 100) * startPlotH,
+    }))
 
     activeDrag = {
       svg,
@@ -1253,6 +1354,7 @@ export async function createPlot(
       startWidth: curW,
       startHeight: curH,
       initialItemPositions,
+      initialAnnotationPositions,
     }
     document.body.style.userSelect = 'none'
   })
@@ -1304,6 +1406,78 @@ export function initPlotDragListeners(): void {
         const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')
         if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
           showTitleDialog(titleOverlayEl, itemIdx, svg)
+        }
+      }
+      return
+    }
+
+    if (activeAnnotationDrag) {
+      const { svg, annotationIdx, targetType, startX, startY, startX1Norm, startY1Norm, startX2Norm, startY2Norm } = activeAnnotationDrag
+      const smpDoc = getPlotSmpDoc(svg)
+      if (smpDoc && smpDoc.annotationLines && smpDoc.annotationLines[annotationIdx]) {
+        const zoom = getCanvasZoom()
+        const dx = (e.clientX - startX) / zoom
+        const dy = (e.clientY - startY) / zoom
+
+        const widthPx = parseFloat(svg.style.width) || 500
+        const heightPx = parseFloat(svg.style.height) || 350
+        const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+        const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+        const dxNorm = (dx / plotW) * 100
+        const dyNorm = (dy / plotH) * 100
+
+        const aLine = smpDoc.annotationLines[annotationIdx]
+        if (targetType === 'start') {
+          const rawX1 = startX1Norm + dxNorm
+          const rawY1 = startY1Norm + dyNorm
+          if (e.shiftKey) {
+            const dxPx = ((rawX1 - startX2Norm) / 100) * plotW
+            const dyPx = ((rawY1 - startY2Norm) / 100) * plotH
+            const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
+            const snappedAngle = Math.round(angle / 90) * 90
+            if (snappedAngle % 180 === 0) {
+              aLine.y1Norm = startY2Norm
+              aLine.x1Norm = rawX1
+            } else {
+              aLine.x1Norm = startX2Norm
+              aLine.y1Norm = rawY1
+            }
+          } else {
+            aLine.x1Norm = rawX1
+            aLine.y1Norm = rawY1
+          }
+        } else if (targetType === 'end') {
+          const rawX2 = startX2Norm + dxNorm
+          const rawY2 = startY2Norm + dyNorm
+          if (e.shiftKey) {
+            const dxPx = ((rawX2 - startX1Norm) / 100) * plotW
+            const dyPx = ((rawY2 - startY1Norm) / 100) * plotH
+            const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
+            const snappedAngle = Math.round(angle / 90) * 90
+            if (snappedAngle % 180 === 0) {
+              aLine.y2Norm = startY1Norm
+              aLine.x2Norm = rawX2
+            } else {
+              aLine.x2Norm = startX1Norm
+              aLine.y2Norm = rawY2
+            }
+          } else {
+            aLine.x2Norm = rawX2
+            aLine.y2Norm = rawY2
+          }
+        } else {
+          aLine.x1Norm = startX1Norm + dxNorm
+          aLine.y1Norm = startY1Norm + dyNorm
+          aLine.x2Norm = startX2Norm + dxNorm
+          aLine.y2Norm = startY2Norm + dyNorm
+        }
+
+        updatePlotVisual(svg)
+
+        const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+        if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
+          showArrowDialog(arrowOverlayEl, annotationIdx, svg)
         }
       }
       return
@@ -1404,6 +1578,18 @@ export function initPlotDragListeners(): void {
         })
       }
 
+      if (smpDoc && currentDrag.initialAnnotationPositions && smpDoc.annotationLines) {
+        smpDoc.annotationLines.forEach((aLine, idx) => {
+          const initPos = currentDrag.initialAnnotationPositions?.[idx]
+          if (initPos) {
+            aLine.x1Norm = (initPos.x1Px / newPlotW) * 100
+            aLine.y1Norm = (initPos.y1Px / newPlotH) * 100
+            aLine.x2Norm = (initPos.x2Px / newPlotW) * 100
+            aLine.y2Norm = (initPos.y2Px / newPlotH) * 100
+          }
+        })
+      }
+
       if (ds) drawPlot(currentDrag.svg, ds, newWidth, newHeight)
       rafId = null
     })
@@ -1412,6 +1598,10 @@ export function initPlotDragListeners(): void {
   document.addEventListener('mouseup', () => {
     if (activeLegendItemDrag) {
       activeLegendItemDrag = null
+      document.body.style.userSelect = ''
+    }
+    if (activeAnnotationDrag) {
+      activeAnnotationDrag = null
       document.body.style.userSelect = ''
     }
 
