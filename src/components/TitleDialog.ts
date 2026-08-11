@@ -45,6 +45,9 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const fontFamily = fontEl?.value || 'cambria'
     const fontWeight = styleEl?.value?.toLowerCase().includes('bold') ? 700 : 400
 
+    const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"]:checked')
+    const align = (alignRadio?.value as 'left' | 'center' | 'right') || 'left'
+
     if (currentItemIndex >= 0 && currentItemIndex < smpDoc.legendItems.length) {
       smpDoc.legendItems[currentItemIndex] = {
         ...smpDoc.legendItems[currentItemIndex],
@@ -56,6 +59,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
         fontSize,
         fontFamily,
         fontWeight,
+        align,
       }
     } else {
       const newItem: SmpLegendItem = {
@@ -68,6 +72,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
         fontSize,
         fontFamily,
         fontWeight,
+        align,
       }
       smpDoc.legendItems.push(newItem)
       currentItemIndex = smpDoc.legendItems.length - 1
@@ -181,6 +186,27 @@ export function showTitleDialog(
       }
 
       if (styleEl) styleEl.value = item.fontWeight >= 600 ? 'Bold' : 'Regular'
+
+      const alignRadio = overlayEl.querySelector<HTMLInputElement>(`input[name="titleAlign"][value="${item.align || 'left'}"]`)
+      if (alignRadio) alignRadio.checked = true
+    } else {
+      const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
+      const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
+      const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
+      const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
+      const sizeEl = overlayEl.querySelector<HTMLSelectElement>('#titleSize')
+      const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
+      const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
+      const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"][value="left"]')
+
+      if (strEl) strEl.value = ''
+      if (rotEl) rotEl.value = '0'
+      if (posXEl) posXEl.value = '24'
+      if (posYEl) posYEl.value = '-5'
+      if (sizeEl) sizeEl.value = '16'
+      if (fontEl) fontEl.value = 'cambria'
+      if (styleEl) styleEl.value = 'Regular'
+      if (alignRadio) alignRadio.checked = true
     }
   }
 

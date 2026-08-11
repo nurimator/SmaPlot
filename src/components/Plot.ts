@@ -649,7 +649,7 @@ export function drawPlot(
         text: yLbl,
         rawText: yLbl,
         xNorm: -400,
-        yNorm: 7000,
+        yNorm: 3000,
         rotation: -90,
         fontFamily: 'cambria',
         fontSize: 12,
@@ -664,7 +664,10 @@ export function drawPlot(
       const isRotated = item.rotation !== 0
       const px = margin.l + (item.xNorm / 10000) * plotW
       const renderPx = px
-      const py = margin.t + (item.yNorm / 10000) * plotH
+      const isYAxisLabel = isRotated && item.xNorm < 0
+      const py = isYAxisLabel
+        ? margin.t + plotH / 2
+        : margin.t + (item.yNorm / 10000) * plotH
 
       const isSelected = selectedLegendIndex === itemIdx && svg === getSelectedPlotSvg()
 
@@ -756,39 +759,83 @@ export function drawPlot(
         textEl.setAttribute('font-weight', String(item.fontWeight))
         textEl.setAttribute('fill', '#000000')
 
+        const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : (isRotated ? 'middle' : 'start')
+        textEl.setAttribute('text-anchor', anchor)
+
         if (isRotated) {
           textEl.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
-          textEl.setAttribute('text-anchor', 'middle')
-        } else {
-          textEl.setAttribute('text-anchor', renderPx < margin.l + plotW / 2 ? 'start' : 'middle')
         }
         textEl.textContent = item.text
         textEl.style.cursor = 'move'
         textEl.addEventListener('mousedown', handleLegendMouseDown)
         textEl.addEventListener('dblclick', openTitleModal)
         svg.appendChild(textEl)
+
+        if (isSelected) {
+          let boxX = renderPx - 4
+          let boxY = py - 12
+          let boxW = 80
+          let boxH = 20
+
+          try {
+            const bbox = textEl.getBBox()
+            if (bbox.width > 0 && bbox.height > 0) {
+              boxX = bbox.x - 4
+              boxY = bbox.y - 2
+              boxW = bbox.width + 8
+              boxH = bbox.height + 4
+            }
+          } catch {
+            boxW = Math.max(40, item.text.length * 7 + 8)
+            boxH = (item.fontSize || 12) + 6
+            boxY = py - (item.fontSize || 12)
+          }
+
+          const cyanGroup = createSVGElement('g')
+          if (isRotated) {
+            cyanGroup.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
+          }
+
+          const cyanBox = createSVGElement('rect')
+          cyanBox.setAttribute('x', String(boxX))
+          cyanBox.setAttribute('y', String(boxY))
+          cyanBox.setAttribute('width', String(boxW))
+          cyanBox.setAttribute('height', String(boxH))
+          cyanBox.setAttribute('stroke', '#00ffff')
+          cyanBox.setAttribute('stroke-width', '1.5')
+          cyanBox.setAttribute('fill', 'none')
+          cyanBox.setAttribute('stroke-dasharray', '3 3')
+          cyanBox.style.cursor = 'move'
+          cyanBox.addEventListener('mousedown', handleLegendMouseDown)
+          cyanBox.addEventListener('dblclick', openTitleModal)
+          cyanGroup.appendChild(cyanBox)
+
+          const corners = [
+            { x: boxX - 2, y: boxY - 2 },
+            { x: boxX + boxW - 2, y: boxY - 2 },
+            { x: boxX - 2, y: boxY + boxH - 2 },
+            { x: boxX + boxW - 2, y: boxY + boxH - 2 },
+          ]
+          corners.forEach((c) => {
+            const handle = createSVGElement('rect')
+            handle.setAttribute('x', String(c.x))
+            handle.setAttribute('y', String(c.y))
+            handle.setAttribute('width', '4')
+            handle.setAttribute('height', '4')
+            handle.setAttribute('fill', '#00ffff')
+            handle.setAttribute('stroke', '#009999')
+            handle.setAttribute('stroke-width', '0.5')
+            cyanGroup.appendChild(handle)
+          })
+          svg.appendChild(cyanGroup)
+        }
       }
 
-      if (isSelected) {
+      if (isSelected && item.text.startsWith('%01E')) {
         let boxX = renderPx - 4
-        let boxY = py - 12
-        let boxW = 80
-        let boxH = 20
-
-        if (item.text.startsWith('%01E')) {
-          boxW = 60
-          boxH = item.text.split('\n').length * 11 + 6
-          boxY = py - 6
-        } else if (isRotated) {
-          boxX = renderPx - 10
-          boxY = py - 50
-          boxW = 20
-          boxH = 100
-        } else {
-          boxW = Math.max(40, item.text.length * 7 + 8)
-          boxH = (item.fontSize || 12) + 6
-          boxY = py - (item.fontSize || 12)
-        }
+        let boxY = py - 6
+        let boxW = 60
+        let boxH = item.text.split('\n').length * 11 + 6
 
         const cyanBox = createSVGElement('rect')
         cyanBox.setAttribute('x', String(boxX))

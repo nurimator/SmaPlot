@@ -12,6 +12,7 @@ interface SmpSeriesSpec {
   name: string
   cleanName: string
   color: string
+  width: number
   xExpr: string
   yExpr: string
   filePath?: string
@@ -112,12 +113,19 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
         if (i < docLines.length) i++ // config 1
         let color = '#3b82f6'
+        let width = 1
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
           if (parts.length >= 2) {
             const colorInt = parseInt(parts[1], 10)
             if (!isNaN(colorInt) && colorInt > 0) {
               color = bgrToHex(colorInt)
+            }
+            if (parts.length >= 3) {
+              const wVal = parseInt(parts[2], 10)
+              if (!isNaN(wVal) && wVal > 0) {
+                width = Math.max(1, Math.round(wVal / 300))
+              }
             }
           }
           i++
@@ -140,6 +148,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           name: specHeader,
           cleanName,
           color,
+          width,
           xExpr,
           yExpr,
           filePath,
@@ -213,8 +222,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++
           if (i < docLines.length) {
             const posParts = docLines[i].trim().split(/\s+/)
-            const xNorm = parseFloat(posParts[0])
-            const yNorm = parseFloat(posParts[1])
+            const rawXNorm = parseFloat(posParts[0])
+            const rawYNorm = parseFloat(posParts[1])
+            const xNorm = rawXNorm
+            let yNorm = rawYNorm
+            if (rawYNorm > 1000 && rawYNorm <= 10000) {
+              yNorm = 10000 - rawYNorm
+            }
             i++
             if (i < docLines.length) {
               const rawTxt = docLines[i].trim()
@@ -393,6 +407,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         options: {
           show: true,
           lineColor: spec.color,
+          width: spec.width || 1,
           lineStyle: 'solid',
           plotType: 'no_dot',
           lineType: 'solid',

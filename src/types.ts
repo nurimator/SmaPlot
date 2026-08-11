@@ -22,6 +22,7 @@ export interface SmpLegendItem {
   fontFamily: string
   fontSize: number
   fontWeight: number
+  align?: 'left' | 'center' | 'right'
   x2Norm?: number
   y2Norm?: number
   rawLine?: string
