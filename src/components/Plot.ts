@@ -693,7 +693,10 @@ export function drawPlot(
         showArrowDialog(arrowOverlayEl, aIdx, svg)
       }
     })
-    seriesGroup.appendChild(l)
+    // Annotations render outside the clipped series group so they are never
+    // cut off by the plot frame, and keep their on-page position when the
+    // frame is resized (same behavior as legend text items).
+    svg.appendChild(l)
 
     if (isSelected) {
       const len = Math.hypot(x2 - x1, y2 - y1) || 1
