@@ -607,9 +607,9 @@ export function drawPlot(
   const annotationLines = smpDoc?.annotationLines || []
   annotationLines.forEach((aLine) => {
     const x1 = margin.l + (aLine.x1Norm / 100) * plotW
-    const y1 = margin.t + (1 - aLine.y1Norm / 100) * plotH
+    const y1 = margin.t + (aLine.y1Norm / 100) * plotH
     const x2 = margin.l + (aLine.x2Norm / 100) * plotW
-    const y2 = margin.t + (1 - aLine.y2Norm / 100) * plotH
+    const y2 = margin.t + (aLine.y2Norm / 100) * plotH
 
     const l = createSVGElement('line')
     l.setAttribute('x1', String(x1))

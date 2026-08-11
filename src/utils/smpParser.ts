@@ -222,13 +222,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++
           if (i < docLines.length) {
             const posParts = docLines[i].trim().split(/\s+/)
-            const rawXNorm = parseFloat(posParts[0])
-            const rawYNorm = parseFloat(posParts[1])
-            const xNorm = rawXNorm
-            let yNorm = rawYNorm
-            if (rawYNorm > 1000 && rawYNorm <= 10000) {
-              yNorm = 10000 - rawYNorm
-            }
+            const xNorm = parseFloat(posParts[0])
+            const yNorm = parseFloat(posParts[1])
             i++
             if (i < docLines.length) {
               const rawTxt = docLines[i].trim()
