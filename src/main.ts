@@ -203,7 +203,7 @@ if (ctxMenuEl) {
 // Click on empty area outside any plot box deselects the current plot
 graphAreaEl.addEventListener('mousedown', (e) => {
   const target = e.target as HTMLElement
-  if (target.closest('.plot-svg')) return
+  if (target.closest('.plot-svg, .plot-overlay')) return
   setSelectedPlotSvg(null)
 })
 
@@ -351,7 +351,7 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
     return
   }
   const target = e.target as HTMLElement
-  const svg = target.closest('.plot-svg') as SVGSVGElement | null
+  const svg = target.closest('.plot-svg, .plot-overlay') as SVGSVGElement | null
   if (!svg) return
   setSelectedPlotSvg(svg)
   e.preventDefault()

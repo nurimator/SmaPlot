@@ -371,6 +371,63 @@ body {
 .plot-svg .handle-bottom-left { cursor: nesw-resize; }
 .plot-svg .handle-bottom-right { cursor: nwse-resize; }
 
+/* ===== Plot Control Overlay (HTML selection/transform aids, not exported) ===== */
+.plot-overlay {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.ov-line {
+  position: absolute;
+  height: 0;
+  border-top: 1.5px dashed #00ffff;
+  pointer-events: auto;
+  cursor: move;
+}
+
+.ov-handle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #00ffff;
+  border: 0.5px solid #009999;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.ov-box {
+  position: absolute;
+  border: 1.5px dashed #00ffff;
+  background: transparent;
+  pointer-events: auto;
+  cursor: move;
+}
+
+.ov-box-corner {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #00ffff;
+  border: 0.5px solid #009999;
+  pointer-events: auto;
+}
+
+.ov-rot-wrap {
+  position: absolute;
+  transform-origin: 0 0;
+}
+
+.ov-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #00ffff;
+  border: 1px solid #ffffff;
+  pointer-events: none;
+}
+
 .workspace-right {
   width: 50%;
   height: 100%;

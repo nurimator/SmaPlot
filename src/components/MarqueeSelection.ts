@@ -40,7 +40,7 @@ export function generateMarqueeSvg(
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
 
-      const handles = clone.querySelectorAll('.handle, [data-dir], rect[fill="#2563eb"]')
+      const handles = clone.querySelectorAll('.handle, [data-dir]')
       handles.forEach((h) => h.remove())
 
       masterSvg.appendChild(clone)

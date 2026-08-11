@@ -42,10 +42,114 @@ const svgBaseScaleMap = new WeakMap<
   SVGSVGElement,
   { xMin: number; xMax: number; yMin: number; yMax: number }
 >()
+const svgOverlayMap = new WeakMap<SVGSVGElement, HTMLDivElement>()
 let activeDrag: ActiveDrag | null = null
 let selectedPlotSvg: SVGSVGElement | null = null
 let rafId: number | null = null
+let legendDragRafId: number | null = null
+let annotationDragRafId: number | null = null
 let boxCount = 0
+
+// Cached overlay elements (populated lazily)
+let _cachedTitleOverlay: HTMLElement | null = null
+let _cachedArrowOverlay: HTMLElement | null = null
+function getCachedTitleOverlay(): HTMLElement | null {
+  if (!_cachedTitleOverlay) _cachedTitleOverlay = document.querySelector<HTMLElement>('#titleOverlay')
+  return _cachedTitleOverlay
+}
+function getCachedArrowOverlay(): HTMLElement | null {
+  if (!_cachedArrowOverlay) _cachedArrowOverlay = document.querySelector<HTMLElement>('#arrowOverlay')
+  return _cachedArrowOverlay
+}
+
+// Cache of the last measured legend text bounding box (relative to its anchor).
+// getBBox() forces a synchronous SVG layout, and the selected legend item is
+// re-measured on every drag frame even though its text metrics never change.
+let legendBoxMeasured: { key: string; dx: number; dy: number; w: number; h: number } | null = null
+
+function getPlotOverlay(svg: SVGSVGElement): HTMLDivElement {
+  let overlay = svgOverlayMap.get(svg)
+  if (!overlay) {
+    overlay = document.createElement('div')
+    overlay.className = 'plot-overlay'
+    overlay.style.left = parseFloat(svg.style.left) ? `${parseFloat(svg.style.left)}px` : '0px'
+    overlay.style.top = parseFloat(svg.style.top) ? `${parseFloat(svg.style.top)}px` : '0px'
+    overlay.style.width = parseFloat(svg.style.width) ? `${parseFloat(svg.style.width)}px` : '400px'
+    overlay.style.height = parseFloat(svg.style.height) ? `${parseFloat(svg.style.height)}px` : '300px'
+    svg.parentElement?.insertBefore(overlay, svg.nextSibling)
+    svgOverlayMap.set(svg, overlay)
+  }
+  return overlay
+}
+
+function syncPlotOverlay(svg: SVGSVGElement): void {
+  const overlay = svgOverlayMap.get(svg)
+  if (!overlay) return
+  overlay.style.left = parseFloat(svg.style.left) ? `${parseFloat(svg.style.left)}px` : '0px'
+  overlay.style.top = parseFloat(svg.style.top) ? `${parseFloat(svg.style.top)}px` : '0px'
+  overlay.style.width = parseFloat(svg.style.width) ? `${parseFloat(svg.style.width)}px` : '400px'
+  overlay.style.height = parseFloat(svg.style.height) ? `${parseFloat(svg.style.height)}px` : '300px'
+}
+
+function createOverlayEl(className: string): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = className
+  return el
+}
+
+// Cache of column-mapped + math-transformed coordinates per dataset.
+// Redraws only recompute when the relevant options change.
+const processedCache = new WeakMap<Dataset, { key: string; x: number[]; y: number[] }>()
+
+function getProcessedDataset(ds: Dataset): Dataset {
+  const opts = ds.options || {}
+  const key = `${opts.xColumn || 1}|${opts.yColumn || 2}|${opts.xTransCheck ? 1 : 0}|${opts.xExpr || ''}|${opts.yTransCheck ? 1 : 0}|${opts.yExpr || ''}`
+  const cached = processedCache.get(ds)
+
+  let sourceX: number[]
+  let sourceY: number[]
+  if (cached && cached.key === key) {
+    sourceX = cached.x
+    sourceY = cached.y
+  } else {
+    sourceX = ds.x
+    sourceY = ds.y
+
+    if (ds.rawLines && ds.rawLines.length > 0) {
+      const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
+      const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
+      const px: number[] = []
+      const py: number[] = []
+      ds.rawLines.forEach((parts) => {
+        if (parts.length > Math.max(xIdx, yIdx)) {
+          const vx = parseFloat(parts[xIdx])
+          const vy = parseFloat(parts[yIdx])
+          if (!isNaN(vx) && !isNaN(vy)) {
+            px.push(vx)
+            py.push(vy)
+          }
+        }
+      })
+      if (px.length > 0 && py.length > 0) {
+        sourceX = px
+        sourceY = py
+      }
+    }
+
+    const newX = opts.xTransCheck && opts.xExpr
+      ? sourceX.map((val) => evaluateMathExpr(opts.xExpr!, val, 'x'))
+      : sourceX
+    const newY = opts.yTransCheck && opts.yExpr
+      ? sourceY.map((val) => evaluateMathExpr(opts.yExpr!, val, 'y'))
+      : sourceY
+
+    processedCache.set(ds, { key, x: newX, y: newY })
+    sourceX = newX
+    sourceY = newY
+  }
+
+  return { ...ds, x: sourceX, y: sourceY, options: opts }
+}
 
 interface ActiveLegendItemDrag {
   svg: SVGSVGElement
@@ -209,44 +313,7 @@ export function recalculateBaseScale(
 ): void {
   const datasets = svgDataMap.get(svg) || []
 
-  const processedDatasets: Dataset[] = datasets.map((ds) => {
-    let sourceX = ds.x
-    let sourceY = ds.y
-    const opts = ds.options || {}
-
-    if (ds.rawLines && ds.rawLines.length > 0) {
-      const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
-      const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
-      const px: number[] = []
-      const py: number[] = []
-      ds.rawLines.forEach((parts) => {
-        if (parts.length > Math.max(xIdx, yIdx)) {
-          const vx = parseFloat(parts[xIdx])
-          const vy = parseFloat(parts[yIdx])
-          if (!isNaN(vx) && !isNaN(vy)) {
-            px.push(vx)
-            py.push(vy)
-          }
-        }
-      })
-      if (px.length > 0 && py.length > 0) {
-        sourceX = px
-        sourceY = py
-      }
-    }
-
-    const newX = sourceX.map((val) =>
-      opts.xTransCheck && opts.xExpr
-        ? evaluateMathExpr(opts.xExpr, val, 'x')
-        : val
-    )
-    const newY = sourceY.map((val) =>
-      opts.yTransCheck && opts.yExpr
-        ? evaluateMathExpr(opts.yExpr, val, 'y')
-        : val
-    )
-    return { ...ds, x: newX, y: newY, options: opts }
-  })
+  const processedDatasets: Dataset[] = datasets.map((ds) => getProcessedDataset(ds))
 
   let xMin = Infinity,
     xMax = -Infinity
@@ -304,44 +371,7 @@ export function drawPlot(
   if (w <= 0 || h <= 0) return
 
   // Apply column mapping and math expression transformations to X and Y coordinates
-  const processedDatasets: Dataset[] = datasets.map((ds) => {
-    let sourceX = ds.x
-    let sourceY = ds.y
-    const opts = ds.options || {}
-
-    if (ds.rawLines && ds.rawLines.length > 0) {
-      const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
-      const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
-      const px: number[] = []
-      const py: number[] = []
-      ds.rawLines.forEach((parts) => {
-        if (parts.length > Math.max(xIdx, yIdx)) {
-          const vx = parseFloat(parts[xIdx])
-          const vy = parseFloat(parts[yIdx])
-          if (!isNaN(vx) && !isNaN(vy)) {
-            px.push(vx)
-            py.push(vy)
-          }
-        }
-      })
-      if (px.length > 0 && py.length > 0) {
-        sourceX = px
-        sourceY = py
-      }
-    }
-
-    const newX = sourceX.map((val) =>
-      opts.xTransCheck && opts.xExpr
-        ? evaluateMathExpr(opts.xExpr, val, 'x')
-        : val
-    )
-    const newY = sourceY.map((val) =>
-      opts.yTransCheck && opts.yExpr
-        ? evaluateMathExpr(opts.yExpr, val, 'y')
-        : val
-    )
-    return { ...ds, x: newX, y: newY, options: opts }
-  })
+  const processedDatasets: Dataset[] = datasets.map((ds) => getProcessedDataset(ds))
 
   // Lock base scale bounds on initial dataset load
   if (!svgBaseScaleMap.has(svg) && datasets.length > 0) {
@@ -377,7 +407,8 @@ export function drawPlot(
   }
 
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-  svg.innerHTML = ''
+  svg.replaceChildren()
+  getPlotOverlay(svg).replaceChildren()
 
   const smpDoc = svgSmpDocMap.get(svg)
   const smpMeta = svgSmpMetaMap.get(svg)
@@ -471,151 +502,135 @@ export function drawPlot(
     }
   }
 
-  // Draw X Major & Minor ticks
+  // Draw X Major & Minor ticks (batched into single path elements)
+  let xTickPathD = ''
+  let xSubTickPathD = ''
+  const xLabelFrag = document.createDocumentFragment()
+  const xFontFamily = smpDoc?.axisX.fontFamily || 'Inter, system-ui, sans-serif'
+  const showXLabels = smpDoc?.axisX.showLabels !== false
+  const bottomY = margin.t + plotH
+  const topY = margin.t
+
   for (let i = 0; i < xMajorTicks.length; i++) {
     const v = xMajorTicks[i]
     const px = sx(v)
 
     if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
-      // Bottom Major Tick (AXIS-0)
-      const bTick = createSVGElement('line')
-      bTick.setAttribute('x1', String(px))
-      bTick.setAttribute('y1', String(margin.t + plotH))
-      bTick.setAttribute('x2', String(px))
-      bTick.setAttribute('y2', String(margin.t + plotH - 6))
-      bTick.setAttribute('stroke', '#000000')
-      bTick.setAttribute('stroke-width', '1')
-      svg.appendChild(bTick)
-
-      // Top Major Tick (AXIS-2)
-      const tTick = createSVGElement('line')
-      tTick.setAttribute('x1', String(px))
-      tTick.setAttribute('y1', String(margin.t))
-      tTick.setAttribute('x2', String(px))
-      tTick.setAttribute('y2', String(margin.t + 6))
-      tTick.setAttribute('stroke', '#000000')
-      tTick.setAttribute('stroke-width', '1')
-      svg.appendChild(tTick)
+      // Bottom + Top Major Ticks
+      xTickPathD += `M${px} ${bottomY}V${bottomY - 6}M${px} ${topY}V${topY + 6}`
 
       // X Label
-      if (smpDoc?.axisX.showLabels !== false) {
+      if (showXLabels) {
         const label = createSVGElement('text')
         label.setAttribute('x', String(px))
-        label.setAttribute('y', String(margin.t + plotH + 18))
+        label.setAttribute('y', String(bottomY + 18))
         label.setAttribute('text-anchor', 'middle')
         label.setAttribute('font-size', '11')
-        label.setAttribute('font-family', smpDoc?.axisX.fontFamily || 'Inter, system-ui, sans-serif')
+        label.setAttribute('font-family', xFontFamily)
         label.setAttribute('fill', '#1e293b')
         label.textContent = formatTick(v)
-        svg.appendChild(label)
+        xLabelFrag.appendChild(label)
       }
     }
 
-    // Minor Sub-ticks between v and next v
+    // Minor Sub-ticks
     if (i < xMajorTicks.length - 1) {
       const vNext = xMajorTicks[i + 1]
       const subStep = (vNext - v) / subDivsX
       for (let s = 1; s < subDivsX; s++) {
-        const subV = v + subStep * s
-        const subPx = sx(subV)
+        const subPx = sx(v + subStep * s)
         if (subPx >= margin.l && subPx <= margin.l + plotW) {
-          const bSub = createSVGElement('line')
-          bSub.setAttribute('x1', String(subPx))
-          bSub.setAttribute('y1', String(margin.t + plotH))
-          bSub.setAttribute('x2', String(subPx))
-          bSub.setAttribute('y2', String(margin.t + plotH - 3))
-          bSub.setAttribute('stroke', '#000000')
-          bSub.setAttribute('stroke-width', '1')
-          svg.appendChild(bSub)
-
-          const tSub = createSVGElement('line')
-          tSub.setAttribute('x1', String(subPx))
-          tSub.setAttribute('y1', String(margin.t))
-          tSub.setAttribute('x2', String(subPx))
-          tSub.setAttribute('y2', String(margin.t + 3))
-          tSub.setAttribute('stroke', '#000000')
-          tSub.setAttribute('stroke-width', '1')
-          svg.appendChild(tSub)
+          xSubTickPathD += `M${subPx} ${bottomY}V${bottomY - 3}M${subPx} ${topY}V${topY + 3}`
         }
       }
     }
   }
 
-  // Y ticks (Left AXIS-1 & Right AXIS-3)
+  if (xTickPathD) {
+    const xTickPath = createSVGElement('path')
+    xTickPath.setAttribute('d', xTickPathD)
+    xTickPath.setAttribute('stroke', '#000000')
+    xTickPath.setAttribute('stroke-width', '1')
+    xTickPath.setAttribute('fill', 'none')
+    svg.appendChild(xTickPath)
+  }
+  if (xSubTickPathD) {
+    const xSubTickPath = createSVGElement('path')
+    xSubTickPath.setAttribute('d', xSubTickPathD)
+    xSubTickPath.setAttribute('stroke', '#000000')
+    xSubTickPath.setAttribute('stroke-width', '1')
+    xSubTickPath.setAttribute('fill', 'none')
+    svg.appendChild(xSubTickPath)
+  }
+  svg.appendChild(xLabelFrag)
+
+  // Y ticks (Left AXIS-1 & Right AXIS-3 — batched into single path elements)
   const yMajorTicks: number[] = []
   const yStep = Math.abs(yScale.step)
   for (let v = yScale.min; v <= yScale.max + yStep * 0.5; v += yStep) {
     yMajorTicks.push(v)
   }
 
+  let yTickPathD = ''
+  let ySubTickPathD = ''
+  const yLabelFrag = document.createDocumentFragment()
+  const yFontFamily = smpDoc?.axisY.fontFamily || 'Inter, system-ui, sans-serif'
+  const showYLabels = smpDoc?.axisY.showLabels !== false
+  const leftX = margin.l
+  const rightX = margin.l + plotW
+
   for (let i = 0; i < yMajorTicks.length; i++) {
     const v = yMajorTicks[i]
     const py = sy(v)
 
     if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
-      // Left Major Tick (AXIS-1)
-      const lTick = createSVGElement('line')
-      lTick.setAttribute('x1', String(margin.l))
-      lTick.setAttribute('y1', String(py))
-      lTick.setAttribute('x2', String(margin.l + 6))
-      lTick.setAttribute('y2', String(py))
-      lTick.setAttribute('stroke', '#000000')
-      lTick.setAttribute('stroke-width', '1')
-      svg.appendChild(lTick)
-
-      // Right Major Tick (AXIS-3)
-      const rTick = createSVGElement('line')
-      rTick.setAttribute('x1', String(margin.l + plotW))
-      rTick.setAttribute('y1', String(py))
-      rTick.setAttribute('x2', String(margin.l + plotW - 6))
-      rTick.setAttribute('y2', String(py))
-      rTick.setAttribute('stroke', '#000000')
-      rTick.setAttribute('stroke-width', '1')
-      svg.appendChild(rTick)
+      // Left + Right Major Ticks
+      yTickPathD += `M${leftX} ${py}H${leftX + 6}M${rightX} ${py}H${rightX - 6}`
 
       // Y Label
-      if (smpDoc?.axisY.showLabels !== false) {
+      if (showYLabels) {
         const label = createSVGElement('text')
-        label.setAttribute('x', String(margin.l - 8))
+        label.setAttribute('x', String(leftX - 8))
         label.setAttribute('y', String(py + 4))
         label.setAttribute('text-anchor', 'end')
         label.setAttribute('font-size', '11')
-        label.setAttribute('font-family', smpDoc?.axisY.fontFamily || 'Inter, system-ui, sans-serif')
+        label.setAttribute('font-family', yFontFamily)
         label.setAttribute('fill', '#1e293b')
         label.textContent = formatTick(v)
-        svg.appendChild(label)
+        yLabelFrag.appendChild(label)
       }
     }
 
-    // Minor Sub-ticks between v and next v
+    // Minor Sub-ticks
     if (i < yMajorTicks.length - 1) {
       const vNext = yMajorTicks[i + 1]
       const subStep = (vNext - v) / subDivsY
       for (let s = 1; s < subDivsY; s++) {
-        const subV = v + subStep * s
-        const subPy = sy(subV)
+        const subPy = sy(v + subStep * s)
         if (subPy >= margin.t && subPy <= margin.t + plotH) {
-          const lSub = createSVGElement('line')
-          lSub.setAttribute('x1', String(margin.l))
-          lSub.setAttribute('y1', String(subPy))
-          lSub.setAttribute('x2', String(margin.l + 3))
-          lSub.setAttribute('y2', String(subPy))
-          lSub.setAttribute('stroke', '#000000')
-          lSub.setAttribute('stroke-width', '1')
-          svg.appendChild(lSub)
-
-          const rSub = createSVGElement('line')
-          rSub.setAttribute('x1', String(margin.l + plotW))
-          rSub.setAttribute('y1', String(subPy))
-          rSub.setAttribute('x2', String(margin.l + plotW - 3))
-          rSub.setAttribute('y2', String(subPy))
-          rSub.setAttribute('stroke', '#000000')
-          rSub.setAttribute('stroke-width', '1')
-          svg.appendChild(rSub)
+          ySubTickPathD += `M${leftX} ${subPy}H${leftX + 3}M${rightX} ${subPy}H${rightX - 3}`
         }
       }
     }
   }
+
+  if (yTickPathD) {
+    const yTickPath = createSVGElement('path')
+    yTickPath.setAttribute('d', yTickPathD)
+    yTickPath.setAttribute('stroke', '#000000')
+    yTickPath.setAttribute('stroke-width', '1')
+    yTickPath.setAttribute('fill', 'none')
+    svg.appendChild(yTickPath)
+  }
+  if (ySubTickPathD) {
+    const ySubTickPath = createSVGElement('path')
+    ySubTickPath.setAttribute('d', ySubTickPathD)
+    ySubTickPath.setAttribute('stroke', '#000000')
+    ySubTickPath.setAttribute('stroke-width', '1')
+    ySubTickPath.setAttribute('fill', 'none')
+    svg.appendChild(ySubTickPath)
+  }
+  svg.appendChild(yLabelFrag)
 
   // ----------------------------------------------------
   // ANNOTATION LINES (Normalized Coordinates)
@@ -633,6 +648,11 @@ export function drawPlot(
       if (e.button !== 0) return
       e.stopPropagation()
       setSelectedPlotSvg(svg)
+      if (selectedAnnotationIndex === aIdx && targetType === 'line') {
+        selectedAnnotationIndex = -1
+        updatePlotVisual(svg)
+        return
+      }
       selectedAnnotationIndex = aIdx
       selectedLegendIndex = -1
       updatePlotVisual(svg)
@@ -676,46 +696,35 @@ export function drawPlot(
     seriesGroup.appendChild(l)
 
     if (isSelected) {
-      const cyanLine = createSVGElement('line')
-      cyanLine.setAttribute('x1', String(x1))
-      cyanLine.setAttribute('y1', String(y1))
-      cyanLine.setAttribute('x2', String(x2))
-      cyanLine.setAttribute('y2', String(y2))
-      cyanLine.setAttribute('stroke', '#00ffff')
-      cyanLine.setAttribute('stroke-width', '1.5')
-      cyanLine.setAttribute('stroke-dasharray', '3 3')
-      cyanLine.style.cursor = 'move'
-      cyanLine.addEventListener('mousedown', handleMouseDown('line'))
-      cyanLine.addEventListener('dblclick', (e: MouseEvent) => {
+      const len = Math.hypot(x2 - x1, y2 - y1) || 1
+      const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
+      const ov = getPlotOverlay(svg)
+
+      const cyanLineEl = createOverlayEl('ov-line')
+      cyanLineEl.style.left = `${x1}px`
+      cyanLineEl.style.top = `${y1}px`
+      cyanLineEl.style.width = `${len}px`
+      cyanLineEl.style.transformOrigin = '0 50%'
+      cyanLineEl.style.transform = `rotate(${angle}deg)`
+      cyanLineEl.addEventListener('mousedown', handleMouseDown('line'))
+      cyanLineEl.addEventListener('dblclick', (e: MouseEvent) => {
         e.stopPropagation()
         const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
         if (arrowOverlayEl) showArrowDialog(arrowOverlayEl, aIdx, svg)
       })
-      svg.appendChild(cyanLine)
+      ov.appendChild(cyanLineEl)
 
-      const handle1 = createSVGElement('rect')
-      handle1.setAttribute('x', String(x1 - 3))
-      handle1.setAttribute('y', String(y1 - 3))
-      handle1.setAttribute('width', '6')
-      handle1.setAttribute('height', '6')
-      handle1.setAttribute('fill', '#00ffff')
-      handle1.setAttribute('stroke', '#009999')
-      handle1.setAttribute('stroke-width', '0.5')
-      handle1.style.cursor = 'crosshair'
+      const handle1 = createOverlayEl('ov-handle')
+      handle1.style.left = `${x1 - 3}px`
+      handle1.style.top = `${y1 - 3}px`
       handle1.addEventListener('mousedown', handleMouseDown('start'))
-      svg.appendChild(handle1)
+      ov.appendChild(handle1)
 
-      const handle2 = createSVGElement('rect')
-      handle2.setAttribute('x', String(x2 - 3))
-      handle2.setAttribute('y', String(y2 - 3))
-      handle2.setAttribute('width', '6')
-      handle2.setAttribute('height', '6')
-      handle2.setAttribute('fill', '#00ffff')
-      handle2.setAttribute('stroke', '#009999')
-      handle2.setAttribute('stroke-width', '0.5')
-      handle2.style.cursor = 'crosshair'
+      const handle2 = createOverlayEl('ov-handle')
+      handle2.style.left = `${x2 - 3}px`
+      handle2.style.top = `${y2 - 3}px`
       handle2.addEventListener('mousedown', handleMouseDown('end'))
-      svg.appendChild(handle2)
+      ov.appendChild(handle2)
     }
   })
 
@@ -783,7 +792,14 @@ export function drawPlot(
         if (e.button !== 0) return
         e.stopPropagation()
         setSelectedPlotSvg(svg)
+        if (selectedLegendIndex === itemIdx) {
+          selectedLegendIndex = -1
+          selectedAnnotationIndex = -1
+          updatePlotVisual(svg)
+          return
+        }
         selectedLegendIndex = itemIdx
+        selectedAnnotationIndex = -1
         updatePlotVisual(svg)
 
         const now = Date.now()
@@ -872,57 +888,71 @@ export function drawPlot(
           let boxW = 80
           let boxH = 20
 
-          try {
-            const bbox = textEl.getBBox()
-            if (bbox.width > 0 && bbox.height > 0) {
-              boxX = bbox.x - 4
-              boxY = bbox.y - 2
-              boxW = bbox.width + 8
-              boxH = bbox.height + 4
+          const metricsKey = `${item.text}|${item.fontSize}|${item.fontFamily}|${item.fontWeight}|${item.rotation}|${anchor}`
+          if (legendBoxMeasured && legendBoxMeasured.key === metricsKey) {
+            boxX = renderPx + legendBoxMeasured.dx
+            boxY = py + legendBoxMeasured.dy
+            boxW = legendBoxMeasured.w
+            boxH = legendBoxMeasured.h
+          } else {
+            try {
+              const bbox = textEl.getBBox()
+              if (bbox.width > 0 && bbox.height > 0) {
+                boxX = bbox.x - 4
+                boxY = bbox.y - 2
+                boxW = bbox.width + 8
+                boxH = bbox.height + 4
+              }
+            } catch {
+              boxW = Math.max(40, item.text.length * 7 + 8)
+              boxH = (item.fontSize || 12) + 6
+              boxY = py - (item.fontSize || 12)
             }
-          } catch {
-            boxW = Math.max(40, item.text.length * 7 + 8)
-            boxH = (item.fontSize || 12) + 6
-            boxY = py - (item.fontSize || 12)
+            legendBoxMeasured = {
+              key: metricsKey,
+              dx: boxX - renderPx,
+              dy: boxY - py,
+              w: boxW,
+              h: boxH,
+            }
           }
 
-          const cyanGroup = createSVGElement('g')
+          const ov = getPlotOverlay(svg)
+          let parentEl: HTMLElement = ov
+
           if (isRotated) {
-            cyanGroup.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
+            const rotWrap = createOverlayEl('ov-rot-wrap')
+            rotWrap.style.left = `${renderPx}px`
+            rotWrap.style.top = `${py}px`
+            rotWrap.style.transform = `rotate(${item.rotation}deg)`
+            ov.appendChild(rotWrap)
+            parentEl = rotWrap
           }
 
-          const cyanBox = createSVGElement('rect')
-          cyanBox.setAttribute('x', String(boxX))
-          cyanBox.setAttribute('y', String(boxY))
-          cyanBox.setAttribute('width', String(boxW))
-          cyanBox.setAttribute('height', String(boxH))
-          cyanBox.setAttribute('stroke', '#00ffff')
-          cyanBox.setAttribute('stroke-width', '1.5')
-          cyanBox.setAttribute('fill', 'none')
-          cyanBox.setAttribute('stroke-dasharray', '3 3')
-          cyanBox.style.cursor = 'move'
+          const offsetX = isRotated ? boxX - renderPx : boxX
+          const offsetY = isRotated ? boxY - py : boxY
+
+          const cyanBox = createOverlayEl('ov-box')
+          cyanBox.style.left = `${offsetX}px`
+          cyanBox.style.top = `${offsetY}px`
+          cyanBox.style.width = `${boxW}px`
+          cyanBox.style.height = `${boxH}px`
           cyanBox.addEventListener('mousedown', handleLegendMouseDown)
           cyanBox.addEventListener('dblclick', openTitleModal)
-          cyanGroup.appendChild(cyanBox)
+          parentEl.appendChild(cyanBox)
 
           const corners = [
-            { x: boxX - 2, y: boxY - 2 },
-            { x: boxX + boxW - 2, y: boxY - 2 },
-            { x: boxX - 2, y: boxY + boxH - 2 },
-            { x: boxX + boxW - 2, y: boxY + boxH - 2 },
+            { x: offsetX - 2, y: offsetY - 2 },
+            { x: offsetX + boxW - 2, y: offsetY - 2 },
+            { x: offsetX - 2, y: offsetY + boxH - 2 },
+            { x: offsetX + boxW - 2, y: offsetY + boxH - 2 },
           ]
           corners.forEach((c) => {
-            const handle = createSVGElement('rect')
-            handle.setAttribute('x', String(c.x))
-            handle.setAttribute('y', String(c.y))
-            handle.setAttribute('width', '4')
-            handle.setAttribute('height', '4')
-            handle.setAttribute('fill', '#00ffff')
-            handle.setAttribute('stroke', '#009999')
-            handle.setAttribute('stroke-width', '0.5')
-            cyanGroup.appendChild(handle)
+            const handle = createOverlayEl('ov-box-corner')
+            handle.style.left = `${c.x}px`
+            handle.style.top = `${c.y}px`
+            parentEl.appendChild(handle)
           })
-          svg.appendChild(cyanGroup)
         }
       }
 
@@ -932,19 +962,16 @@ export function drawPlot(
         let boxW = 60
         let boxH = item.text.split('\n').length * 11 + 6
 
-        const cyanBox = createSVGElement('rect')
-        cyanBox.setAttribute('x', String(boxX))
-        cyanBox.setAttribute('y', String(boxY))
-        cyanBox.setAttribute('width', String(boxW))
-        cyanBox.setAttribute('height', String(boxH))
-        cyanBox.setAttribute('stroke', '#00ffff')
-        cyanBox.setAttribute('stroke-width', '1.5')
-        cyanBox.setAttribute('fill', 'none')
-        cyanBox.setAttribute('stroke-dasharray', '3 3')
-        cyanBox.style.cursor = 'move'
+        const ov = getPlotOverlay(svg)
+
+        const cyanBox = createOverlayEl('ov-box')
+        cyanBox.style.left = `${boxX}px`
+        cyanBox.style.top = `${boxY}px`
+        cyanBox.style.width = `${boxW}px`
+        cyanBox.style.height = `${boxH}px`
         cyanBox.addEventListener('mousedown', handleLegendMouseDown)
         cyanBox.addEventListener('dblclick', openTitleModal)
-        svg.appendChild(cyanBox)
+        ov.appendChild(cyanBox)
 
         const corners = [
           { x: boxX - 2, y: boxY - 2 },
@@ -953,15 +980,10 @@ export function drawPlot(
           { x: boxX + boxW - 2, y: boxY + boxH - 2 },
         ]
         corners.forEach((c) => {
-          const handle = createSVGElement('rect')
-          handle.setAttribute('x', String(c.x))
-          handle.setAttribute('y', String(c.y))
-          handle.setAttribute('width', '4')
-          handle.setAttribute('height', '4')
-          handle.setAttribute('fill', '#00ffff')
-          handle.setAttribute('stroke', '#009999')
-          handle.setAttribute('stroke-width', '0.5')
-          svg.appendChild(handle)
+          const handle = createOverlayEl('ov-box-corner')
+          handle.style.left = `${c.x}px`
+          handle.style.top = `${c.y}px`
+          ov.appendChild(handle)
         })
       }
     })
@@ -1185,17 +1207,12 @@ export function drawPlot(
     addHandle(fx + fw - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-right')
 
     // Visual control dots
+    const ov = getPlotOverlay(svg)
     const addVisualHandle = (cx: number, cy: number) => {
-      const dot = createSVGElement('rect')
-      dot.setAttribute('x', String(cx - 3))
-      dot.setAttribute('y', String(cy - 3))
-      dot.setAttribute('width', '6')
-      dot.setAttribute('height', '6')
-      dot.setAttribute('fill', '#2563eb')
-      dot.setAttribute('stroke', '#ffffff')
-      dot.setAttribute('stroke-width', '1')
-      dot.setAttribute('style', 'pointer-events: none;')
-      svg.appendChild(dot)
+      const dot = createOverlayEl('ov-dot')
+      dot.style.left = `${cx - 3}px`
+      dot.style.top = `${cy - 3}px`
+      ov.appendChild(dot)
     }
 
     // 4 corners of plot frame
@@ -1210,6 +1227,8 @@ export function drawPlot(
     addVisualHandle(fx, fy + fh / 2)
     addVisualHandle(fx + fw, fy + fh / 2)
   }
+
+  syncPlotOverlay(svg)
 }
 
 export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
@@ -1312,7 +1331,16 @@ export async function createPlot(
   setupPlotFileDrop(svg)
   drawPlot(svg, initialDatasets, width, height)
 
-  svg.addEventListener('click', () => setSelectedPlotSvg(svg))
+  svg.addEventListener('click', (e: MouseEvent) => {
+    setSelectedPlotSvg(svg)
+    if (e.target === svg || (e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir')) {
+      if (selectedLegendIndex !== -1 || selectedAnnotationIndex !== -1) {
+        selectedLegendIndex = -1
+        selectedAnnotationIndex = -1
+        updatePlotVisual(svg)
+      }
+    }
+  })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
     setSelectedPlotSvg(svg)
@@ -1382,104 +1410,119 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
 export function initPlotDragListeners(): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
     if (activeLegendItemDrag) {
-      const { svg, itemIdx, startX, startY, startXNorm, startYNorm } = activeLegendItemDrag
-      const smpDoc = getPlotSmpDoc(svg)
-      if (smpDoc && smpDoc.legendItems[itemIdx]) {
-        const zoom = getCanvasZoom()
-        const dx = (e.clientX - startX) / zoom
-        const dy = (e.clientY - startY) / zoom
+      const dragRef = activeLegendItemDrag
+      if (legendDragRafId) cancelAnimationFrame(legendDragRafId)
+      const clientX = e.clientX
+      const clientY = e.clientY
+      legendDragRafId = requestAnimationFrame(() => {
+        legendDragRafId = null
+        const { svg, itemIdx, startX, startY, startXNorm, startYNorm } = dragRef
+        const smpDoc = getPlotSmpDoc(svg)
+        if (smpDoc && smpDoc.legendItems[itemIdx]) {
+          const zoom = getCanvasZoom()
+          const dx = (clientX - startX) / zoom
+          const dy = (clientY - startY) / zoom
 
-        const widthPx = parseFloat(svg.style.width) || 500
-        const heightPx = parseFloat(svg.style.height) || 350
-        const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-        const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const widthPx = parseFloat(svg.style.width) || 500
+          const heightPx = parseFloat(svg.style.height) || 350
+          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
 
-        const dxNorm = Math.round((dx / plotW) * 10000)
-        const dyNorm = Math.round((dy / plotH) * 10000)
+          const dxNorm = Math.round((dx / plotW) * 10000)
+          const dyNorm = Math.round((dy / plotH) * 10000)
 
-        const item = smpDoc.legendItems[itemIdx]
-        item.xNorm = startXNorm + dxNorm
-        item.yNorm = startYNorm + dyNorm
+          const item = smpDoc.legendItems[itemIdx]
+          item.xNorm = startXNorm + dxNorm
+          item.yNorm = startYNorm + dyNorm
 
-        updatePlotVisual(svg)
+          updatePlotVisual(svg)
 
-        const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')
-        if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
-          showTitleDialog(titleOverlayEl, itemIdx, svg)
+          const titleOverlayEl = getCachedTitleOverlay()
+          if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
+            showTitleDialog(titleOverlayEl, itemIdx, svg)
+          }
         }
-      }
+      })
       return
     }
 
     if (activeAnnotationDrag) {
-      const { svg, annotationIdx, targetType, startX, startY, startX1Norm, startY1Norm, startX2Norm, startY2Norm } = activeAnnotationDrag
-      const smpDoc = getPlotSmpDoc(svg)
-      if (smpDoc && smpDoc.annotationLines && smpDoc.annotationLines[annotationIdx]) {
-        const zoom = getCanvasZoom()
-        const dx = (e.clientX - startX) / zoom
-        const dy = (e.clientY - startY) / zoom
+      const dragRef = activeAnnotationDrag
+      if (annotationDragRafId) cancelAnimationFrame(annotationDragRafId)
+      const clientX = e.clientX
+      const clientY = e.clientY
+      const shiftKey = e.shiftKey
+      annotationDragRafId = requestAnimationFrame(() => {
+        annotationDragRafId = null
+        const { svg, annotationIdx, targetType, startX, startY, startX1Norm, startY1Norm, startX2Norm, startY2Norm } = dragRef
+        const smpDoc = getPlotSmpDoc(svg)
+        if (smpDoc && smpDoc.annotationLines && smpDoc.annotationLines[annotationIdx]) {
+          const zoom = getCanvasZoom()
+          const dx = (clientX - startX) / zoom
+          const dy = (clientY - startY) / zoom
 
-        const widthPx = parseFloat(svg.style.width) || 500
-        const heightPx = parseFloat(svg.style.height) || 350
-        const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-        const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const widthPx = parseFloat(svg.style.width) || 500
+          const heightPx = parseFloat(svg.style.height) || 350
+          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
 
-        const dxNorm = (dx / plotW) * 100
-        const dyNorm = (dy / plotH) * 100
+          const dxNorm = (dx / plotW) * 100
+          const dyNorm = (dy / plotH) * 100
 
-        const aLine = smpDoc.annotationLines[annotationIdx]
-        if (targetType === 'start') {
-          const rawX1 = startX1Norm + dxNorm
-          const rawY1 = startY1Norm + dyNorm
-          if (e.shiftKey) {
-            const dxPx = ((rawX1 - startX2Norm) / 100) * plotW
-            const dyPx = ((rawY1 - startY2Norm) / 100) * plotH
-            const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
-            const snappedAngle = Math.round(angle / 90) * 90
-            if (snappedAngle % 180 === 0) {
-              aLine.y1Norm = startY2Norm
-              aLine.x1Norm = rawX1
+          const aLine = smpDoc.annotationLines[annotationIdx]
+          if (targetType === 'start') {
+            const rawX1 = startX1Norm + dxNorm
+            const rawY1 = startY1Norm + dyNorm
+            if (shiftKey) {
+              const dxPx = ((rawX1 - startX2Norm) / 100) * plotW
+              const dyPx = ((rawY1 - startY2Norm) / 100) * plotH
+              const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
+              const snappedAngle = Math.round(angle / 90) * 90
+              if (snappedAngle % 180 === 0) {
+                aLine.y1Norm = startY2Norm
+                aLine.x1Norm = rawX1
+              } else {
+                aLine.x1Norm = startX2Norm
+                aLine.y1Norm = rawY1
+              }
             } else {
-              aLine.x1Norm = startX2Norm
+              aLine.x1Norm = rawX1
               aLine.y1Norm = rawY1
             }
-          } else {
-            aLine.x1Norm = rawX1
-            aLine.y1Norm = rawY1
-          }
-        } else if (targetType === 'end') {
-          const rawX2 = startX2Norm + dxNorm
-          const rawY2 = startY2Norm + dyNorm
-          if (e.shiftKey) {
-            const dxPx = ((rawX2 - startX1Norm) / 100) * plotW
-            const dyPx = ((rawY2 - startY1Norm) / 100) * plotH
-            const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
-            const snappedAngle = Math.round(angle / 90) * 90
-            if (snappedAngle % 180 === 0) {
-              aLine.y2Norm = startY1Norm
-              aLine.x2Norm = rawX2
+          } else if (targetType === 'end') {
+            const rawX2 = startX2Norm + dxNorm
+            const rawY2 = startY2Norm + dyNorm
+            if (shiftKey) {
+              const dxPx = ((rawX2 - startX1Norm) / 100) * plotW
+              const dyPx = ((rawY2 - startY1Norm) / 100) * plotH
+              const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
+              const snappedAngle = Math.round(angle / 90) * 90
+              if (snappedAngle % 180 === 0) {
+                aLine.y2Norm = startY1Norm
+                aLine.x2Norm = rawX2
+              } else {
+                aLine.x2Norm = startX1Norm
+                aLine.y2Norm = rawY2
+              }
             } else {
-              aLine.x2Norm = startX1Norm
+              aLine.x2Norm = rawX2
               aLine.y2Norm = rawY2
             }
           } else {
-            aLine.x2Norm = rawX2
-            aLine.y2Norm = rawY2
+            aLine.x1Norm = startX1Norm + dxNorm
+            aLine.y1Norm = startY1Norm + dyNorm
+            aLine.x2Norm = startX2Norm + dxNorm
+            aLine.y2Norm = startY2Norm + dyNorm
           }
-        } else {
-          aLine.x1Norm = startX1Norm + dxNorm
-          aLine.y1Norm = startY1Norm + dyNorm
-          aLine.x2Norm = startX2Norm + dxNorm
-          aLine.y2Norm = startY2Norm + dyNorm
-        }
 
-        updatePlotVisual(svg)
+          updatePlotVisual(svg)
 
-        const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
-        if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
-          showArrowDialog(arrowOverlayEl, annotationIdx, svg)
+          const arrowOverlayEl = getCachedArrowOverlay()
+          if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
+            showArrowDialog(arrowOverlayEl, annotationIdx, svg)
+          }
         }
-      }
+      })
       return
     }
 
@@ -1551,6 +1594,7 @@ export function initPlotDragListeners(): void {
     svg.style.top = `${newTop}px`
     svg.style.width = `${newWidth}px`
     svg.style.height = `${newHeight}px`
+    syncPlotOverlay(svg)
 
     if (rafId) cancelAnimationFrame(rafId)
     const currentDrag = activeDrag
@@ -1599,10 +1643,12 @@ export function initPlotDragListeners(): void {
     if (activeLegendItemDrag) {
       activeLegendItemDrag = null
       document.body.style.userSelect = ''
+      if (legendDragRafId) { cancelAnimationFrame(legendDragRafId); legendDragRafId = null }
     }
     if (activeAnnotationDrag) {
       activeAnnotationDrag = null
       document.body.style.userSelect = ''
+      if (annotationDragRafId) { cancelAnimationFrame(annotationDragRafId); annotationDragRafId = null }
     }
 
     if (!activeDrag) return
