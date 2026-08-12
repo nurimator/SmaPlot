@@ -322,12 +322,14 @@ export function getSelectedPlotSvg(): SVGSVGElement | null {
 
 export function getMultiSelectedSvgs(): SVGSVGElement[] {
   const seen = new Set<SVGSVGElement>()
-  selectedObjects.forEach((o) => seen.add(o.svg))
+  selectedObjects.forEach((o) => {
+    if (o.kind === 'plot') seen.add(o.svg)
+  })
   return [...seen]
 }
 
 export function isMultiSelected(svg: SVGSVGElement): boolean {
-  return selectedObjects.some((o) => o.svg === svg)
+  return selectedObjects.some((o) => o.kind === 'plot' && o.svg === svg)
 }
 
 export function getSelectedObjects(): SelectableObject[] {
@@ -354,7 +356,7 @@ function updateSelectionBorder(svg: SVGSVGElement): void {
     const h = parseFloat(svg.style.height) || 300
     border.style.width = `${Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r)}px`
     border.style.height = `${Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b)}px`
-    border.style.border = '1.5px dashed #0284c7'
+    border.style.border = '1px solid #00ffff'
     border.style.boxSizing = 'border-box'
     border.style.pointerEvents = 'none'
     ov.appendChild(border)
@@ -381,11 +383,13 @@ export function setObjectSelection(objs: SelectableObject[]): void {
     if (a.size !== b.size || [...a].some((k) => !b.has(k))) changed.add(s)
   })
 
-  selectedObjects.forEach((o) => updateSelectionBorder(o.svg))
+  const affectedBorderSvgs = new Set<SVGSVGElement>()
+  selectedObjects.forEach((o) => affectedBorderSvgs.add(o.svg))
+
   selectedObjects.length = 0
   objs.forEach((o) => {
     selectedObjects.push(o)
-    updateSelectionBorder(o.svg)
+    affectedBorderSvgs.add(o.svg)
   })
 
   const last = objs[objs.length - 1]
@@ -395,6 +399,7 @@ export function setObjectSelection(objs: SelectableObject[]): void {
     setSelectedPlotSvg(null)
   }
 
+  affectedBorderSvgs.forEach((svg) => updateSelectionBorder(svg))
   changed.forEach((s) => updatePlotVisual(s))
 }
 
@@ -898,8 +903,7 @@ export function drawPlot(
     const x2 = margin.l + (aLine.x2Norm / 100) * plotW
     const y2 = margin.t + (aLine.y2Norm / 100) * plotH
 
-    const isSelected = selectedAnnotationIndex === aIdx && svg === getSelectedPlotSvg()
-    const isMarqueeSel = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
+    const isSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
     const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
       if (e.button !== 0) return
@@ -998,27 +1002,16 @@ export function drawPlot(
       ov.appendChild(cyanLineEl)
 
       const handle1 = createOverlayEl('ov-handle')
-      handle1.style.left = `${x1 - 3}px`
-      handle1.style.top = `${y1 - 3}px`
+      handle1.style.left = `${x1 - 2}px`
+      handle1.style.top = `${y1 - 2}px`
       handle1.addEventListener('mousedown', handleMouseDown('start'))
       ov.appendChild(handle1)
 
       const handle2 = createOverlayEl('ov-handle')
-      handle2.style.left = `${x2 - 3}px`
-      handle2.style.top = `${y2 - 3}px`
+      handle2.style.left = `${x2 - 2}px`
+      handle2.style.top = `${y2 - 2}px`
       handle2.addEventListener('mousedown', handleMouseDown('end'))
       ov.appendChild(handle2)
-    }
-
-    if (isMarqueeSel && !isSelected) {
-      const ov = getPlotOverlay(svg)
-      const selBox = createOverlayEl('ov-box-multi')
-      selBox.style.left = `${Math.min(x1, x2) - 4}px`
-      selBox.style.top = `${Math.min(y1, y2) - 4}px`
-      selBox.style.width = `${Math.abs(x2 - x1) + 8}px`
-      selBox.style.height = `${Math.abs(y2 - y1) + 8}px`
-      selBox.addEventListener('mousedown', handleMouseDown('line'))
-      ov.appendChild(selBox)
     }
   })
 
@@ -1064,8 +1057,7 @@ export function drawPlot(
       const renderPx = px
       const py = margin.t + (item.yNorm / 10000) * plotH
 
-      const isSelected = selectedLegendIndex === itemIdx && svg === getSelectedPlotSvg()
-      const isMarqueeSel = isObjectSelected({ kind: 'legend', svg, itemIdx })
+      const isSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
       let lastClickTime = 0
 
@@ -1230,10 +1222,10 @@ export function drawPlot(
           parentEl.appendChild(cyanBox)
 
           const corners = [
-            { x: offsetX - 2, y: offsetY - 2 },
-            { x: offsetX + boxW - 2, y: offsetY - 2 },
-            { x: offsetX - 2, y: offsetY + boxH - 2 },
-            { x: offsetX + boxW - 2, y: offsetY + boxH - 2 },
+            { x: offsetX - 1.5, y: offsetY - 1.5 },
+            { x: offsetX + boxW - 1.5, y: offsetY - 1.5 },
+            { x: offsetX - 1.5, y: offsetY + boxH - 1.5 },
+            { x: offsetX + boxW - 1.5, y: offsetY + boxH - 1.5 },
           ]
           corners.forEach((c) => {
             const handle = createOverlayEl('ov-box-corner')
@@ -1241,32 +1233,6 @@ export function drawPlot(
             handle.style.top = `${c.y}px`
             parentEl.appendChild(handle)
           })
-        }
-
-        if (isMarqueeSel && !isSelected && !item.text.startsWith('%01E')) {
-          const ov = getPlotOverlay(svg)
-          let parentEl: HTMLElement = ov
-          if (isRotated) {
-            const rotWrap = createOverlayEl('ov-rot-wrap')
-            rotWrap.style.left = `${renderPx}px`
-            rotWrap.style.top = `${py}px`
-            rotWrap.style.transform = `rotate(${item.rotation}deg)`
-            ov.appendChild(rotWrap)
-            parentEl = rotWrap
-          }
-          const boxW = Math.max(40, item.text.length * 7 + 8)
-          const boxH = (item.fontSize || 12) + 6
-          const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
-          const boxX = anchor === 'middle' ? -boxW / 2 : anchor === 'end' ? -boxW : -4
-          const boxY = -(item.fontSize || 12) - 3
-
-          const selBox = createOverlayEl('ov-box-multi')
-          selBox.style.left = isRotated ? `${boxX}px` : `${renderPx + boxX}px`
-          selBox.style.top = isRotated ? `${boxY}px` : `${py + boxY}px`
-          selBox.style.width = `${boxW}px`
-          selBox.style.height = `${boxH}px`
-          selBox.addEventListener('mousedown', handleLegendMouseDown)
-          parentEl.appendChild(selBox)
         }
       }
 
@@ -1288,10 +1254,10 @@ export function drawPlot(
         ov.appendChild(cyanBox)
 
         const corners = [
-          { x: boxX - 2, y: boxY - 2 },
-          { x: boxX + boxW - 2, y: boxY - 2 },
-          { x: boxX - 2, y: boxY + boxH - 2 },
-          { x: boxX + boxW - 2, y: boxY + boxH - 2 },
+          { x: boxX - 1.5, y: boxY - 1.5 },
+          { x: boxX + boxW - 1.5, y: boxY - 1.5 },
+          { x: boxX - 1.5, y: boxY + boxH - 1.5 },
+          { x: boxX + boxW - 1.5, y: boxY + boxH - 1.5 },
         ]
         corners.forEach((c) => {
           const handle = createOverlayEl('ov-box-corner')
@@ -1299,17 +1265,6 @@ export function drawPlot(
           handle.style.top = `${c.y}px`
           ov.appendChild(handle)
         })
-      }
-
-      if (isMarqueeSel && !isSelected && item.text.startsWith('%01E')) {
-        const ov = getPlotOverlay(svg)
-        const selBox = createOverlayEl('ov-box-multi')
-        selBox.style.left = `${renderPx - 4}px`
-        selBox.style.top = `${py - 6}px`
-        selBox.style.width = '60px'
-        selBox.style.height = `${item.text.split('\n').length * 11 + 6}px`
-        selBox.addEventListener('mousedown', handleLegendMouseDown)
-        ov.appendChild(selBox)
       }
     })
   } else {
@@ -1500,7 +1455,7 @@ export function drawPlot(
   }
 
   // Edge and Corner drag handles aligned with plot frame box (selected plots only)
-  if (svg === getSelectedPlotSvg()) {
+  if (isMultiSelected(svg)) {
     const hs = 10
     const addHandle = (x: number, y: number, width: number, height: number, dir: string) => {
       const r = createSVGElement('rect')
