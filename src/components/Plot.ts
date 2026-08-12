@@ -1,7 +1,7 @@
 import type { ActiveDrag, Dataset, SmpAxisSpec, SmpMetadata, SmpPlotDoc } from '../types.ts'
 import { evaluateMathExpr, parseDatasetContent } from '../utils/dataset.ts'
 import { parseSmpContent } from '../utils/smpParser.ts'
-import { formatTick, niceScale } from '../utils/scale.ts'
+import { computeAutoStep, formatTick } from '../utils/scale.ts'
 import { globalDataManager } from './DataManager.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 import { showTitleDialog } from './TitleDialog.ts'
@@ -621,9 +621,10 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
       } else {
         const isRot = item.rotation !== 0
         const textLines = (item.rawText || item.text).split(/\r?\n|\\n/)
-        const maxLineLen = Math.max(...textLines.map((l) => l.length))
-        const textLen = Math.max(40, maxLineLen * 7 + 8)
-        const fontH = (item.fontSize || 12) * textLines.length + 6
+        const maxLineLen = Math.max(...textLines.map((l: string) => l.length))
+        const renderFontSz = Math.max(6, Math.round((item.fontSize || 12) * 0.72))
+        const textLen = Math.max(40, maxLineLen * (renderFontSz * 0.5) + 8)
+        const fontH = renderFontSz * textLines.length + 4
         const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
 
         if (isRot) {
@@ -640,7 +641,7 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
           result.push({
             obj: { kind: 'legend', svg, itemIdx },
             l: leftX - 2,
-            t: py - (item.fontSize || 12) - 2,
+            t: py - renderFontSz - 2,
             w: textLen + 4,
             h: fontH + 4,
           })
@@ -883,12 +884,19 @@ export function drawPlot(
     if (yMin > 0) yMin = 0
   }
 
-  const isReversedX = xMin > xMax
-  const xScale = isReversedX ? { min: xMin, max: xMax, step: smpDoc?.axisX.step || smpMeta?.xStep || -1000 } : niceScale(xMin, xMax, 6)
-  const yScale = niceScale(yMin, yMax, 5)
+  // Determine steps for X and Y axes
+  let xStep = Math.abs(smpDoc?.axisX.step || smpMeta?.xStep || 0)
+  if (smpDoc?.axisX.autoStep || xStep <= 0) {
+    xStep = computeAutoStep(xMin, xMax)
+  }
 
-  const sx = (v: number) => margin.l + ((v - xScale.min) / (xScale.max - xScale.min)) * plotW
-  const sy = (v: number) => margin.t + plotH - ((v - yScale.min) / (yScale.max - yScale.min)) * plotH
+  let yStep = Math.abs(smpDoc?.axisY.step || smpMeta?.yStep || 0)
+  if (smpDoc?.axisY.autoStep || yStep <= 0) {
+    yStep = computeAutoStep(yMin, yMax)
+  }
+
+  const sx = (v: number) => margin.l + ((v - xMin) / (xMax - xMin)) * plotW
+  const sy = (v: number) => margin.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH
 
   // Outer plot frame
   const frame = createSVGElement('rect')
@@ -927,146 +935,248 @@ export function drawPlot(
   const subDivsX = smpDoc?.axisX.subDivs || 5
   const subDivsY = smpDoc?.axisY.subDivs || 5
 
-  // X ticks (Bottom AXIS-0 & Top AXIS-2)
-  const xMajorTicks: number[] = []
-  const xStep = Math.abs(xScale.step)
-  if (isReversedX) {
-    const startTick = Math.floor(xMin / xStep) * xStep
-    const endTick = Math.ceil(xMax / xStep) * xStep
-    for (let v = startTick; v >= endTick; v -= xStep) {
-      xMajorTicks.push(v)
-    }
-  } else {
-    for (let v = xScale.min; v <= xScale.max + xStep * 0.5; v += xStep) {
-      xMajorTicks.push(v)
-    }
-  }
-
-  // Draw X Major & Minor ticks (batched into single path elements)
-  let xTickPathD = ''
-  let xSubTickPathD = ''
-  const xLabelFrag = document.createDocumentFragment()
-  const xFontFamily = smpDoc?.axisX.fontFamily || 'Inter, system-ui, sans-serif'
-  const showXLabels = smpDoc?.axisX.showLabels !== false
-  const bottomY = margin.t + plotH
-  const topY = margin.t
-
-  for (let i = 0; i < xMajorTicks.length; i++) {
-    const v = xMajorTicks[i]
-    const px = sx(v)
-
-    if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
-      // Bottom + Top Major Ticks
-      xTickPathD += `M${px} ${bottomY}V${bottomY - 6}M${px} ${topY}V${topY + 6}`
-
-      // X Label
-      if (showXLabels) {
-        const label = createSVGElement('text')
-        label.setAttribute('x', String(px))
-        label.setAttribute('y', String(bottomY + 18))
-        label.setAttribute('text-anchor', 'middle')
-        label.setAttribute('font-size', '11')
-        label.setAttribute('font-family', xFontFamily)
-        label.setAttribute('fill', '#1e293b')
-        label.textContent = formatTick(v)
-        xLabelFrag.appendChild(label)
+  const getMajorTicks = (minVal: number, maxVal: number, stepVal: number): number[] => {
+    const ticks: number[] = []
+    if (stepVal <= 0) return [minVal, maxVal]
+    const isRev = minVal > maxVal
+    const startB = isRev ? maxVal : minVal
+    const endB = isRev ? minVal : maxVal
+    let startT = Math.ceil(startB / stepVal) * stepVal
+    if (Math.abs(startB) < 1e-9) startT = 0
+    const eps = stepVal * 1e-6
+    for (let v = startT; v <= endB + eps; v += stepVal) {
+      const cleanV = parseFloat(v.toPrecision(12))
+      if (cleanV >= startB - eps && cleanV <= endB + eps) {
+        ticks.push(cleanV)
       }
     }
+    return ticks
+  }
 
-    // Minor Sub-ticks
-    if (i < xMajorTicks.length - 1) {
-      const vNext = xMajorTicks[i + 1]
-      const subStep = (vNext - v) / subDivsX
-      for (let s = 1; s < subDivsX; s++) {
-        const subPx = sx(v + subStep * s)
-        if (subPx >= margin.l && subPx <= margin.l + plotW) {
-          xSubTickPathD += `M${subPx} ${bottomY}V${bottomY - 3}M${subPx} ${topY}V${topY + 3}`
+  const getMinorTicks = (minVal: number, maxVal: number, stepVal: number, divs: number, majors: number[]): number[] => {
+    const minors: number[] = []
+    if (divs <= 1 || stepVal <= 0) return minors
+    const isRev = minVal > maxVal
+    const startB = isRev ? maxVal : minVal
+    const endB = isRev ? minVal : maxVal
+    const subStep = stepVal / divs
+    let startSub = Math.ceil(startB / subStep) * subStep
+    if (Math.abs(startB) < 1e-9) startSub = 0
+    const eps = subStep * 1e-5
+    for (let v = startSub; v <= endB + eps; v += subStep) {
+      const cleanV = parseFloat(v.toPrecision(12))
+      if (cleanV >= startB - eps && cleanV <= endB + eps) {
+        const isMajor = majors.some((m) => Math.abs(m - cleanV) < eps)
+        if (!isMajor) {
+          minors.push(cleanV)
         }
       }
     }
+    return minors
+  }
+
+  const xMajorTicks = getMajorTicks(xMin, xMax, xStep)
+  const xMinorTicks = getMinorTicks(xMin, xMax, xStep, subDivsX, xMajorTicks)
+
+  const yMajorTicks = getMajorTicks(yMin, yMax, yStep)
+  const yMinorTicks = getMinorTicks(yMin, yMax, yStep, subDivsY, yMajorTicks)
+
+  // X ticks (Bottom AXIS-0 & Top AXIS-2)
+  const xFontFamily = smpDoc?.axisX.fontFamily || 'Times New Roman, Inter, sans-serif'
+  const xRenderFontSize = Math.max(7, Math.round((smpDoc?.axisX.fontSize || 24) * 0.72))
+  const xFontWeight = smpDoc?.axisX.fontWeight || 400
+  const xFontStyle = smpDoc?.axisX.fontStyle || 'regular'
+  const xLabelColor = smpDoc?.axisX.labelColor || '#000000'
+  const xShiftRight = smpDoc?.axisX.shiftRight || 0
+  const xShiftDown = smpDoc?.axisX.shiftDown || 0
+
+  const showXLabels = smpDoc?.axisX.showLabels !== false
+  const showXTicks = smpDoc?.axisX.showTicks !== false
+
+  const xMajIn = smpDoc?.axisX.majorIn ?? (smpDoc?.axisX.insideTicks !== false)
+  const xMajOut = smpDoc?.axisX.majorOut ?? false
+  const xMajLen = smpDoc?.axisX.majorLength ?? 6
+  const xMajW = Math.max(1, (smpDoc?.axisX.majorWidth ?? 1) * 1.5)
+  const xMajColor = smpDoc?.axisX.majorColor || '#000000'
+  const xMajStyle = smpDoc?.axisX.majorStyle || 'solid'
+
+  const xMinIn = smpDoc?.axisX.minorIn ?? (smpDoc?.axisX.insideTicks !== false)
+  const xMinOut = smpDoc?.axisX.minorOut ?? false
+  const xMinLen = smpDoc?.axisX.minorLength ?? 3
+  const xMinW = Math.max(1, (smpDoc?.axisX.minorWidth ?? 1) * 1.5)
+  const xMinColor = smpDoc?.axisX.minorColor || '#000000'
+  const xMinStyle = smpDoc?.axisX.minorStyle || 'solid'
+
+  const bottomY = margin.t + plotH
+  const topY = margin.t
+
+  let xTickPathD = ''
+  let xSubTickPathD = ''
+  const xLabelFrag = document.createDocumentFragment()
+
+  if (showXTicks) {
+    xMajorTicks.forEach((v) => {
+      const px = sx(v)
+      if (px >= margin.l - 1 && px <= margin.l + plotW + 1) {
+        const bYStart = xMajOut ? bottomY + xMajLen : bottomY
+        const bYEnd = xMajIn ? bottomY - xMajLen : bottomY
+        const tYStart = xMajOut ? topY - xMajLen : topY
+        const tYEnd = xMajIn ? topY + xMajLen : topY
+        xTickPathD += `M${px} ${bYStart}V${bYEnd}M${px} ${tYStart}V${tYEnd}`
+      }
+    })
+
+    xMinorTicks.forEach((v) => {
+      const px = sx(v)
+      if (px >= margin.l && px <= margin.l + plotW) {
+        const bYStart = xMinOut ? bottomY + xMinLen : bottomY
+        const bYEnd = xMinIn ? bottomY - xMinLen : bottomY
+        const tYStart = xMinOut ? topY - xMinLen : topY
+        const tYEnd = xMinIn ? topY + xMinLen : topY
+        xSubTickPathD += `M${px} ${bYStart}V${bYEnd}M${px} ${tYStart}V${tYEnd}`
+      }
+    })
+  }
+
+  if (showXLabels) {
+    xMajorTicks.forEach((v) => {
+      const px = sx(v)
+      if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
+        const label = createSVGElement('text')
+        label.setAttribute('x', String(px + xShiftRight))
+        label.setAttribute('y', String(bottomY + 1 + xShiftDown))
+        label.setAttribute('text-anchor', 'middle')
+        label.setAttribute('dominant-baseline', 'hanging')
+        label.setAttribute('font-size', String(xRenderFontSize))
+        label.setAttribute('font-family', xFontFamily)
+        if (xFontStyle === 'italic') label.setAttribute('font-style', 'italic')
+        if (xFontStyle === 'bold' || xFontWeight >= 600) label.setAttribute('font-weight', 'bold')
+        label.setAttribute('fill', xLabelColor)
+        label.textContent = formatTick(v)
+        xLabelFrag.appendChild(label)
+      }
+    })
   }
 
   if (xTickPathD) {
     const xTickPath = createSVGElement('path')
     xTickPath.setAttribute('d', xTickPathD)
-    xTickPath.setAttribute('stroke', '#000000')
-    xTickPath.setAttribute('stroke-width', '1')
+    xTickPath.setAttribute('stroke', xMajColor)
+    xTickPath.setAttribute('stroke-width', String(xMajW))
+    xTickPath.setAttribute('stroke-linecap', 'square')
+    if (xMajStyle === 'dashed') xTickPath.setAttribute('stroke-dasharray', '4 4')
+    else if (xMajStyle === 'dotted') xTickPath.setAttribute('stroke-dasharray', '2 2')
     xTickPath.setAttribute('fill', 'none')
     svg.appendChild(xTickPath)
   }
   if (xSubTickPathD) {
     const xSubTickPath = createSVGElement('path')
     xSubTickPath.setAttribute('d', xSubTickPathD)
-    xSubTickPath.setAttribute('stroke', '#000000')
-    xSubTickPath.setAttribute('stroke-width', '1')
+    xSubTickPath.setAttribute('stroke', xMinColor)
+    xSubTickPath.setAttribute('stroke-width', String(xMinW))
+    xSubTickPath.setAttribute('stroke-linecap', 'square')
+    if (xMinStyle === 'dashed') xSubTickPath.setAttribute('stroke-dasharray', '4 4')
+    else if (xMinStyle === 'dotted') xSubTickPath.setAttribute('stroke-dasharray', '2 2')
     xSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(xSubTickPath)
   }
   svg.appendChild(xLabelFrag)
 
-  // Y ticks (Left AXIS-1 & Right AXIS-3 — batched into single path elements)
-  const yMajorTicks: number[] = []
-  const yStep = Math.abs(yScale.step)
-  for (let v = yScale.min; v <= yScale.max + yStep * 0.5; v += yStep) {
-    yMajorTicks.push(v)
-  }
+  // Y ticks (Left AXIS-1 & Right AXIS-3)
+  const yFontFamily = smpDoc?.axisY.fontFamily || 'Times New Roman, Inter, sans-serif'
+  const yRenderFontSize = Math.max(7, Math.round((smpDoc?.axisY.fontSize || 24) * 0.72))
+  const yFontWeight = smpDoc?.axisY.fontWeight || 400
+  const yFontStyle = smpDoc?.axisY.fontStyle || 'regular'
+  const yLabelColor = smpDoc?.axisY.labelColor || '#000000'
+  const yShiftRight = smpDoc?.axisY.shiftRight || 0
+  const yShiftDown = smpDoc?.axisY.shiftDown || 0
+
+  const showYLabels = smpDoc?.axisY.showLabels !== false
+  const showYTicks = smpDoc?.axisY.showTicks !== false
+
+  const yMajIn = smpDoc?.axisY.majorIn ?? (smpDoc?.axisY.insideTicks !== false)
+  const yMajOut = smpDoc?.axisY.majorOut ?? false
+  const yMajLen = smpDoc?.axisY.majorLength ?? 3
+  const yMajW = Math.max(1, (smpDoc?.axisY.majorWidth ?? 1) * 1.5)
+  const yMajColor = smpDoc?.axisY.majorColor || '#000000'
+  const yMajStyle = smpDoc?.axisY.majorStyle || 'solid'
+
+  const yMinIn = smpDoc?.axisY.minorIn ?? (smpDoc?.axisY.insideTicks !== false)
+  const yMinOut = smpDoc?.axisY.minorOut ?? false
+  const yMinLen = smpDoc?.axisY.minorLength ?? 1.5
+  const yMinW = Math.max(1, (smpDoc?.axisY.minorWidth ?? 1) * 1.5)
+  const yMinColor = smpDoc?.axisY.minorColor || '#000000'
+  const yMinStyle = smpDoc?.axisY.minorStyle || 'solid'
+
+  const leftX = margin.l
+  const rightX = margin.l + plotW
 
   let yTickPathD = ''
   let ySubTickPathD = ''
   const yLabelFrag = document.createDocumentFragment()
-  const yFontFamily = smpDoc?.axisY.fontFamily || 'Inter, system-ui, sans-serif'
-  const showYLabels = smpDoc?.axisY.showLabels !== false
-  const leftX = margin.l
-  const rightX = margin.l + plotW
 
-  for (let i = 0; i < yMajorTicks.length; i++) {
-    const v = yMajorTicks[i]
-    const py = sy(v)
+  if (showYTicks) {
+    yMajorTicks.forEach((v) => {
+      const py = sy(v)
+      if (py >= margin.t - 1 && py <= margin.t + plotH + 1) {
+        const lXStart = yMajOut ? leftX - yMajLen : leftX
+        const lXEnd = yMajIn ? leftX + yMajLen : leftX
+        const rXStart = yMajOut ? rightX + yMajLen : rightX
+        const rXEnd = yMajIn ? rightX - yMajLen : rightX
+        yTickPathD += `M${lXStart} ${py}H${lXEnd}M${rXStart} ${py}H${rXEnd}`
+      }
+    })
 
-    if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
-      // Left + Right Major Ticks
-      yTickPathD += `M${leftX} ${py}H${leftX + 6}M${rightX} ${py}H${rightX - 6}`
+    yMinorTicks.forEach((v) => {
+      const py = sy(v)
+      if (py >= margin.t && py <= margin.t + plotH) {
+        const lXStart = yMinOut ? leftX - yMinLen : leftX
+        const lXEnd = yMinIn ? leftX + yMinLen : leftX
+        const rXStart = yMinOut ? rightX + yMinLen : rightX
+        const rXEnd = yMinIn ? rightX - yMinLen : rightX
+        ySubTickPathD += `M${lXStart} ${py}H${lXEnd}M${rXStart} ${py}H${rXEnd}`
+      }
+    })
+  }
 
-      // Y Label
-      if (showYLabels) {
+  if (showYLabels) {
+    yMajorTicks.forEach((v) => {
+      const py = sy(v)
+      if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
-        label.setAttribute('x', String(leftX - 8))
-        label.setAttribute('y', String(py + 4))
+        label.setAttribute('x', String(leftX - 1 + yShiftRight))
+        label.setAttribute('y', String(py + Math.round(yRenderFontSize * 0.35) + yShiftDown))
         label.setAttribute('text-anchor', 'end')
-        label.setAttribute('font-size', '11')
+        label.setAttribute('font-size', String(yRenderFontSize))
         label.setAttribute('font-family', yFontFamily)
-        label.setAttribute('fill', '#1e293b')
+        if (yFontStyle === 'italic') label.setAttribute('font-style', 'italic')
+        if (yFontStyle === 'bold' || yFontWeight >= 600) label.setAttribute('font-weight', 'bold')
+        label.setAttribute('fill', yLabelColor)
         label.textContent = formatTick(v)
         yLabelFrag.appendChild(label)
       }
-    }
-
-    // Minor Sub-ticks
-    if (i < yMajorTicks.length - 1) {
-      const vNext = yMajorTicks[i + 1]
-      const subStep = (vNext - v) / subDivsY
-      for (let s = 1; s < subDivsY; s++) {
-        const subPy = sy(v + subStep * s)
-        if (subPy >= margin.t && subPy <= margin.t + plotH) {
-          ySubTickPathD += `M${leftX} ${subPy}H${leftX + 3}M${rightX} ${subPy}H${rightX - 3}`
-        }
-      }
-    }
+    })
   }
 
   if (yTickPathD) {
     const yTickPath = createSVGElement('path')
     yTickPath.setAttribute('d', yTickPathD)
-    yTickPath.setAttribute('stroke', '#000000')
-    yTickPath.setAttribute('stroke-width', '1')
+    yTickPath.setAttribute('stroke', yMajColor)
+    yTickPath.setAttribute('stroke-width', String(yMajW))
+    yTickPath.setAttribute('stroke-linecap', 'square')
+    if (yMajStyle === 'dashed') yTickPath.setAttribute('stroke-dasharray', '4 4')
+    else if (yMajStyle === 'dotted') yTickPath.setAttribute('stroke-dasharray', '2 2')
     yTickPath.setAttribute('fill', 'none')
     svg.appendChild(yTickPath)
   }
   if (ySubTickPathD) {
     const ySubTickPath = createSVGElement('path')
     ySubTickPath.setAttribute('d', ySubTickPathD)
-    ySubTickPath.setAttribute('stroke', '#000000')
-    ySubTickPath.setAttribute('stroke-width', '1')
+    ySubTickPath.setAttribute('stroke', yMinColor)
+    ySubTickPath.setAttribute('stroke-width', String(yMinW))
+    ySubTickPath.setAttribute('stroke-linecap', 'square')
+    if (yMinStyle === 'dashed') ySubTickPath.setAttribute('stroke-dasharray', '4 4')
+    else if (yMinStyle === 'dotted') ySubTickPath.setAttribute('stroke-dasharray', '2 2')
     ySubTickPath.setAttribute('fill', 'none')
     svg.appendChild(ySubTickPath)
   }
@@ -1326,7 +1436,7 @@ export function drawPlot(
       } else {
         const rawStr = item.rawText || item.text
         const htmlStr = renderSmpTextToHtml(rawStr)
-        const fontSz = item.fontSize || 12
+        const fontSz = Math.max(6, Math.round((item.fontSize || 12) * 0.72))
 
         const fo = createSVGElement('foreignObject')
         fo.setAttribute('x', String(renderPx))
@@ -1362,11 +1472,11 @@ export function drawPlot(
 
         if (isSelected) {
           const measuredW = container.offsetWidth || (rawStr.length * (fontSz * 0.5) + 10)
-          const measuredH = container.offsetHeight || (fontSz + 6)
+          const measuredH = container.offsetHeight || (fontSz + 4)
 
-          let boxW = Math.max(40, measuredW + 8)
-          let boxH = Math.max(20, measuredH + 4)
-          let boxX = renderPx - 4
+          let boxW = Math.max(30, measuredW + 6)
+          let boxH = Math.max(10, measuredH + 2)
+          let boxX = renderPx - 3
           let boxY = py - fontSz - 2
 
           const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'

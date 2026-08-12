@@ -33,12 +33,36 @@ export interface SmpAxisSpec {
   max: number
   step: number
   subDivs: number
+  autoStep?: boolean
   showTicks: boolean
   showSubTicks: boolean
   showLabels: boolean
   insideTicks: boolean
+
+  // Major Tick Options
+  majorIn?: boolean
+  majorOut?: boolean
+  majorLength?: number
+  majorWidth?: number
+  majorColor?: string
+  majorStyle?: string
+
+  // Minor Tick Options
+  minorIn?: boolean
+  minorOut?: boolean
+  minorLength?: number
+  minorWidth?: number
+  minorColor?: string
+  minorStyle?: string
+
+  // Label Options
   fontFamily: string
+  fontSize?: number
   fontWeight: number
+  fontStyle?: string
+  labelColor?: string
+  shiftRight?: number
+  shiftDown?: number
 }
 
 export interface SmpLineAnnotation {

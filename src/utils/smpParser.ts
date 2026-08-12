@@ -30,12 +30,30 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
     max,
     step,
     subDivs: 5,
+    autoStep: false,
     showTicks: true,
     showSubTicks: true,
     showLabels: true,
     insideTicks: true,
-    fontFamily: 'Inter, sans-serif',
+    majorIn: true,
+    majorOut: false,
+    majorLength: 6,
+    majorWidth: 1,
+    majorColor: '#000000',
+    majorStyle: 'solid',
+    minorIn: true,
+    minorOut: false,
+    minorLength: 3,
+    minorWidth: 1,
+    minorColor: '#000000',
+    minorStyle: 'solid',
+    fontFamily: 'Times New Roman, Inter, sans-serif',
+    fontSize: 24,
     fontWeight: 400,
+    fontStyle: 'regular',
+    labelColor: '#000000',
+    shiftRight: 0,
+    shiftDown: 0,
   }
 }
 
@@ -187,10 +205,27 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         i++
         if (i < docLines.length) {
           const parts2 = docLines[i].trim().split(/\s+/)
+          if (parts2.length >= 1) {
+            const divs = parseInt(parts2[0], 10)
+            if (!isNaN(divs) && divs > 0) axisSpec.subDivs = divs
+          }
           if (parts2.length >= 6) {
+            axisSpec.autoStep = parts2[2] === '1'
             axisSpec.showTicks = parts2[3] === '1'
             axisSpec.insideTicks = parts2[4] === '1'
             axisSpec.showLabels = parts2[5] === '1'
+          }
+          if (parts2.length >= 8) {
+            const sr = parseFloat(parts2[6])
+            const sd = parseFloat(parts2[7])
+            if (!isNaN(sr)) axisSpec.shiftRight = Math.round(sr / 100)
+            if (!isNaN(sd)) axisSpec.shiftDown = Math.round(sd / 100)
+          }
+          if (parts2.length >= 10) {
+            const fsVal = parseFloat(parts2[9])
+            if (!isNaN(fsVal) && fsVal > 0) {
+              axisSpec.fontSize = Math.round(fsVal / 50)
+            }
           }
           i++
         }
@@ -198,14 +233,57 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length) {
           const parts3 = docLines[i].trim().split(/\s+/)
           if (parts3.length >= 5) {
+            const sizeVal = Math.abs(parseFloat(parts3[0]))
+            if (!isNaN(sizeVal) && sizeVal > 0) {
+              axisSpec.fontSize = Math.round(sizeVal / 100)
+            }
             const weightNum = parseInt(parts3[4], 10)
-            axisSpec.fontWeight = weightNum >= 600 ? 600 : 400
+            axisSpec.fontWeight = weightNum >= 600 ? 700 : 400
+            if (parts3.length >= 6 && parts3[5] === '1') {
+              axisSpec.fontStyle = 'italic'
+            } else if (weightNum >= 600) {
+              axisSpec.fontStyle = 'bold'
+            } else {
+              axisSpec.fontStyle = 'regular'
+            }
           }
           i++
         }
 
         if (i < docLines.length) {
-          axisSpec.fontFamily = docLines[i].trim() || 'Inter, sans-serif'
+          axisSpec.fontFamily = docLines[i].trim() || 'Times New Roman'
+          i++
+        }
+
+        if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          const parts5 = docLines[i].trim().split(/\s+/)
+          if (parts5.length >= 5) {
+            axisSpec.majorIn = parts5[0] === '1'
+            axisSpec.majorOut = parts5[1] === '1'
+            axisSpec.majorLength = parseFloat(parts5[2]) / 100 || 5
+            axisSpec.majorWidth = parseFloat(parts5[3]) / 100 || 1
+            const cInt = parseInt(parts5[4], 10)
+            if (!isNaN(cInt)) axisSpec.majorColor = bgrToHex(cInt)
+            if (parts5.length >= 7) {
+              axisSpec.majorStyle = parts5[6] === '2' ? 'dashed' : parts5[6] === '3' ? 'dotted' : 'solid'
+            }
+          }
+          i++
+        }
+
+        if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          const parts6 = docLines[i].trim().split(/\s+/)
+          if (parts6.length >= 5) {
+            axisSpec.minorIn = parts6[0] === '1'
+            axisSpec.minorOut = parts6[1] === '1'
+            axisSpec.minorLength = parseFloat(parts6[2]) / 100 || 2
+            axisSpec.minorWidth = parseFloat(parts6[3]) / 100 || 1
+            const cInt = parseInt(parts6[4], 10)
+            if (!isNaN(cInt)) axisSpec.minorColor = bgrToHex(cInt)
+            if (parts6.length >= 7) {
+              axisSpec.minorStyle = parts6[6] === '2' ? 'dashed' : parts6[6] === '3' ? 'dotted' : 'solid'
+            }
+          }
           i++
         }
 
@@ -241,7 +319,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                   const weightNum = parseInt(styleParts[4], 10)
                   if (weightNum >= 600) fontWeight = 600
                   const sizeVal = Math.abs(parseInt(styleParts[0], 10))
-                  if (sizeVal > 0) fontSize = Math.max(10, Math.round(sizeVal / 120))
+                  if (sizeVal > 0) fontSize = Math.max(6, Math.round(sizeVal / 100))
                 }
                 i++
               }

@@ -1,5 +1,6 @@
 import type { SmpAxisSpec } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
+import { computeAutoStep } from '../utils/scale.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
@@ -30,11 +31,29 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
   const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
 
+  // Tick Tab Elements
+  const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
+  const axisMajorOut = overlayEl.querySelector<HTMLInputElement>('#axisMajorOut')
+  const axisMajorColor = overlayEl.querySelector<HTMLInputElement>('#axisMajorColor')
+  const axisMajorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMajorWidth')
+  const axisMajorStyle = overlayEl.querySelector<HTMLSelectElement>('#axisMajorStyle')
+  const axisMajorLength = overlayEl.querySelector<HTMLInputElement>('#axisMajorLength')
+
+  const axisMinorIn = overlayEl.querySelector<HTMLInputElement>('#axisMinorIn')
+  const axisMinorOut = overlayEl.querySelector<HTMLInputElement>('#axisMinorOut')
+  const axisMinorColor = overlayEl.querySelector<HTMLInputElement>('#axisMinorColor')
+  const axisMinorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMinorWidth')
+  const axisMinorStyle = overlayEl.querySelector<HTMLSelectElement>('#axisMinorStyle')
+  const axisMinorLength = overlayEl.querySelector<HTMLInputElement>('#axisMinorLength')
+
   // Label Tab Elements
   const axisDrawLabels = overlayEl.querySelector<HTMLInputElement>('#axisDrawLabels')
   const axisFontFamily = overlayEl.querySelector<HTMLSelectElement>('#axisFontFamily')
   const axisLabelColor = overlayEl.querySelector<HTMLInputElement>('#axisLabelColor')
+  const axisFontStyle = overlayEl.querySelector<HTMLSelectElement>('#axisFontStyle')
   const axisFontSize = overlayEl.querySelector<HTMLInputElement>('#axisFontSize')
+  const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
+  const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
 
   const applyAxisOptions = () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -46,10 +65,44 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
     if (axisFrom && axisFrom.value !== '') targetSpec.min = parseFloat(axisFrom.value)
     if (axisTo && axisTo.value !== '') targetSpec.max = parseFloat(axisTo.value)
-    if (axisIncrement && axisIncrement.value !== '') targetSpec.step = Math.abs(parseFloat(axisIncrement.value))
+
+    if (axisAutoStep) {
+      targetSpec.autoStep = axisAutoStep.checked
+      if (axisIncrement) axisIncrement.disabled = axisAutoStep.checked
+    }
+
+    if (targetSpec.autoStep) {
+      targetSpec.step = computeAutoStep(targetSpec.min, targetSpec.max)
+      if (axisIncrement) axisIncrement.value = String(targetSpec.step)
+    } else if (axisIncrement && axisIncrement.value !== '') {
+      targetSpec.step = Math.abs(parseFloat(axisIncrement.value)) || 1
+    }
+
     if (axisDivision && axisDivision.value !== '') targetSpec.subDivs = parseInt(axisDivision.value, 10) || 5
+
+    // Tick specs
+    if (axisMajorIn) targetSpec.majorIn = axisMajorIn.checked
+    if (axisMajorOut) targetSpec.majorOut = axisMajorOut.checked
+    if (axisMajorColor) targetSpec.majorColor = axisMajorColor.value
+    if (axisMajorWidth && axisMajorWidth.value !== '') targetSpec.majorWidth = parseFloat(axisMajorWidth.value) || 1
+    if (axisMajorStyle) targetSpec.majorStyle = axisMajorStyle.value
+    if (axisMajorLength && axisMajorLength.value !== '') targetSpec.majorLength = parseFloat(axisMajorLength.value) || 5
+
+    if (axisMinorIn) targetSpec.minorIn = axisMinorIn.checked
+    if (axisMinorOut) targetSpec.minorOut = axisMinorOut.checked
+    if (axisMinorColor) targetSpec.minorColor = axisMinorColor.value
+    if (axisMinorWidth && axisMinorWidth.value !== '') targetSpec.minorWidth = parseFloat(axisMinorWidth.value) || 1
+    if (axisMinorStyle) targetSpec.minorStyle = axisMinorStyle.value
+    if (axisMinorLength && axisMinorLength.value !== '') targetSpec.minorLength = parseFloat(axisMinorLength.value) || 2
+
+    // Label specs
     if (axisDrawLabels) targetSpec.showLabels = axisDrawLabels.checked
     if (axisFontFamily) targetSpec.fontFamily = axisFontFamily.value
+    if (axisLabelColor) targetSpec.labelColor = axisLabelColor.value
+    if (axisFontStyle) targetSpec.fontStyle = axisFontStyle.value
+    if (axisFontSize && axisFontSize.value !== '') targetSpec.fontSize = parseInt(axisFontSize.value, 10) || 24
+    if (axisShiftRight && axisShiftRight.value !== '') targetSpec.shiftRight = parseFloat(axisShiftRight.value) || 0
+    if (axisShiftDown && axisShiftDown.value !== '') targetSpec.shiftDown = parseFloat(axisShiftDown.value) || 0
 
     updatePlotVisual(svg)
     pushUndoState()
@@ -68,17 +121,39 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     alert(`${currentAxisTarget.toUpperCase()}-axis dialog properties for Sma4Win replica.`)
   })
 
-  // Real-time update listeners
-  axisDraw?.addEventListener('change', applyAxisOptions)
-  axisAutoStep?.addEventListener('change', applyAxisOptions)
-  axisFrom?.addEventListener('input', applyAxisOptions)
-  axisTo?.addEventListener('input', applyAxisOptions)
-  axisIncrement?.addEventListener('input', applyAxisOptions)
-  axisDivision?.addEventListener('input', applyAxisOptions)
-  axisDrawLabels?.addEventListener('change', applyAxisOptions)
-  axisFontFamily?.addEventListener('change', applyAxisOptions)
-  axisLabelColor?.addEventListener('input', applyAxisOptions)
-  axisFontSize?.addEventListener('input', applyAxisOptions)
+  // Real-time update listeners for all controls
+  const allControls = [
+    axisDraw, axisFrom, axisTo, axisDivision,
+    axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
+    axisMinorIn, axisMinorOut, axisMinorColor, axisMinorWidth, axisMinorStyle, axisMinorLength,
+    axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown
+  ]
+  allControls.forEach(ctrl => {
+    ctrl?.addEventListener('change', applyAxisOptions)
+    ctrl?.addEventListener('input', applyAxisOptions)
+  })
+
+  axisAutoStep?.addEventListener('change', () => {
+    if (axisAutoStep && axisAutoStep.checked) {
+      if (axisFrom && axisTo) {
+        const minVal = parseFloat(axisFrom.value) || 0
+        const maxVal = parseFloat(axisTo.value) || 100
+        const autoSt = computeAutoStep(minVal, maxVal)
+        if (axisIncrement) {
+          axisIncrement.value = String(autoSt)
+          axisIncrement.disabled = true
+        }
+      }
+    } else if (axisIncrement) {
+      axisIncrement.disabled = false
+    }
+    applyAxisOptions()
+  })
+  axisIncrement?.addEventListener('input', () => {
+    if (axisAutoStep) axisAutoStep.checked = false
+    if (axisIncrement) axisIncrement.disabled = false
+    applyAxisOptions()
+  })
 
   // Tab switching
   tabs.forEach((tab) => {
@@ -122,17 +197,62 @@ export function showAxisDialog(
 
       const axisFrom = overlayEl.querySelector<HTMLInputElement>('#axisFrom')
       const axisTo = overlayEl.querySelector<HTMLInputElement>('#axisTo')
+      const axisAutoStep = overlayEl.querySelector<HTMLInputElement>('#axisAutoStep')
       const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
       const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
+
+      const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
+      const axisMajorOut = overlayEl.querySelector<HTMLInputElement>('#axisMajorOut')
+      const axisMajorColor = overlayEl.querySelector<HTMLInputElement>('#axisMajorColor')
+      const axisMajorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMajorWidth')
+      const axisMajorStyle = overlayEl.querySelector<HTMLSelectElement>('#axisMajorStyle')
+      const axisMajorLength = overlayEl.querySelector<HTMLInputElement>('#axisMajorLength')
+
+      const axisMinorIn = overlayEl.querySelector<HTMLInputElement>('#axisMinorIn')
+      const axisMinorOut = overlayEl.querySelector<HTMLInputElement>('#axisMinorOut')
+      const axisMinorColor = overlayEl.querySelector<HTMLInputElement>('#axisMinorColor')
+      const axisMinorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMinorWidth')
+      const axisMinorStyle = overlayEl.querySelector<HTMLSelectElement>('#axisMinorStyle')
+      const axisMinorLength = overlayEl.querySelector<HTMLInputElement>('#axisMinorLength')
+
       const axisDrawLabels = overlayEl.querySelector<HTMLInputElement>('#axisDrawLabels')
       const axisFontFamily = overlayEl.querySelector<HTMLSelectElement>('#axisFontFamily')
+      const axisLabelColor = overlayEl.querySelector<HTMLInputElement>('#axisLabelColor')
+      const axisFontStyle = overlayEl.querySelector<HTMLSelectElement>('#axisFontStyle')
+      const axisFontSize = overlayEl.querySelector<HTMLInputElement>('#axisFontSize')
+      const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
+      const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
 
       if (axisFrom) axisFrom.value = String(spec.min)
       if (axisTo) axisTo.value = String(spec.max)
-      if (axisIncrement) axisIncrement.value = String(Math.abs(spec.step))
+      if (axisAutoStep) axisAutoStep.checked = spec.autoStep ?? false
+      if (axisIncrement) {
+        axisIncrement.value = String(Math.abs(spec.step))
+        axisIncrement.disabled = spec.autoStep ?? false
+      }
       if (axisDivision) axisDivision.value = String(spec.subDivs || 5)
+
+      if (axisMajorIn) axisMajorIn.checked = spec.majorIn ?? (spec.insideTicks !== false)
+      if (axisMajorOut) axisMajorOut.checked = spec.majorOut ?? false
+      if (axisMajorColor) axisMajorColor.value = spec.majorColor || '#000000'
+      if (axisMajorWidth) axisMajorWidth.value = String(spec.majorWidth ?? 1)
+      if (axisMajorStyle) axisMajorStyle.value = spec.majorStyle || 'solid'
+      if (axisMajorLength) axisMajorLength.value = String(spec.majorLength ?? 5)
+
+      if (axisMinorIn) axisMinorIn.checked = spec.minorIn ?? (spec.insideTicks !== false)
+      if (axisMinorOut) axisMinorOut.checked = spec.minorOut ?? false
+      if (axisMinorColor) axisMinorColor.value = spec.minorColor || '#000000'
+      if (axisMinorWidth) axisMinorWidth.value = String(spec.minorWidth ?? 1)
+      if (axisMinorStyle) axisMinorStyle.value = spec.minorStyle || 'solid'
+      if (axisMinorLength) axisMinorLength.value = String(spec.minorLength ?? 2)
+
       if (axisDrawLabels) axisDrawLabels.checked = spec.showLabels !== false
       if (axisFontFamily) axisFontFamily.value = spec.fontFamily || 'Times New Roman'
+      if (axisLabelColor) axisLabelColor.value = spec.labelColor || '#000000'
+      if (axisFontStyle) axisFontStyle.value = spec.fontStyle || (spec.fontWeight >= 600 ? 'bold' : 'regular')
+      if (axisFontSize) axisFontSize.value = String(spec.fontSize || 24)
+      if (axisShiftRight) axisShiftRight.value = String(spec.shiftRight || 0)
+      if (axisShiftDown) axisShiftDown.value = String(spec.shiftDown || 0)
     }
   }
 

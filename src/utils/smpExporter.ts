@@ -79,24 +79,43 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     const showTicks = axis?.showTicks !== false ? 1 : 0
     const insideTicks = axis?.insideTicks !== false ? 1 : 0
     const showLabels = axis?.showLabels !== false ? 1 : 0
+    const shiftR = Math.round((axis?.shiftRight || 0) * 100)
+    const shiftD = Math.round((axis?.shiftDown || 0) * 100)
 
+    const autoSt = axis?.autoStep ? 1 : 0
     if (idx === 0) {
-      lines.push(`2 0 1 ${showTicks} ${insideTicks} ${showLabels} 0 100 0 300 100 0`)
+      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 300 100 0`)
     } else if (idx === 1) {
-      lines.push(`5 0 1 ${showTicks} ${insideTicks} ${showLabels} -100 0 0 1200 100 0`)
+      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 1200 100 0`)
     } else if (idx === 2) {
-      lines.push(`2 0 1 ${showTicks} ${insideTicks} ${showLabels} 0 -100 0 900 100 0`)
+      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 900 100 0`)
     } else {
-      lines.push(`5 0 1 ${showTicks} ${insideTicks} ${showLabels} 100 0 0 0 100 0`)
+      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 0 100 0`)
     }
 
     const weight = (axis?.fontWeight || 400) >= 600 ? 700 : 400
-    const startVal = idx === 0 ? '-2000' : '-2400'
-    const extraVal = (idx === 0 || idx === 1) ? '162 3 2 1 18' : '0 0 0 2 18'
-    lines.push(`${startVal} 0 0 0 ${weight} 0 0 0 ${extraVal}`)
+    const fontSz = Math.round((axis?.fontSize || 12) * 100)
+    const startVal = `-${fontSz}`
+    const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
+    const extraVal = (idx === 0 || idx === 1) ? `162 ${isItalic} 2 1 18` : `0 ${isItalic} 0 2 18`
+    lines.push(`${startVal} 0 0 0 ${weight} ${isItalic} 0 0 ${extraVal}`)
     lines.push(axis?.fontFamily || 'Times New Roman')
-    lines.push('1 0 300 40 0 300 2')
-    lines.push('1 0 150 40 0 300 3')
+
+    const majIn = axis?.majorIn !== false ? 1 : 0
+    const majOut = axis?.majorOut ? 1 : 0
+    const majLen = Math.round((axis?.majorLength ?? 6) * 100)
+    const majWidth = Math.round((axis?.majorWidth ?? 1) * 100)
+    const majColorBgr = hexToBgr(axis?.majorColor || '#000000')
+    const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
+    lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
+
+    const minIn = axis?.minorIn !== false ? 1 : 0
+    const minOut = axis?.minorOut ? 1 : 0
+    const minLen = Math.round((axis?.minorLength ?? 3) * 100)
+    const minWidth = Math.round((axis?.minorWidth ?? 1) * 100)
+    const minColorBgr = hexToBgr(axis?.minorColor || '#000000')
+    const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
+    lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
     lines.push('')
   }
 
@@ -174,11 +193,12 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
       lines.push(unicodeToSmp(item.rawText || item.text).replace(/\n/g, '\\n'))
       const rot = Math.round(item.rotation * 10)
       const weight = item.fontWeight >= 600 ? 700 : 400
-      lines.push(`-1600 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 18`)
+      const szVal = Math.round((item.fontSize || 12) * 100)
+      lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 18`)
       lines.push(item.fontFamily || 'cambria')
-      lines.push(`-1600 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 2`)
+      lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 2`)
       lines.push('Merriweather Light')
-      lines.push(`-1600 0 ${rot} ${-rot} ${weight} 0 0 0 2 3 2 1 18`)
+      lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 2 3 2 1 18`)
       lines.push('Symbol')
       lines.push('')
     }
