@@ -6,6 +6,7 @@ import { globalDataManager } from './DataManager.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 import { showTitleDialog } from './TitleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
+import { showRectangleDialog } from './RectangleDialog.ts'
 import { renderSmpTextToHtml } from '../utils/smpSymbolMapper.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -1243,64 +1244,131 @@ export function drawPlot(
       document.body.style.userSelect = 'none'
     }
 
-    const l = createSVGElement('line')
-    l.setAttribute('x1', String(x1))
-    l.setAttribute('y1', String(y1))
-    l.setAttribute('x2', String(x2))
-    l.setAttribute('y2', String(y2))
-    l.setAttribute('stroke', aLine.color || '#000000')
-    l.setAttribute('stroke-width', String(aLine.width || 1))
-    if (aLine.style === 'dashed') {
-      l.setAttribute('stroke-dasharray', '4 4')
-    }
-    l.style.cursor = 'pointer'
-    l.addEventListener('mousedown', handleMouseDown('line'))
-    l.addEventListener('dblclick', (e: MouseEvent) => {
-      e.stopPropagation()
-      setSelectedPlotSvg(svg)
-      selectedAnnotationIndex = aIdx
-      selectedLegendIndex = -1
-      updatePlotVisual(svg)
-      const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
-      if (arrowOverlayEl) {
-        showArrowDialog(arrowOverlayEl, aIdx, svg)
+    const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect'
+
+    if (isRect) {
+      const rx1 = Math.min(x1, x2)
+      const ry1 = Math.min(y1, y2)
+      const rw = Math.max(1, Math.abs(x2 - x1))
+      const rh = Math.max(1, Math.abs(y2 - y1))
+
+      const rectElem = createSVGElement('rect')
+      rectElem.setAttribute('x', String(rx1))
+      rectElem.setAttribute('y', String(ry1))
+      rectElem.setAttribute('width', String(rw))
+      rectElem.setAttribute('height', String(rh))
+      if (aLine.roundX) rectElem.setAttribute('rx', String(aLine.roundX))
+      if (aLine.roundY) rectElem.setAttribute('ry', String(aLine.roundY))
+      rectElem.setAttribute('fill', aLine.faceColor || 'none')
+      rectElem.setAttribute('stroke', aLine.color || '#000000')
+      rectElem.setAttribute('stroke-width', String(aLine.thickness || aLine.width || 0.4))
+      if (aLine.style === 'dashed') {
+        rectElem.setAttribute('stroke-dasharray', '4 4')
       }
-    })
-    // Annotations render outside the clipped series group so they are never
-    // cut off by the plot frame, and keep their on-page position when the
-    // frame is resized (same behavior as legend text items).
-    svg.appendChild(l)
+      rectElem.style.cursor = 'pointer'
+      rectElem.addEventListener('mousedown', handleMouseDown('line'))
+      rectElem.addEventListener('dblclick', (e: MouseEvent) => {
+        e.stopPropagation()
+        setSelectedPlotSvg(svg)
+        selectedAnnotationIndex = aIdx
+        selectedLegendIndex = -1
+        updatePlotVisual(svg)
+        const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+        if (rectOverlayEl) {
+          showRectangleDialog(rectOverlayEl, aIdx, svg)
+        }
+      })
+      svg.appendChild(rectElem)
+    } else {
+      const l = createSVGElement('line')
+      l.setAttribute('x1', String(x1))
+      l.setAttribute('y1', String(y1))
+      l.setAttribute('x2', String(x2))
+      l.setAttribute('y2', String(y2))
+      l.setAttribute('stroke', aLine.color || '#000000')
+      l.setAttribute('stroke-width', String(aLine.width || 1))
+      if (aLine.style === 'dashed') {
+        l.setAttribute('stroke-dasharray', '4 4')
+      }
+      l.style.cursor = 'pointer'
+      l.addEventListener('mousedown', handleMouseDown('line'))
+      l.addEventListener('dblclick', (e: MouseEvent) => {
+        e.stopPropagation()
+        setSelectedPlotSvg(svg)
+        selectedAnnotationIndex = aIdx
+        selectedLegendIndex = -1
+        updatePlotVisual(svg)
+        const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+        if (arrowOverlayEl) {
+          showArrowDialog(arrowOverlayEl, aIdx, svg)
+        }
+      })
+      svg.appendChild(l)
+    }
 
     if (isSelected) {
-      const len = Math.hypot(x2 - x1, y2 - y1) || 1
-      const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
-      const ov = getPlotOverlay(svg)
+      if (isRect) {
+        const rx1 = Math.min(x1, x2)
+        const ry1 = Math.min(y1, y2)
+        const rw = Math.max(1, Math.abs(x2 - x1))
+        const rh = Math.max(1, Math.abs(y2 - y1))
+        const ov = getPlotOverlay(svg)
 
-      const cyanLineEl = createOverlayEl('ov-line')
-      cyanLineEl.style.left = `${x1}px`
-      cyanLineEl.style.top = `${y1}px`
-      cyanLineEl.style.width = `${len}px`
-      cyanLineEl.style.transformOrigin = '0 50%'
-      cyanLineEl.style.transform = `rotate(${angle}deg)`
-      cyanLineEl.addEventListener('mousedown', handleMouseDown('line'))
-      cyanLineEl.addEventListener('dblclick', (e: MouseEvent) => {
-        e.stopPropagation()
-        const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
-        if (arrowOverlayEl) showArrowDialog(arrowOverlayEl, aIdx, svg)
-      })
-      ov.appendChild(cyanLineEl)
+        const highlightEl = createOverlayEl('ov-box-multi')
+        highlightEl.style.left = `${rx1 - 2}px`
+        highlightEl.style.top = `${ry1 - 2}px`
+        highlightEl.style.width = `${rw + 4}px`
+        highlightEl.style.height = `${rh + 4}px`
+        highlightEl.addEventListener('mousedown', handleMouseDown('line'))
+        highlightEl.addEventListener('dblclick', (e: MouseEvent) => {
+          e.stopPropagation()
+          const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+          if (rectOverlayEl) showRectangleDialog(rectOverlayEl, aIdx, svg)
+        })
+        ov.appendChild(highlightEl)
 
-      const handle1 = createOverlayEl('ov-handle')
-      handle1.style.left = `${x1 - 2}px`
-      handle1.style.top = `${y1 - 2}px`
-      handle1.addEventListener('mousedown', handleMouseDown('start'))
-      ov.appendChild(handle1)
+        const handle1 = createOverlayEl('ov-handle')
+        handle1.style.left = `${rx1 - 2}px`
+        handle1.style.top = `${ry1 - 2}px`
+        handle1.addEventListener('mousedown', handleMouseDown('start'))
+        ov.appendChild(handle1)
 
-      const handle2 = createOverlayEl('ov-handle')
-      handle2.style.left = `${x2 - 2}px`
-      handle2.style.top = `${y2 - 2}px`
-      handle2.addEventListener('mousedown', handleMouseDown('end'))
-      ov.appendChild(handle2)
+        const handle2 = createOverlayEl('ov-handle')
+        handle2.style.left = `${rx1 + rw - 2}px`
+        handle2.style.top = `${ry1 + rh - 2}px`
+        handle2.addEventListener('mousedown', handleMouseDown('end'))
+        ov.appendChild(handle2)
+      } else {
+        const len = Math.hypot(x2 - x1, y2 - y1) || 1
+        const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
+        const ov = getPlotOverlay(svg)
+
+        const cyanLineEl = createOverlayEl('ov-line')
+        cyanLineEl.style.left = `${x1}px`
+        cyanLineEl.style.top = `${y1}px`
+        cyanLineEl.style.width = `${len}px`
+        cyanLineEl.style.transformOrigin = '0 50%'
+        cyanLineEl.style.transform = `rotate(${angle}deg)`
+        cyanLineEl.addEventListener('mousedown', handleMouseDown('line'))
+        cyanLineEl.addEventListener('dblclick', (e: MouseEvent) => {
+          e.stopPropagation()
+          const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+          if (arrowOverlayEl) showArrowDialog(arrowOverlayEl, aIdx, svg)
+        })
+        ov.appendChild(cyanLineEl)
+
+        const handle1 = createOverlayEl('ov-handle')
+        handle1.style.left = `${x1 - 2}px`
+        handle1.style.top = `${y1 - 2}px`
+        handle1.addEventListener('mousedown', handleMouseDown('start'))
+        ov.appendChild(handle1)
+
+        const handle2 = createOverlayEl('ov-handle')
+        handle2.style.left = `${x2 - 2}px`
+        handle2.style.top = `${y2 - 2}px`
+        handle2.addEventListener('mousedown', handleMouseDown('end'))
+        ov.appendChild(handle2)
+      }
     }
   })
 

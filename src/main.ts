@@ -28,7 +28,8 @@ import {
 } from './components/DataManager.ts'
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
-import { initArrowDialog } from './components/ArrowDialog.ts'
+import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
+import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
@@ -45,6 +46,7 @@ const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
+const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
@@ -56,6 +58,7 @@ if (workspaceEl && graphAreaEl) {
 if (titlebarEl) initTitlebar(titlebarEl)
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
+if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 
 function handleSaveProject(): void {
   const svgs = getAllPlotSvgs(graphAreaEl)
@@ -126,6 +129,10 @@ if (toolbarEl) {
       handleSaveProject()
     } else if (action === 'text' || title === 'Text') {
       showTitleDialog(titleOverlayEl)
+    } else if (action === 'rectangle' || title === 'Rectangle') {
+      showRectangleDialog(rectOverlayEl)
+    } else if (action === 'arrow' || title === 'Arrow') {
+      showArrowDialog(arrowOverlayEl)
     } else if (action === 'chart' || title === 'Chart') {
       showPropertyDialog(propOverlayEl)
     }
@@ -188,7 +195,13 @@ if (ctxMenuEl) {
       showAxisDialog(axisOverlayEl, 'u')
     } else if (actionKey === 'raxis') {
       showAxisDialog(axisOverlayEl, 'r')
-    } else if (['frame', 'string', 'arrow', 'rectangle'].includes(actionKey)) {
+    } else if (actionKey === 'string') {
+      showTitleDialog(titleOverlayEl)
+    } else if (actionKey === 'arrow') {
+      showArrowDialog(arrowOverlayEl)
+    } else if (actionKey === 'rectangle') {
+      showRectangleDialog(rectOverlayEl)
+    } else if (actionKey === 'frame') {
       showPropertyDialog(propOverlayEl)
     }
   })
@@ -224,7 +237,6 @@ const statusFileTextEl = document.querySelector<HTMLElement>('#statusFileText')
 if (marqueeCtxMenuEl) {
   initMarqueeExport(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
 }
-
 
 // Initialize Property, Data Manager & Axis Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
@@ -279,7 +291,6 @@ async function initApp() {
 }
 
 initApp()
-
 
 // Global Window & Workspace Drag-and-Drop Handler for .SMP, .SMA, and .TXT files
 window.addEventListener('dragover', (e) => e.preventDefault())

@@ -822,6 +822,63 @@
         </div>
       </div>
     </div>
+    <!-- Rectangle / Box Annotation Modal Overlay -->
+    <div class="modal-overlay" id="rectangleOverlay" style="display: none;">
+      <div class="dialog-window rectangle-dialog" id="rectangleDialog" style="width: 440px;">
+        <div class="dialog-header">
+          <div class="dialog-title">Rectangle</div>
+          <button class="dialog-close-btn" id="closeRectangleDialogBtn" title="Close">&times;</button>
+        </div>
+        <div class="dialog-body rectangle-dialog-body" style="padding: 12px;">
+          <div class="rectangle-form-row" style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-field-stacked">
+              <label class="title-field-label">Fill</label>
+              <input type="color" id="rectFaceColor" value="#ffffff" class="color-picker-box" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Line color</label>
+              <input type="color" id="rectColor" value="#000000" class="color-picker-box" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Thickness</label>
+              <input type="number" id="rectThickness" value="0.4" step="0.1" class="form-input-num width-sm" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Width</label>
+              <input type="number" id="rectWidth" value="0.4" step="0.1" class="form-input-num width-sm" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Line type</label>
+              <select id="rectStyleSelect" class="form-select width-md">
+                <option value="Solid">Solid</option>
+                <option value="Dashed">Dashed</option>
+                <option value="Dotted">Dotted</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rectangle-radius-row" style="margin-top: 10px; display: flex; gap: 12px; align-items: flex-end;">
+            <div class="form-field-stacked">
+              <label class="title-field-label">Round X</label>
+              <input type="number" id="rectRoundX" value="0" step="0.5" class="form-input-num width-sm" />
+            </div>
+            <div class="form-field-stacked">
+              <label class="title-field-label">Round Y</label>
+              <input type="number" id="rectRoundY" value="0" step="0.5" class="form-input-num width-sm" />
+            </div>
+          </div>
+
+          <div class="rectangle-button-row" style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="btn btn-secondary" id="rectangleMouseBtn">Mouse</button>
+            <button class="btn btn-secondary" id="rectangleSaveBtn">Save</button>
+            <button class="btn btn-primary" id="rectangleOkBtn">OK</button>
+            <button class="btn btn-secondary" id="rectangleDeleteBtn">Delete</button>
+            <button class="btn btn-secondary" id="rectangleCancelBtn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

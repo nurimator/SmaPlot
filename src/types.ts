@@ -80,6 +80,10 @@ export interface SmpLineAnnotation {
   unitX?: 'mm' | 'xa' | 'ua'
   unitY?: 'mm' | 'ya' | 'ra'
   color?: string
+  thickness?: number
+  faceColor?: string
+  roundX?: number
+  roundY?: number
 }
 
 export interface SmpPlotDoc {
