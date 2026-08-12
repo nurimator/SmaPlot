@@ -1,4 +1,5 @@
 import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
+import { smpToUnicode } from './smpSymbolMapper.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -227,7 +228,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             i++
             if (i < docLines.length) {
               const rawTxt = docLines[i].trim()
-              const txt = rawTxt.replace(/\\n/g, '\n').replace(/@/g, '')
+              const txt = smpToUnicode(rawTxt)
               i++
               let rotation = 0
               let fontWeight = 400

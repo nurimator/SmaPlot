@@ -1,0 +1,431 @@
+interface SymbolEntry {
+  encodedStr: string
+  unicodeChar: string
+  desc: string
+}
+
+const characterMapping = [
+    ['\u00A7', '\u0081\u02DC', 'SECTION SIGN'],
+    ['\u00A8', '\u0081N', 'DIAERESIS'],
+    ['\u00B0', '\u0081\u2039', 'DEGREE SIGN'],
+    ['\u00B1', '\u0081}', 'PLUS-MINUS SIGN'],
+    ['\u00B4', '\u0081L', 'ACUTE ACCENT'],
+    ['\u00B6', '\u0081\u00F7', 'PILCROW SIGN'],
+    ['\u00D7', '\u0081~', 'MULTIPLICATION SIGN'],
+    ['\u00F7', '\u0081\u20AC', 'DIVISION SIGN'],
+
+    ['\u0391', '\u0192\u0178', 'GREEK CAPITAL LETTER ALPHA'],
+    ['\u0392', '\u0192\u00A0', 'GREEK CAPITAL LETTER BETA'],
+    ['\u0393', '\u0192\u00A1', 'GREEK CAPITAL LETTER GAMMA'],
+    ['\u0394', '\u0192\u00A2', 'GREEK CAPITAL LETTER DELTA'],
+    ['\u0395', '\u0192\u00A3', 'GREEK CAPITAL LETTER EPSILON'],
+    ['\u0396', '\u0192\u00A4', 'GREEK CAPITAL LETTER ZETA'],
+    ['\u0397', '\u0192\u00A5', 'GREEK CAPITAL LETTER ETA'],
+    ['\u0398', '\u0192\u00A6', 'GREEK CAPITAL LETTER THETA'],
+    ['\u0399', '\u0192\u00A7', 'GREEK CAPITAL LETTER IOTA'],
+    ['\u039A', '\u0192\u00A8', 'GREEK CAPITAL LETTER KAPPA'],
+    ['\u039B', '\u0192\u00A9', 'GREEK CAPITAL LETTER LAMDA'],
+    ['\u039C', '\u0192\u00AA', 'GREEK CAPITAL LETTER MU'],
+    ['\u039D', '\u0192\u00AB', 'GREEK CAPITAL LETTER NU'],
+    ['\u039E', '\u0192\u00AC', 'GREEK CAPITAL LETTER XI'],
+    ['\u039F', '\u0192\u00AD', 'GREEK CAPITAL LETTER OMICRON'],
+    ['\u03A0', '\u0192\u00AE', 'GREEK CAPITAL LETTER PI'],
+    ['\u03A1', '\u0192\u00AF', 'GREEK CAPITAL LETTER RHO'],
+    ['\u03A3', '\u0192\u00B0', 'GREEK CAPITAL LETTER SIGMA'],
+    ['\u03A4', '\u0192\u00B1', 'GREEK CAPITAL LETTER TAU'],
+    ['\u03A5', '\u0192\u00B2', 'GREEK CAPITAL LETTER UPSILON'],
+    ['\u03A6', '\u0192\u00B3', 'GREEK CAPITAL LETTER PHI'],
+    ['\u03A7', '\u0192\u00B4', 'GREEK CAPITAL LETTER CHI'],
+    ['\u03A8', '\u0192\u00B5', 'GREEK CAPITAL LETTER PSI'],
+    ['\u03A9', '\u0192\u00B6', 'GREEK CAPITAL LETTER OMEGA'],
+
+    ['\u03B1', '\u0192\u00BF', 'GREEK SMALL LETTER ALPHA'],
+    ['\u03B2', '\u0192\u00C0', 'GREEK SMALL LETTER BETA'],
+    ['\u03B3', '\u0192\u00C1', 'GREEK SMALL LETTER GAMMA'],
+    ['\u03B4', '\u0192\u00C2', 'GREEK SMALL LETTER DELTA'],
+    ['\u03B5', '\u0192\u00C3', 'GREEK SMALL LETTER EPSILON'],
+    ['\u03B6', '\u0192\u00C4', 'GREEK SMALL LETTER ZETA'],
+    ['\u03B7', '\u0192\u00C5', 'GREEK SMALL LETTER ETA'],
+    ['\u03B8', '\u0192\u00C6', 'GREEK SMALL LETTER THETA'],
+    ['\u03B9', '\u0192\u00C7', 'GREEK SMALL LETTER IOTA'],
+    ['\u03BA', '\u0192\u00C8', 'GREEK SMALL LETTER KAPPA'],
+    ['\u03BB', '\u0192\u00C9', 'GREEK SMALL LETTER LAMDA'],
+    ['\u03BC', '\u0192\u00CA', 'GREEK SMALL LETTER MU'],
+    ['\u03BD', '\u0192\u00CB', 'GREEK SMALL LETTER NU'],
+    ['\u03BE', '\u0192\u00CC', 'GREEK SMALL LETTER XI'],
+    ['\u03BF', '\u0192\u00CD', 'GREEK SMALL LETTER OMICRON'],
+    ['\u03C0', '\u0192\u00CE', 'GREEK SMALL LETTER PI'],
+    ['\u03C1', '\u0192\u00CF', 'GREEK SMALL LETTER RHO'],
+    ['\u03C3', '\u0192\u00D0', 'GREEK SMALL LETTER SIGMA'],
+    ['\u03C4', '\u0192\u00D1', 'GREEK SMALL LETTER TAU'],
+    ['\u03C5', '\u0192\u00D2', 'GREEK SMALL LETTER UPSILON'],
+    ['\u03C6', '\u0192\u00D3', 'GREEK SMALL LETTER PHI'],
+    ['\u03C7', '\u0192\u00D4', 'GREEK SMALL LETTER CHI'],
+    ['\u03C8', '\u0192\u00D5', 'GREEK SMALL LETTER PSI'],
+    ['\u03C9', '\u0192\u00D6', 'GREEK SMALL LETTER OMEGA'],
+
+    ['\u0401', '\u201EF', 'CYRILLIC CAPITAL LETTER IO'],
+    ['\u0410', '\u201E@', 'CYRILLIC CAPITAL LETTER A'],
+    ['\u0411', '\u201EA', 'CYRILLIC CAPITAL LETTER BE'],
+    ['\u0412', '\u201EB', 'CYRILLIC CAPITAL LETTER VE'],
+    ['\u0413', '\u201EC', 'CYRILLIC CAPITAL LETTER GHE'],
+    ['\u0414', '\u201ED', 'CYRILLIC CAPITAL LETTER DE'],
+    ['\u0415', '\u201EE', 'CYRILLIC CAPITAL LETTER IE'],
+    ['\u0416', '\u201EG', 'CYRILLIC CAPITAL LETTER ZHE'],
+    ['\u0417', '\u201EH', 'CYRILLIC CAPITAL LETTER ZE'],
+    ['\u0418', '\u201EI', 'CYRILLIC CAPITAL LETTER I'],
+    ['\u0419', '\u201EJ', 'CYRILLIC CAPITAL LETTER SHORT I'],
+    ['\u041A', '\u201EK', 'CYRILLIC CAPITAL LETTER KA'],
+    ['\u041B', '\u201EL', 'CYRILLIC CAPITAL LETTER EL'],
+    ['\u041C', '\u201EM', 'CYRILLIC CAPITAL LETTER EM'],
+    ['\u041D', '\u201EN', 'CYRILLIC CAPITAL LETTER EN'],
+    ['\u041E', '\u201EO', 'CYRILLIC CAPITAL LETTER O'],
+    ['\u041F', '\u201EP', 'CYRILLIC CAPITAL LETTER PE'],
+    ['\u0420', '\u201EQ', 'CYRILLIC CAPITAL LETTER ER'],
+    ['\u0421', '\u201ER', 'CYRILLIC CAPITAL LETTER ES'],
+    ['\u0422', '\u201ES', 'CYRILLIC CAPITAL LETTER TE'],
+    ['\u0423', '\u201ET', 'CYRILLIC CAPITAL LETTER U'],
+    ['\u0424', '\u201EU', 'CYRILLIC CAPITAL LETTER EF'],
+    ['\u0425', '\u201EV', 'CYRILLIC CAPITAL LETTER HA'],
+    ['\u0426', '\u201EW', 'CYRILLIC CAPITAL LETTER TSE'],
+    ['\u0427', '\u201EX', 'CYRILLIC CAPITAL LETTER CHE'],
+    ['\u0428', '\u201EY', 'CYRILLIC CAPITAL LETTER SHA'],
+    ['\u0429', '\u201EZ', 'CYRILLIC CAPITAL LETTER SHCHA'],
+    ['\u042A', '\u201E[', 'CYRILLIC CAPITAL LETTER HARD SIGN'],
+    ['\u042B', '\u201E\\', 'CYRILLIC CAPITAL LETTER YERU'],
+    ['\u042C', '\u201E]', 'CYRILLIC CAPITAL LETTER SOFT SIGN'],
+    ['\u042D', '\u201E^', 'CYRILLIC CAPITAL LETTER E'],
+    ['\u042E', '\u201E_', 'CYRILLIC CAPITAL LETTER YU'],
+    ['\u042F', '\u201E`', 'CYRILLIC CAPITAL LETTER YA'],
+
+    ['\u0430', '\u201Ep', 'CYRILLIC SMALL LETTER A'],
+    ['\u0431', '\u201Eq', 'CYRILLIC SMALL LETTER BE'],
+    ['\u0432', '\u201Er', 'CYRILLIC SMALL LETTER VE'],
+    ['\u0433', '\u201Es', 'CYRILLIC SMALL LETTER GHE'],
+    ['\u0434', '\u201Et', 'CYRILLIC SMALL LETTER DE'],
+    ['\u0435', '\u201Eu', 'CYRILLIC SMALL LETTER IE'],
+    ['\u0436', '\u201Ew', 'CYRILLIC SMALL LETTER ZHE'],
+    ['\u0437', '\u201Ex', 'CYRILLIC SMALL LETTER ZE'],
+    ['\u0438', '\u201Ey', 'CYRILLIC SMALL LETTER I'],
+    ['\u0439', '\u201Ez', 'CYRILLIC SMALL LETTER SHORT I'],
+    ['\u043A', '\u201E{', 'CYRILLIC SMALL LETTER KA'],
+    ['\u043B', '\u201E|', 'CYRILLIC SMALL LETTER EL'],
+    ['\u043C', '\u201E}', 'CYRILLIC SMALL LETTER EM'],
+    ['\u043D', '\u201E~', 'CYRILLIC SMALL LETTER EN'],
+    ['\u043E', '\u201E\u20AC', 'CYRILLIC SMALL LETTER O'],
+    ['\u043F', '\u201E\u0081', 'CYRILLIC SMALL LETTER PE'],
+    ['\u0440', '\u201E\u201A', 'CYRILLIC SMALL LETTER ER'],
+    ['\u0441', '\u201E\u0192', 'CYRILLIC SMALL LETTER ES'],
+    ['\u0442', '\u201E\u201E', 'CYRILLIC SMALL LETTER TE'],
+    ['\u0443', '\u201E\u2026', 'CYRILLIC SMALL LETTER U'],
+    ['\u0444', '\u201E\u2020', 'CYRILLIC SMALL LETTER EF'],
+    ['\u0445', '\u201E\u2021', 'CYRILLIC SMALL LETTER HA'],
+    ['\u0446', '\u201E\u02C6', 'CYRILLIC SMALL LETTER TSE'],
+    ['\u0447', '\u201E\u2030', 'CYRILLIC SMALL LETTER CHE'],
+    ['\u0448', '\u201E\u0160', 'CYRILLIC SMALL LETTER SHA'],
+    ['\u0449', '\u201E\u2039', 'CYRILLIC SMALL LETTER SHCHA'],
+    ['\u044A', '\u201E\u0152', 'CYRILLIC SMALL LETTER HARD SIGN'],
+    ['\u044B', '\u201E\u008D', 'CYRILLIC SMALL LETTER YERU'],
+    ['\u044C', '\u201E\u017D', 'CYRILLIC SMALL LETTER SOFT SIGN'],
+    ['\u044D', '\u201E\u008F', 'CYRILLIC SMALL LETTER E'],
+    ['\u044E', '\u201E\u0090', 'CYRILLIC SMALL LETTER YU'],
+    ['\u044F', '\u201E\u2018', 'CYRILLIC SMALL LETTER YA'],
+    ['\u0451', '\u201Ev', 'CYRILLIC SMALL LETTER IO'],
+
+    ['\u2010', '\u0081]', 'HYPHEN'],
+    ['\u2015', '\u0081\\', 'HORIZONTAL BAR'],
+    ['\u2018', '\u0081e', 'LEFT SINGLE QUOTATION MARK'],
+    ['\u2019', '\u0081f', 'RIGHT SINGLE QUOTATION MARK'],
+    ['\u201C', '\u0081g', 'LEFT DOUBLE QUOTATION MARK'],
+    ['\u201D', '\u0081h', 'RIGHT DOUBLE QUOTATION MARK'],
+    ['\u2020', '\u0081\u00F5', 'DAGGER'],
+    ['\u2021', '\u0081\u00F6', 'DOUBLE DAGGER'],
+    ['\u2025', '\u0081d', 'TWO DOT LEADER'],
+    ['\u2026', '\u0081c', 'HORIZONTAL ELLIPSIS'],
+    ['\u2030', '\u0081\u00F1', 'PER MILLE SIGN'],
+    ['\u2032', '\u0081\u0152', 'PRIME'],
+    ['\u2033', '\u0081\u008D', 'DOUBLE PRIME'],
+    ['\u203B', '\u0081\u00A6', 'REFERENCE MARK'],
+    ['\u2103', '\u0081\u017D', 'DEGREE CELSIUS'],
+    ['\u212B', '\u0081\u00F0', 'ANGSTROM SIGN'],
+
+    ['\u2190', '\u0081\u00A9', 'LEFTWARDS ARROW'],
+    ['\u2191', '\u0081\u00AA', 'UPWARDS ARROW'],
+    ['\u2192', '\u0081\u00A8', 'RIGHTWARDS ARROW'],
+    ['\u2193', '\u0081\u00AB', 'DOWNWARDS ARROW'],
+    ['\u21D2', '\u0081\u00CB', 'RIGHTWARDS DOUBLE ARROW'],
+    ['\u21D4', '\u0081\u00CC', 'LEFT RIGHT DOUBLE ARROW'],
+    ['\u2200', '\u0081\u00CD', 'FOR ALL'],
+    ['\u2202', '\u0081\u00DD', 'PARTIAL DIFFERENTIAL'],
+    ['\u2203', '\u0081\u00CE', 'THERE EXISTS'],
+    ['\u2207', '\u0081\u00DE', 'NABLA'],
+    ['\u2208', '\u0081\u00B8', 'ELEMENT OF'],
+    ['\u220B', '\u0081\u00B9', 'CONTAINS AS MEMBER'],
+    ['\u221A', '\u0081\u00E3', 'SQUARE ROOT'],
+    ['\u221D', '\u0081\u00E5', 'PROPORTIONAL TO'],
+    ['\u221E', '\u0081\u2021', 'INFINITY'],
+    ['\u2220', '\u0081\u00DA', 'ANGLE'],
+    ['\u2227', '\u0081\u00C8', 'LOGICAL AND'],
+    ['\u2228', '\u0081\u00C9', 'LOGICAL OR'],
+    ['\u2229', '\u0081\u00BF', 'INTERSECTION'],
+    ['\u222A', '\u0081\u00BE', 'UNION'],
+    ['\u222B', '\u0081\u00E7', 'INTEGRAL'],
+    ['\u222C', '\u0081\u00E8', 'DOUBLE INTEGRAL'],
+    ['\u2234', '\u0081\u02C6', 'THEREFORE'],
+    ['\u2235', '\u0081\u00E6', 'BECAUSE'],
+    ['\u223D', '\u0081\u00E4', 'REVERSED TILDE'],
+    ['\u2252', '\u0081\u00E0', 'APPROXIMATELY EQUAL TO OR THE IMAGE OF'],
+    ['\u2260', '\u0081\u201A', 'NOT EQUAL TO'],
+    ['\u2261', '\u0081\u00DF', 'IDENTICAL TO'],
+    ['\u2266', '\u0081\u2026', 'LESS-THAN OVER EQUAL TO'],
+    ['\u2267', '\u0081\u2020', 'GREATER-THAN OVER EQUAL TO'],
+    ['\u226A', '\u0081\u00E1', 'MUCH LESS-THAN'],
+    ['\u226B', '\u0081\u00E2', 'MUCH GREATER-THAN'],
+    ['\u2282', '\u0081\u00BC', 'SUBSET OF'],
+    ['\u2283', '\u0081\u00BD', 'SUPERSET OF'],
+    ['\u2286', '\u0081\u00BA', 'SUBSET OF OR EQUAL TO'],
+    ['\u2287', '\u0081\u00BB', 'SUPERSET OF OR EQUAL TO'],
+    ['\u22A5', '\u0081\u00DB', 'UP TACK'],
+    ['\u2312', '\u0081\u00DC', 'ARC'],
+
+    ['\u2500', '\u201E\u0178', 'BOX DRAWINGS LIGHT HORIZONTAL'],
+    ['\u2501', '\u201E\u00AA', 'BOX DRAWINGS HEAVY HORIZONTAL'],
+    ['\u2502', '\u201E\u00A0', 'BOX DRAWINGS LIGHT VERTICAL'],
+    ['\u2503', '\u201E\u00AB', 'BOX DRAWINGS HEAVY VERTICAL'],
+    ['\u250C', '\u201E\u00A1', 'BOX DRAWINGS LIGHT DOWN AND RIGHT'],
+    ['\u250F', '\u201E\u00AC', 'BOX DRAWINGS HEAVY DOWN AND RIGHT'],
+    ['\u2510', '\u201E\u00A2', 'BOX DRAWINGS LIGHT DOWN AND LEFT'],
+    ['\u2513', '\u201E\u00AD', 'BOX DRAWINGS HEAVY DOWN AND LEFT'],
+    ['\u2514', '\u201E\u00A4', 'BOX DRAWINGS LIGHT UP AND RIGHT'],
+    ['\u2517', '\u201E\u00AF', 'BOX DRAWINGS HEAVY UP AND RIGHT'],
+    ['\u2518', '\u201E\u00A3', 'BOX DRAWINGS LIGHT UP AND LEFT'],
+    ['\u251B', '\u201E\u00AE', 'BOX DRAWINGS HEAVY UP AND LEFT'],
+    ['\u251C', '\u201E\u00A5', 'BOX DRAWINGS LIGHT VERTICAL AND RIGHT'],
+    ['\u251D', '\u201E\u00BA', 'BOX DRAWINGS VERTICAL LIGHT AND RIGHT HEAVY'],
+    ['\u2520', '\u201E\u00B5', 'BOX DRAWINGS VERTICAL HEAVY AND RIGHT LIGHT'],
+    ['\u2523', '\u201E\u00B0', 'BOX DRAWINGS HEAVY VERTICAL AND RIGHT'],
+    ['\u2524', '\u201E\u00A7', 'BOX DRAWINGS LIGHT VERTICAL AND LEFT'],
+    ['\u2525', '\u201E\u00BC', 'BOX DRAWINGS VERTICAL LIGHT AND LEFT HEAVY'],
+    ['\u2528', '\u201E\u00B7', 'BOX DRAWINGS VERTICAL HEAVY AND LEFT LIGHT'],
+    ['\u252B', '\u201E\u00B2', 'BOX DRAWINGS HEAVY VERTICAL AND LEFT'],
+    ['\u252C', '\u201E\u00A6', 'BOX DRAWINGS LIGHT DOWN AND HORIZONTAL'],
+    ['\u252F', '\u201E\u00B6', 'BOX DRAWINGS DOWN LIGHT AND HORIZONTAL HEAVY'],
+    ['\u2530', '\u201E\u00BB', 'BOX DRAWINGS DOWN HEAVY AND HORIZONTAL LIGHT'],
+    ['\u2533', '\u201E\u00B1', 'BOX DRAWINGS HEAVY DOWN AND HORIZONTAL'],
+    ['\u2534', '\u201E\u00A8', 'BOX DRAWINGS LIGHT UP AND HORIZONTAL'],
+    ['\u2537', '\u201E\u00B8', 'BOX DRAWINGS UP LIGHT AND HORIZONTAL HEAVY'],
+    ['\u2538', '\u201E\u00BD', 'BOX DRAWINGS UP HEAVY AND HORIZONTAL LIGHT'],
+    ['\u253B', '\u201E\u00B3', 'BOX DRAWINGS HEAVY UP AND HORIZONTAL'],
+    ['\u253C', '\u201E\u00A9', 'BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL'],
+    ['\u253F', '\u201E\u00B9', 'BOX DRAWINGS VERTICAL LIGHT AND HORIZONTAL HEAVY'],
+    ['\u2542', '\u201E\u00BE', 'BOX DRAWINGS VERTICAL HEAVY AND HORIZONTAL LIGHT'],
+    ['\u254B', '\u201E\u00B4', 'BOX DRAWINGS HEAVY VERTICAL AND HORIZONTAL'],
+
+    ['\u25A0', '\u0081\u00A1', 'BLACK SQUARE'],
+    ['\u25A1', '\u0081\u00A0', 'WHITE SQUARE'],
+    ['\u25B2', '\u0081\u00A3', 'BLACK UP-POINTING TRIANGLE'],
+    ['\u25B3', '\u0081\u00A2', 'WHITE UP-POINTING TRIANGLE'],
+    ['\u25BC', '\u0081\u00A5', 'BLACK DOWN-POINTING TRIANGLE'],
+    ['\u25BD', '\u0081\u00A4', 'WHITE DOWN-POINTING TRIANGLE'],
+    ['\u25C6', '\u0081\u0178', 'BLACK DIAMOND'],
+    ['\u25C7', '\u0081\u017E', 'WHITE DIAMOND'],
+    ['\u25CB', '\u0081\u203A', 'WHITE CIRCLE'],
+    ['\u25CE', '\u0081\u009D', 'BULLSEYE'],
+    ['\u25CF', '\u0081\u0153', 'BLACK CIRCLE'],
+    ['\u25EF', '\u0081\u00FC', 'LARGE CIRCLE'],
+    ['\u2605', '\u0081\u0161', 'BLACK STAR'],
+    ['\u2606', '\u0081\u2122', 'WHITE STAR'],
+    ['\u2640', '\u0081\u0160', 'FEMALE SIGN'],
+    ['\u2642', '\u0081\u2030', 'MALE SIGN'],
+    ['\u266A', '\u0081\u00F4', 'EIGHTH NOTE'],
+    ['\u266D', '\u0081\u00F3', 'MUSIC FLAT SIGN'],
+    ['\u266F', '\u0081\u00F2', 'MUSIC SHARP SIGN'],
+
+    ['\u3000', '\u0081@', 'IDEOGRAPHIC SPACE'],
+    ['\u3001', '\u0081A', 'IDEOGRAPHIC COMMA'],
+    ['\u3002', '\u0081B', 'IDEOGRAPHIC FULL STOP'],
+    ['\u3003', '\u0081V', 'DITTO MARK'],
+    ['\u3005', '\u0081X', 'IDEOGRAPHIC ITERATION MARK'],
+    ['\u3006', '\u0081Y', 'IDEOGRAPHIC CLOSING MARK'],
+    ['\u3007', '\u0081Z', 'IDEOGRAPHIC NUMBER ZERO'],
+    ['\u3008', '\u0081q', 'LEFT ANGLE BRACKET'],
+    ['\u3009', '\u0081r', 'RIGHT ANGLE BRACKET'],
+    ['\u300A', '\u0081s', 'LEFT DOUBLE ANGLE BRACKET'],
+    ['\u300B', '\u0081t', 'RIGHT DOUBLE ANGLE BRACKET'],
+    ['\u300C', '\u0081u', 'LEFT CORNER BRACKET'],
+    ['\u300D', '\u0081v', 'RIGHT CORNER BRACKET'],
+    ['\u300E', '\u0081w', 'LEFT WHITE CORNER BRACKET'],
+    ['\u300F', '\u0081x', 'RIGHT WHITE CORNER BRACKET'],
+    ['\u3010', '\u0081y', 'LEFT BLACK LENTICULAR BRACKET'],
+    ['\u3011', '\u0081z', 'RIGHT BLACK LENTICULAR BRACKET'],
+    ['\u3012', '\u0081\u00A7', 'POSTAL MARK'],
+    ['\u3013', '\u0081\u00AC', 'GETA MARK'],
+    ['\u3014', '\u0081k', 'LEFT TORTOISE SHELL BRACKET'],
+    ['\u3015', '\u0081l', 'RIGHT TORTOISE SHELL BRACKET'],
+
+    ['\uFF01', '\u0081I', 'FULLWIDTH EXCLAMATION MARK'],
+    ['\uFF03', '\u0081\u201D', 'FULLWIDTH NUMBER SIGN'],
+    ['\uFF04', '\u0081\u0090', 'FULLWIDTH DOLLAR SIGN'],
+    ['\uFF05', '\u0081\u201C', 'FULLWIDTH PERCENT SIGN'],
+    ['\uFF06', '\u0081\u2022', 'FULLWIDTH AMPERSAND'],
+    ['\uFF08', '\u0081i', 'FULLWIDTH LEFT PARENTHESIS'],
+    ['\uFF09', '\u0081j', 'FULLWIDTH RIGHT PARENTHESIS'],
+    ['\uFF0A', '\u0081\u2013', 'FULLWIDTH ASTERISK'],
+    ['\uFF0B', '\u0081{', 'FULLWIDTH PLUS SIGN'],
+    ['\uFF0C', '\u0081C', 'FULLWIDTH COMMA'],
+    ['\uFF0E', '\u0081D', 'FULLWIDTH FULL STOP'],
+    ['\uFF0F', '\u0081^', 'FULLWIDTH SOLIDUS'],
+
+    ['\uFF10', '\u201AO', 'FULLWIDTH DIGIT ZERO'],
+    ['\uFF11', '\u201AP', 'FULLWIDTH DIGIT ONE'],
+    ['\uFF12', '\u201AQ', 'FULLWIDTH DIGIT TWO'],
+    ['\uFF13', '\u201AR', 'FULLWIDTH DIGIT THREE'],
+    ['\uFF14', '\u201AS', 'FULLWIDTH DIGIT FOUR'],
+    ['\uFF15', '\u201AT', 'FULLWIDTH DIGIT FIVE'],
+    ['\uFF16', '\u201AU', 'FULLWIDTH DIGIT SIX'],
+    ['\uFF17', '\u201AV', 'FULLWIDTH DIGIT SEVEN'],
+    ['\uFF18', '\u201AW', 'FULLWIDTH DIGIT EIGHT'],
+    ['\uFF19', '\u201AX', 'FULLWIDTH DIGIT NINE'],
+
+    ['\uFF1A', '\u0081F', 'FULLWIDTH COLON'],
+    ['\uFF1B', '\u0081G', 'FULLWIDTH SEMICOLON'],
+    ['\uFF1C', '\u0081\u0192', 'FULLWIDTH LESS-THAN SIGN'],
+    ['\uFF1D', '\u0081\u0081', 'FULLWIDTH EQUALS SIGN'],
+    ['\uFF1E', '\u0081\u201E', 'FULLWIDTH GREATER-THAN SIGN'],
+    ['\uFF1F', '\u0081H', 'FULLWIDTH QUESTION MARK'],
+    ['\uFF20', '\u0081\u2014', 'FULLWIDTH COMMERCIAL AT'],
+
+    ['\uFF21', '\u201A`', 'FULLWIDTH LATIN CAPITAL LETTER A'],
+    ['\uFF22', '\u201Aa', 'FULLWIDTH LATIN CAPITAL LETTER B'],
+    ['\uFF23', '\u201Ab', 'FULLWIDTH LATIN CAPITAL LETTER C'],
+    ['\uFF24', '\u201Ac', 'FULLWIDTH LATIN CAPITAL LETTER D'],
+    ['\uFF25', '\u201Ad', 'FULLWIDTH LATIN CAPITAL LETTER E'],
+    ['\uFF26', '\u201Ae', 'FULLWIDTH LATIN CAPITAL LETTER F'],
+    ['\uFF27', '\u201Af', 'FULLWIDTH LATIN CAPITAL LETTER G'],
+    ['\uFF28', '\u201Ag', 'FULLWIDTH LATIN CAPITAL LETTER H'],
+    ['\uFF29', '\u201Ah', 'FULLWIDTH LATIN CAPITAL LETTER I'],
+    ['\uFF2A', '\u201Ai', 'FULLWIDTH LATIN CAPITAL LETTER J'],
+    ['\uFF2B', '\u201Aj', 'FULLWIDTH LATIN CAPITAL LETTER K'],
+    ['\uFF2C', '\u201Ak', 'FULLWIDTH LATIN CAPITAL LETTER L'],
+    ['\uFF2D', '\u201Al', 'FULLWIDTH LATIN CAPITAL LETTER M'],
+    ['\uFF2E', '\u201Am', 'FULLWIDTH LATIN CAPITAL LETTER N'],
+    ['\uFF2F', '\u201An', 'FULLWIDTH LATIN CAPITAL LETTER O'],
+    ['\uFF30', '\u201Ao', 'FULLWIDTH LATIN CAPITAL LETTER P'],
+    ['\uFF31', '\u201Ap', 'FULLWIDTH LATIN CAPITAL LETTER Q'],
+    ['\uFF32', '\u201Aq', 'FULLWIDTH LATIN CAPITAL LETTER R'],
+    ['\uFF33', '\u201Ar', 'FULLWIDTH LATIN CAPITAL LETTER S'],
+    ['\uFF34', '\u201As', 'FULLWIDTH LATIN CAPITAL LETTER T'],
+    ['\uFF35', '\u201At', 'FULLWIDTH LATIN CAPITAL LETTER U'],
+    ['\uFF36', '\u201Au', 'FULLWIDTH LATIN CAPITAL LETTER V'],
+    ['\uFF37', '\u201Av', 'FULLWIDTH LATIN CAPITAL LETTER W'],
+    ['\uFF38', '\u201Aw', 'FULLWIDTH LATIN CAPITAL LETTER X'],
+    ['\uFF39', '\u201Ax', 'FULLWIDTH LATIN CAPITAL LETTER Y'],
+    ['\uFF3A', '\u201Ay', 'FULLWIDTH LATIN CAPITAL LETTER Z'],
+
+    ['\uFF3B', '\u0081m', 'FULLWIDTH LEFT SQUARE BRACKET'],
+    ['\uFF3C', '\u0081_', 'FULLWIDTH REVERSE SOLIDUS'],
+    ['\uFF3D', '\u0081n', 'FULLWIDTH RIGHT SQUARE BRACKET'],
+    ['\uFF3E', '\u0081O', 'FULLWIDTH CIRCUMFLEX ACCENT'],
+    ['\uFF3F', '\u0081Q', 'FULLWIDTH LOW LINE'],
+    ['\uFF40', '\u0081M', 'FULLWIDTH GRAVE ACCENT'],
+
+    ['\uFF41', '\u201A\u0081', 'FULLWIDTH LATIN SMALL LETTER A'],
+    ['\uFF42', '\u201A\u201A', 'FULLWIDTH LATIN SMALL LETTER B'],
+    ['\uFF43', '\u201A\u0192', 'FULLWIDTH LATIN SMALL LETTER C'],
+    ['\uFF44', '\u201A\u201E', 'FULLWIDTH LATIN SMALL LETTER D'],
+    ['\uFF45', '\u201A\u2026', 'FULLWIDTH LATIN SMALL LETTER E'],
+    ['\uFF46', '\u201A\u2020', 'FULLWIDTH LATIN SMALL LETTER F'],
+    ['\uFF47', '\u201A\u2021', 'FULLWIDTH LATIN SMALL LETTER G'],
+    ['\uFF48', '\u201A\u02C6', 'FULLWIDTH LATIN SMALL LETTER H'],
+    ['\uFF49', '\u201A\u2030', 'FULLWIDTH LATIN SMALL LETTER I'],
+    ['\uFF4A', '\u201A\u0160', 'FULLWIDTH LATIN SMALL LETTER J'],
+    ['\uFF4B', '\u201A\u2039', 'FULLWIDTH LATIN SMALL LETTER K'],
+    ['\uFF4C', '\u201A\u0152', 'FULLWIDTH LATIN SMALL LETTER L'],
+    ['\uFF4D', '\u201A\u008D', 'FULLWIDTH LATIN SMALL LETTER M'],
+    ['\uFF4E', '\u201A\u017D', 'FULLWIDTH LATIN SMALL LETTER N'],
+    ['\uFF4F', '\u201A\u008F', 'FULLWIDTH LATIN SMALL LETTER O'],
+    ['\uFF50', '\u201A\u0090', 'FULLWIDTH LATIN SMALL LETTER P'],
+    ['\uFF51', '\u201A\u2018', 'FULLWIDTH LATIN SMALL LETTER Q'],
+    ['\uFF52', '\u201A\u2019', 'FULLWIDTH LATIN SMALL LETTER R'],
+    ['\uFF53', '\u201A\u201C', 'FULLWIDTH LATIN SMALL LETTER S'],
+    ['\uFF54', '\u201A\u201D', 'FULLWIDTH LATIN SMALL LETTER T'],
+    ['\uFF55', '\u201A\u2022', 'FULLWIDTH LATIN SMALL LETTER U'],
+    ['\uFF56', '\u201A\u2013', 'FULLWIDTH LATIN SMALL LETTER V'],
+    ['\uFF57', '\u201A\u2014', 'FULLWIDTH LATIN SMALL LETTER W'],
+    ['\uFF58', '\u201A\u02DC', 'FULLWIDTH LATIN SMALL LETTER X'],
+    ['\uFF59', '\u201A\u2122', 'FULLWIDTH LATIN SMALL LETTER Y'],
+    ['\uFF5A', '\u201A\u0161', 'FULLWIDTH LATIN SMALL LETTER Z'],
+
+    ['\uFF5B', '\u0081o', 'FULLWIDTH LEFT CURLY BRACKET'],
+    ['\uFF5C', '\u0081b', 'FULLWIDTH VERTICAL LINE'],
+    ['\uFF5D', '\u0081p', 'FULLWIDTH RIGHT CURLY BRACKET'],
+
+    ['\uFF61', '\u00A1', 'HALFWIDTH IDEOGRAPHIC FULL STOP'],
+    ['\uFF62', '\u00A2', 'HALFWIDTH LEFT CORNER BRACKET'],
+    ['\uFF63', '\u00A3', 'HALFWIDTH RIGHT CORNER BRACKET'],
+    ['\uFF64', '\u00A4', 'HALFWIDTH IDEOGRAPHIC COMMA'],
+    ['\uFF65', '\u00A5', 'HALFWIDTH KATAKANA MIDDLE DOT']
+];
+
+const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar, encodedStr, desc]) => ({
+  encodedStr,
+  unicodeChar,
+  desc,
+}))
+
+// Convert 2-byte Sma4Win encoded strings to standard Unicode characters
+export function smpToUnicode(text: string): string {
+  if (!text) return ''
+  let result = text
+  for (const entry of SYMBOL_ENTRIES) {
+    if (result.includes(entry.encodedStr)) {
+      result = result.split(entry.encodedStr).join(entry.unicodeChar)
+    }
+  }
+  return result
+}
+
+// Convert standard Unicode characters back to 2-byte Sma4Win encoded strings (for saving .SMP)
+export function unicodeToSmp(text: string): string {
+  if (!text) return ''
+  let result = text
+  for (const entry of SYMBOL_ENTRIES) {
+    if (result.includes(entry.unicodeChar)) {
+      result = result.split(entry.unicodeChar).join(entry.encodedStr)
+    }
+  }
+  return result
+}
+
+// Convert Sma4Win text to clean HTML retaining user font families and styles
+export function renderSmpTextToHtml(
+  rawText: string,
+  _options: { fontSize?: number; fontFamily?: string; color?: string } = {}
+): string {
+  if (!rawText) return ''
+
+  // Step 1: Ensure text has symbols converted to Unicode
+  let s = smpToUnicode(rawText)
+
+  // Step 2: Convert literal \n to HTML line breaks <br>
+  s = s.replace(/\\n/g, '<br>').replace(/\n/g, '<br>')
+
+  // Step 3: Handle Italic (%I ... %R) and Bold (%K ... %R)
+  s = s.replace(/%I(.*?)%R/g, '<i>$1</i>')
+  s = s.replace(/%K(.*?)%R/g, '<b>$1</b>')
+  s = s.replace(/%R/g, '')
+
+  // Step 4: Handle Subscripts (_content@) and Superscripts (^content@)
+  // @ marks the end of subscript/superscript format block
+  s = s.replace(/_([^@]+)@/g, '<sub>$1</sub>')
+  s = s.replace(/\^([^@]+)@/g, '<sup>$1</sup>')
+
+  // Fallback for single char subscripts/superscripts without trailing @
+  s = s.replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>')
+  s = s.replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>')
+
+  // Clean up any remaining @ markers
+  s = s.replace(/@/g, '')
+
+  return s
+}

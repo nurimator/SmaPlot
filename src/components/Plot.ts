@@ -6,6 +6,7 @@ import { globalDataManager } from './DataManager.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 import { showTitleDialog } from './TitleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
+import { renderSmpTextToHtml } from '../utils/smpSymbolMapper.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -100,10 +101,7 @@ function getCachedArrowOverlay(): HTMLElement | null {
   return _cachedArrowOverlay
 }
 
-// Cache of the last measured legend text bounding box (relative to its anchor).
-// getBBox() forces a synchronous SVG layout, and the selected legend item is
-// re-measured on every drag frame even though its text metrics never change.
-let legendBoxMeasured: { key: string; dx: number; dy: number; w: number; h: number } | null = null
+
 
 function getPlotOverlay(svg: SVGSVGElement): HTMLDivElement {
   let overlay = svgOverlayMap.get(svg)
@@ -452,8 +450,10 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
         result.push({ obj: { kind: 'legend', svg, itemIdx }, l: px - 4, t: py - objH / 2, w: objW + 8, h: objH + 4 })
       } else {
         const isRot = item.rotation !== 0
-        const textLen = Math.max(40, item.text.length * 7 + 8)
-        const fontH = (item.fontSize || 12) + 6
+        const textLines = (item.rawText || item.text).split(/\r?\n|\\n/)
+        const maxLineLen = Math.max(...textLines.map((l) => l.length))
+        const textLen = Math.max(40, maxLineLen * 7 + 8)
+        const fontH = (item.fontSize || 12) * textLines.length + 6
         const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
 
         if (isRot) {
@@ -470,7 +470,7 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
           result.push({
             obj: { kind: 'legend', svg, itemIdx },
             l: leftX - 2,
-            t: py - fontH + 2,
+            t: py - (item.fontSize || 12) - 2,
             w: textLen + 4,
             h: fontH + 4,
           })
@@ -1153,59 +1153,56 @@ export function drawPlot(
           }
         })
       } else {
-        const textEl = createSVGElement('text')
-        textEl.setAttribute('x', String(renderPx))
-        textEl.setAttribute('y', String(py))
-        textEl.setAttribute('font-size', String(item.fontSize || 12))
-        textEl.setAttribute('font-family', item.fontFamily)
-        textEl.setAttribute('font-weight', String(item.fontWeight))
-        textEl.setAttribute('fill', '#000000')
+        const rawStr = item.rawText || item.text
+        const htmlStr = renderSmpTextToHtml(rawStr)
+        const fontSz = item.fontSize || 12
 
-        const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
-        textEl.setAttribute('text-anchor', anchor)
+        const fo = createSVGElement('foreignObject')
+        fo.setAttribute('x', String(renderPx))
+        fo.setAttribute('y', String(py - fontSz))
+        fo.setAttribute('width', '600')
+        fo.setAttribute('height', '400')
+        fo.style.overflow = 'visible'
+        fo.style.cursor = 'move'
 
         if (isRotated) {
-          textEl.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
+          fo.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
         }
-        textEl.textContent = item.text
-        textEl.style.cursor = 'move'
-        textEl.addEventListener('mousedown', handleLegendMouseDown)
-        textEl.addEventListener('dblclick', openTitleModal)
-        svg.appendChild(textEl)
+
+        const container = document.createElement('div')
+        container.className = 'smp-latex-item'
+        container.style.fontSize = `${fontSz}px`
+        container.style.fontFamily = item.fontFamily || 'Inter, sans-serif'
+        container.style.fontWeight = String(item.fontWeight || 400)
+        container.style.color = '#000000'
+        container.style.display = 'inline-block'
+        container.style.userSelect = 'none'
+        container.style.cursor = 'move'
+
+        if (item.align === 'center') container.style.textAlign = 'center'
+        else if (item.align === 'right') container.style.textAlign = 'right'
+        else container.style.textAlign = 'left'
+
+        container.innerHTML = htmlStr
+        container.addEventListener('mousedown', handleLegendMouseDown)
+        container.addEventListener('dblclick', openTitleModal)
+        fo.appendChild(container)
+        svg.appendChild(fo)
 
         if (isSelected) {
-          let boxX = renderPx - 4
-          let boxY = py - 12
-          let boxW = 80
-          let boxH = 20
+          const measuredW = container.offsetWidth || (rawStr.length * (fontSz * 0.5) + 10)
+          const measuredH = container.offsetHeight || (fontSz + 6)
 
-          const metricsKey = `${item.text}|${item.fontSize}|${item.fontFamily}|${item.fontWeight}|${item.rotation}|${anchor}`
-          if (legendBoxMeasured && legendBoxMeasured.key === metricsKey) {
-            boxX = renderPx + legendBoxMeasured.dx
-            boxY = py + legendBoxMeasured.dy
-            boxW = legendBoxMeasured.w
-            boxH = legendBoxMeasured.h
-          } else {
-            try {
-              const bbox = textEl.getBBox()
-              if (bbox.width > 0 && bbox.height > 0) {
-                boxX = bbox.x - 4
-                boxY = bbox.y - 2
-                boxW = bbox.width + 8
-                boxH = bbox.height + 4
-              }
-            } catch {
-              boxW = Math.max(40, item.text.length * 7 + 8)
-              boxH = (item.fontSize || 12) + 6
-              boxY = py - (item.fontSize || 12)
-            }
-            legendBoxMeasured = {
-              key: metricsKey,
-              dx: boxX - renderPx,
-              dy: boxY - py,
-              w: boxW,
-              h: boxH,
-            }
+          let boxW = Math.max(40, measuredW + 8)
+          let boxH = Math.max(20, measuredH + 4)
+          let boxX = renderPx - 4
+          let boxY = py - fontSz - 2
+
+          const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
+          if (anchor === 'middle') {
+            boxX = renderPx - boxW / 2
+          } else if (anchor === 'end') {
+            boxX = renderPx - boxW + 4
           }
 
           const ov = getPlotOverlay(svg)
@@ -1617,7 +1614,7 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
             }
           }
         }
-        reader.readAsText(file)
+        reader.readAsText(file, 'windows-1252')
       } else if (file.name.endsWith('.txt') || file.type.startsWith('text/')) {
         const reader = new FileReader()
         reader.onload = (evt) => {
@@ -1627,7 +1624,7 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
             addDatasetToPlot(svg, ds)
           }
         }
-        reader.readAsText(file)
+        reader.readAsText(file, 'windows-1252')
       }
     }
   })

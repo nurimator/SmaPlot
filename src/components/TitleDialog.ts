@@ -1,5 +1,6 @@
 import type { SmpLegendItem } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
+import { smpToUnicode } from '../utils/smpSymbolMapper.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
@@ -23,11 +24,13 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
 
   const applyTitleOptions = () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
+    const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
+    const rawText = strEl?.value || ''
+
     if (!svg) return
     const smpDoc = getPlotSmpDoc(svg)
     if (!smpDoc) return
 
-    const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
     const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
     const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
     const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
@@ -35,8 +38,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
     const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
 
-    const rawText = strEl?.value || ''
-    const text = rawText.replace(/\\n/g, '\n').replace(/@/g, '')
+    const text = smpToUnicode(rawText)
     const rotVal = parseInt(rotEl?.value || '0', 10)
     const rotation = rotVal === 90 ? -90 : rotVal
     const xNorm = Math.round((parseFloat(posXEl?.value || '0') || 0) * 100)
@@ -52,7 +54,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
       smpDoc.legendItems[currentItemIndex] = {
         ...smpDoc.legendItems[currentItemIndex],
         text,
-        rawText,
+        rawText: text,
         rotation,
         xNorm,
         yNorm,
@@ -150,7 +152,7 @@ export function showTitleDialog(
       const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
 
-      if (strEl) strEl.value = item.rawText || item.text.replace(/\n/g, '\\n')
+      if (strEl) strEl.value = smpToUnicode(item.text || item.rawText || '').replace(/\\n/g, '\n')
 
       if (rotEl) {
         const itemRot = Math.round(item.rotation)

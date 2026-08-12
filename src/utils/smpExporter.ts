@@ -1,4 +1,5 @@
 import type { SmpAxisSpec, SmpLegendItem, SmpPlotDoc } from '../types.ts'
+import { unicodeToSmp } from './smpSymbolMapper.ts'
 
 export function hexToBgr(hex: string): number {
   if (!hex) return 0
@@ -170,7 +171,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     } else {
       lines.push('8')
       lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} 0 1 0 0`)
-      lines.push(item.rawText || item.text.replace(/\n/g, '\\n'))
+      lines.push(unicodeToSmp(item.rawText || item.text).replace(/\n/g, '\\n'))
       const rot = Math.round(item.rotation * 10)
       const weight = item.fontWeight >= 600 ? 700 : 400
       lines.push(`-1600 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 18`)

@@ -162,7 +162,7 @@ if (globalFileInput) {
             }
           }
         }
-        reader.readAsText(file)
+        reader.readAsText(file, 'windows-1252')
       } else if (file.name.endsWith('.txt') || file.type.startsWith('text/')) {
         let svg = getSelectedPlotSvg()
         if (!svg) {
@@ -176,7 +176,7 @@ if (globalFileInput) {
             addDatasetToPlot(svg, ds)
           }
         }
-        reader.readAsText(file)
+        reader.readAsText(file, 'windows-1252')
       }
     }
     input.value = ''
@@ -250,7 +250,8 @@ async function initApp() {
   try {
     const res = await fetch('/dummy-data/project-file/FTIR.SMP')
     if (res.ok) {
-      const text = await res.text()
+      const buffer = await res.arrayBuffer()
+      const text = new TextDecoder('windows-1252').decode(buffer)
       const { smpMeta } = parseSmpContent(text, 'FTIR.SMP')
       if (smpMeta.docs && smpMeta.docs.length > 0) {
         for (let d = 0; d < smpMeta.docs.length; d++) {
@@ -330,7 +331,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
           }
         }
       }
-      reader.readAsText(file)
+      reader.readAsText(file, 'windows-1252')
     } else if (ext === 'txt' || file.type.startsWith('text/')) {
       let svg = getSelectedPlotSvg()
       if (!svg) {
@@ -344,7 +345,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
           addDatasetToPlot(svg, ds)
         }
       }
-      reader.readAsText(file)
+      reader.readAsText(file, 'windows-1252')
     }
   }
 })
