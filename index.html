@@ -10,10 +10,6 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
     <title>Sma4Win - Scientific Data Analysis Software</title>
   </head>
   <body>
@@ -23,15 +19,15 @@
         <!-- Title Bar -->
         <header class="titlebar">
           <div class="titlebar-left">
-            <div class="app-icon">
-              <span class="material-symbols-outlined">analytics</span>
-            </div>
+              <div class="app-icon">
+                <span class="icon icon-chart-dots"></span>
+              </div>
             <span class="app-title">Sma4Win - Untitled</span>
           </div>
           <div class="window-controls">
-            <button class="window-btn" title="Minimize"><span class="material-symbols-outlined" style="font-size:14px">remove</span></button>
-            <button class="window-btn" title="Maximize"><span class="material-symbols-outlined" style="font-size:12px">crop_square</span></button>
-            <button class="window-btn close" title="Close"><span class="material-symbols-outlined" style="font-size:14px">close</span></button>
+              <button class="window-btn" title="Minimize"><span class="icon icon-minus" style="width:14px;height:14px"></span></button>
+              <button class="window-btn" title="Maximize"><span class="icon icon-square" style="width:12px;height:12px"></span></button>
+              <button class="window-btn close" title="Close"><span class="icon icon-x" style="width:14px;height:14px"></span></button>
           </div>
         </header>
 
@@ -69,7 +65,7 @@
               <div class="dropdown-item" data-action="clear_all_scale">Clear All Scale</div>
               <div class="dropdown-item has-submenu" data-action="clear_scale">
                 <span>Clear Scale</span>
-                <span class="material-symbols-outlined dropdown-arrow">chevron_right</span>
+                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
                 <div class="menu-submenu">
                   <div class="dropdown-item" data-action="clear_scale_x">X axis</div>
                   <div class="dropdown-item" data-action="clear_scale_y">Y axis</div>
@@ -87,27 +83,23 @@
 
         <!-- Toolbar -->
         <div class="toolbar">
-          <div class="toolbar-btn" title="New" data-action="new"><span class="material-symbols-outlined">description</span></div>
-          <div class="toolbar-btn" title="Open" data-action="open"><span class="material-symbols-outlined">folder_open</span></div>
-          <div class="toolbar-btn" title="Save" data-action="save"><span class="material-symbols-outlined">save</span></div>
-          <div class="toolbar-btn" title="Print" data-action="print"><span class="material-symbols-outlined">print</span></div>
+          <div class="toolbar-btn" title="New" data-action="new"><span class="icon icon-file-text"></span></div>
+          <div class="toolbar-btn" title="Open" data-action="open"><span class="icon icon-folder-open"></span></div>
+          <div class="toolbar-btn" title="Save" data-action="save"><span class="icon icon-device-floppy"></span></div>
+          <div class="toolbar-btn" title="Print" data-action="print"><span class="icon icon-printer"></span></div>
           <div class="toolbar-sep"></div>
-          <div class="toolbar-btn" title="Undo (Ctrl+Z)" data-action="undo"><span class="material-symbols-outlined">undo</span></div>
-          <div class="toolbar-btn" title="Redo (Ctrl+Y)" data-action="redo"><span class="material-symbols-outlined">redo</span></div>
-          <div class="toolbar-btn" title="Delete (Del)" data-action="delete"><span class="material-symbols-outlined">delete</span></div>
+          <div class="toolbar-btn" title="Undo (Ctrl+Z)" data-action="undo"><span class="icon icon-arrow-back-up"></span></div>
+          <div class="toolbar-btn" title="Redo (Ctrl+Y)" data-action="redo"><span class="icon icon-arrow-forward-up"></span></div>
+          <div class="toolbar-btn" title="Delete (Del)" data-action="delete"><span class="icon icon-trash"></span></div>
           <div class="toolbar-sep"></div>
-          <div class="toolbar-btn" title="Text" data-action="text"><span class="toolbar-icon-text">AB</span></div>
-          <div class="toolbar-btn active" title="Select" data-action="select"><div class="toolbar-icon-select"></div></div>
-          <div class="toolbar-btn" title="Line" data-action="line"><div class="toolbar-icon-line"></div></div>
-          <div class="toolbar-btn" title="Zoom" data-action="zoom"><span class="material-symbols-outlined">search</span></div>
-          <div class="toolbar-btn" title="Add Text" data-action="add-text"><span class="toolbar-icon-text-blue">A</span></div>
-          <div class="toolbar-btn" title="Clear" data-action="clear"><span class="toolbar-icon-text">C</span></div>
+          <div class="toolbar-btn" title="Text" data-action="text"><span class="icon icon-abc"></span></div>
+          <div class="toolbar-btn" title="Rectangle" data-action="rectangle"><span class="icon icon-square"></span></div>
+          <div class="toolbar-btn" title="Arrow" data-action="arrow"><span class="icon icon-arrow-down-left-circle"></span></div>
+          <div class="toolbar-btn" title="Trimming" data-action="trimming"><span class="icon icon-zoom-in"></span></div>
+          <div class="toolbar-btn" title="Read Value" data-action="read-value"><span class="icon icon-chart-dots"></span></div>
           <div class="toolbar-sep"></div>
-          <div class="toolbar-btn" title="Copy" data-action="copy"><span class="material-symbols-outlined">content_copy</span></div>
-          <div class="toolbar-btn" title="Chart" data-action="chart"><span class="material-symbols-outlined">show_chart</span></div>
-          <div class="toolbar-sep"></div>
-          <div class="toolbar-btn" title="Warning" data-action="warning"><span class="material-symbols-outlined toolbar-icon-error">error</span></div>
-          <div class="toolbar-btn" title="Help" data-action="help"><span class="material-symbols-outlined toolbar-icon-help">help</span></div>
+          <div class="toolbar-btn" title="Warning" data-action="warning"><span class="icon icon-alert-triangle toolbar-icon-error"></span></div>
+          <div class="toolbar-btn" title="Help" data-action="help"><span class="icon icon-help toolbar-icon-help"></span></div>
         </div>
 
         <!-- Main Workspace -->
@@ -118,18 +110,18 @@
           </div>
 
           <div class="scrollbar-v">
-            <div class="scroll-btn scroll-btn-up" title="Scroll up"><span class="material-symbols-outlined">arrow_drop_up</span></div>
+            <div class="scroll-btn scroll-btn-up" title="Scroll up"><span class="icon icon-chevron-up"></span></div>
             <div class="scrollbar-v-track">
               <div class="scrollbar-v-thumb"></div>
             </div>
-            <div class="scroll-btn scroll-btn-down" title="Scroll down"><span class="material-symbols-outlined">arrow_drop_down</span></div>
+            <div class="scroll-btn scroll-btn-down" title="Scroll down"><span class="icon icon-chevron-down"></span></div>
           </div>
           <div class="scrollbar-h">
-            <div class="scroll-btn scroll-btn-left" title="Scroll left"><span class="material-symbols-outlined">arrow_left</span></div>
+            <div class="scroll-btn scroll-btn-left" title="Scroll left"><span class="icon icon-chevron-left"></span></div>
             <div class="scrollbar-h-track">
               <div class="scrollbar-h-thumb"></div>
             </div>
-            <div class="scroll-btn scroll-btn-right" title="Scroll right"><span class="material-symbols-outlined">arrow_right</span></div>
+            <div class="scroll-btn scroll-btn-right" title="Scroll right"><span class="icon icon-chevron-right"></span></div>
           </div>
         </main>
 
@@ -145,26 +137,26 @@
 
         <!-- Context Menu -->
         <div class="context-menu" id="ctxMenu">
-          <div class="context-menu-item" data-ctx="property">Date property <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="property">Date property <span class="icon icon-chevron-right"></span></div>
           <div class="context-separator"></div>
-          <div class="context-menu-item" data-ctx="xaxis">X-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-          <div class="context-menu-item" data-ctx="yaxis">Y-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-          <div class="context-menu-item" data-ctx="uaxis">U-Axis <span class="material-symbols-outlined">chevron_right</span></div>
-          <div class="context-menu-item" data-ctx="raxis">R-Axis <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="xaxis">X-Axis <span class="icon icon-chevron-right"></span></div>
+          <div class="context-menu-item" data-ctx="yaxis">Y-Axis <span class="icon icon-chevron-right"></span></div>
+          <div class="context-menu-item" data-ctx="uaxis">U-Axis <span class="icon icon-chevron-right"></span></div>
+          <div class="context-menu-item" data-ctx="raxis">R-Axis <span class="icon icon-chevron-right"></span></div>
           <div class="context-separator"></div>
-          <div class="context-menu-item" data-ctx="frame">Frame <span class="material-symbols-outlined">chevron_right</span></div>
+          <div class="context-menu-item" data-ctx="frame">Frame <span class="icon icon-chevron-right"></span></div>
           <div class="context-separator"></div>
           <div class="context-menu-item" data-ctx="string">String</div>
-          <div class="context-menu-item" data-ctx="arrow">Arrow</div>
+          <div class="context-menu-item" data-ctx="arrow"><span class="icon icon-arrow-down-left-circle"></span> Arrow</div>
           <div class="context-menu-item" data-ctx="rectangle">Rectangle</div>
           <div class="context-separator"></div>
-          <div class="context-menu-item" data-ctx="delete"><span class="material-symbols-outlined" style="font-size: 14px; margin-right: 4px;">delete</span> Delete</div>
+          <div class="context-menu-item" data-ctx="delete"><span class="icon icon-trash" style="width:14px;height:14px;margin-right:4px;"></span> Delete</div>
         </div>
 
         <!-- Marquee Context Menu -->
         <div class="context-menu" id="marqueeCtxMenu">
           <div class="context-menu-item" id="marqueeCopyBtn" data-ctx="copy_svg_marquee">
-            <span class="material-symbols-outlined" style="font-size: 16px; margin-right: 8px;">content_copy</span>
+            <span class="icon icon-copy" style="width:16px;height:16px;margin-right:8px;"></span>
             <span>Copy to Clipboard</span>
           </div>
         </div>
