@@ -2,6 +2,7 @@ import type { SmpLegendItem } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { smpToUnicode } from '../utils/smpSymbolMapper.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { pushUndoState } from '../utils/undoManager.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentItemIndex: number = -1
@@ -81,6 +82,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     }
 
     updatePlotVisual(svg)
+    pushUndoState()
   }
 
   const hide = () => hideTitleDialog(overlayEl)
@@ -103,6 +105,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
       if (smpDoc && currentItemIndex >= 0 && currentItemIndex < smpDoc.legendItems.length) {
         smpDoc.legendItems.splice(currentItemIndex, 1)
         updatePlotVisual(svg)
+        pushUndoState()
       }
     }
     hide()

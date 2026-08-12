@@ -54,7 +54,15 @@
               <div class="dropdown-item" data-action="data_manager">Data Manager...</div>
             </div>
           </div>
-          <div class="menu-item" data-menu="edit">Edit</div>
+          <div class="menu-item" data-menu="edit">
+            Edit
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="undo">Undo</div>
+              <div class="dropdown-item" data-action="redo">Redo</div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="delete">Delete</div>
+            </div>
+          </div>
           <div class="menu-item" data-menu="graph">
             Graph
             <div class="menu-dropdown">
@@ -83,6 +91,10 @@
           <div class="toolbar-btn" title="Open" data-action="open"><span class="material-symbols-outlined">folder_open</span></div>
           <div class="toolbar-btn" title="Save" data-action="save"><span class="material-symbols-outlined">save</span></div>
           <div class="toolbar-btn" title="Print" data-action="print"><span class="material-symbols-outlined">print</span></div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-btn" title="Undo (Ctrl+Z)" data-action="undo"><span class="material-symbols-outlined">undo</span></div>
+          <div class="toolbar-btn" title="Redo (Ctrl+Y)" data-action="redo"><span class="material-symbols-outlined">redo</span></div>
+          <div class="toolbar-btn" title="Delete (Del)" data-action="delete"><span class="material-symbols-outlined">delete</span></div>
           <div class="toolbar-sep"></div>
           <div class="toolbar-btn" title="Text" data-action="text"><span class="toolbar-icon-text">AB</span></div>
           <div class="toolbar-btn active" title="Select" data-action="select"><div class="toolbar-icon-select"></div></div>
@@ -145,6 +157,8 @@
           <div class="context-menu-item" data-ctx="string">String</div>
           <div class="context-menu-item" data-ctx="arrow">Arrow</div>
           <div class="context-menu-item" data-ctx="rectangle">Rectangle</div>
+          <div class="context-separator"></div>
+          <div class="context-menu-item" data-ctx="delete"><span class="material-symbols-outlined" style="font-size: 14px; margin-right: 4px;">delete</span> Delete</div>
         </div>
 
         <!-- Marquee Context Menu -->

@@ -181,6 +181,12 @@ body {
   color: var(--slate-900);
 }
 
+.dropdown-item.disabled,
+.toolbar-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .dropdown-item.has-submenu {
   position: relative;
   display: flex;

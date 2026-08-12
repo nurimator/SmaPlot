@@ -9,6 +9,7 @@ import {
   addDatasetToPlot,
   clearPlotScale,
   createPlot,
+  deleteSelectedObjects,
   exportPlotToSmpDoc,
   getActiveDrag,
   getAllPlotSvgs,
@@ -19,6 +20,7 @@ import {
   setObjectSelection,
   setSelectedPlotSvg,
 } from './components/Plot.ts'
+import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
 import {
   initDataManagerDialog,
@@ -70,15 +72,24 @@ function handleSaveProject(): void {
 }
 
 if (menubarEl) {
-  initMenubar(menubarEl, (action) => {
-    if (action === 'data' || action === 'data_manager') {
+  initMenubar(menubarEl, async (action) => {
+    if (action === 'undo') {
+      undo(graphAreaEl)
+    } else if (action === 'redo') {
+      redo(graphAreaEl)
+    } else if (action === 'delete') {
+      if (deleteSelectedObjects()) pushUndoState()
+    } else if (action === 'data' || action === 'data_manager') {
       showDataManagerDialog(dmOverlayEl)
     } else if (action === 'clear_all_scale') {
       clearPlotScale('all')
+      pushUndoState()
     } else if (action === 'clear_scale_x') {
       clearPlotScale('x')
+      pushUndoState()
     } else if (action === 'clear_scale_y') {
       clearPlotScale('y')
+      pushUndoState()
     } else if (action === 'open') {
       if (globalFileInput) globalFileInput.click()
     } else if (['save', 'save_as', 'export_smp'].includes(action)) {
@@ -88,7 +99,8 @@ if (menubarEl) {
     } else if (action === 'new') {
       const boxCount = getBoxCount()
       const offset = (boxCount % 6) * 28
-      createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
+      await createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
+      pushUndoState()
     } else if (['graph', 'property', 'option', 'analyze', 'edit'].includes(action)) {
       showPropertyDialog(propOverlayEl)
     }
@@ -97,10 +109,17 @@ if (menubarEl) {
 
 if (toolbarEl) {
   initToolbar(toolbarEl, async (action, title) => {
-    if (action === 'new') {
+    if (action === 'undo') {
+      undo(graphAreaEl)
+    } else if (action === 'redo') {
+      redo(graphAreaEl)
+    } else if (action === 'delete') {
+      if (deleteSelectedObjects()) pushUndoState()
+    } else if (action === 'new') {
       const boxCount = getBoxCount()
       const offset = (boxCount % 6) * 28
       await createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
+      pushUndoState()
     } else if (action === 'open' || title === 'Open') {
       if (globalFileInput) globalFileInput.click()
     } else if (action === 'save' || title === 'Save') {
@@ -129,6 +148,7 @@ if (globalFileInput) {
           const content = evt.target?.result as string
           if (content) {
             await loadSmpProject(graphAreaEl, content, file.name)
+            pushUndoState()
           }
         }
         reader.readAsText(file, 'windows-1252')
@@ -143,6 +163,7 @@ if (globalFileInput) {
           if (content && svg) {
             const ds = parseDatasetContent(content, file.name)
             addDatasetToPlot(svg, ds)
+            pushUndoState()
           }
         }
         reader.readAsText(file, 'windows-1252')
@@ -155,7 +176,9 @@ if (globalFileInput) {
 // Right-click context menu actions:
 if (ctxMenuEl) {
   initContextMenu(ctxMenuEl, (actionKey) => {
-    if (actionKey === 'property' || actionKey.toLowerCase().includes('date')) {
+    if (actionKey === 'delete') {
+      if (deleteSelectedObjects()) pushUndoState()
+    } else if (actionKey === 'property' || actionKey.toLowerCase().includes('date')) {
       showDataManagerDialog(dmOverlayEl)
     } else if (actionKey === 'xaxis') {
       showAxisDialog(axisOverlayEl, 'x')
@@ -190,7 +213,7 @@ graphAreaEl.addEventListener('dblclick', (e) => {
 })
 
 // Initialize Plot drag & resize listeners
-initPlotDragListeners()
+initPlotDragListeners(pushUndoState)
 
 // Left-drag marquee selection of plot elements (select + group move)
 initMarqueeSelect(graphAreaEl)
@@ -214,6 +237,29 @@ if (dmOverlayEl) {
   })
 }
 
+// Reflect canUndo()/canRedo() on the Undo/Redo menu items and toolbar buttons
+function updateUndoRedoButtons(): void {
+  const undoDisabled = !canUndo()
+  const redoDisabled = !canRedo()
+  document
+    .querySelectorAll<HTMLElement>('.menu-dropdown .dropdown-item[data-action="undo"], .toolbar-btn[data-action="undo"]')
+    .forEach((el) => {
+      el.classList.toggle('disabled', undoDisabled)
+      if (undoDisabled) el.setAttribute('aria-disabled', 'true')
+      else el.removeAttribute('aria-disabled')
+    })
+  document
+    .querySelectorAll<HTMLElement>('.menu-dropdown .dropdown-item[data-action="redo"], .toolbar-btn[data-action="redo"]')
+    .forEach((el) => {
+      el.classList.toggle('disabled', redoDisabled)
+      if (redoDisabled) el.setAttribute('aria-disabled', 'true')
+      else el.removeAttribute('aria-disabled')
+    })
+}
+
+subscribeUndoState(updateUndoRedoButtons)
+updateUndoRedoButtons()
+
 // Spawn initial plot window and load FTIR.SMP sample project
 async function initApp() {
   try {
@@ -229,6 +275,7 @@ async function initApp() {
     console.error('Could not load default FTIR.SMP project:', err)
     await createPlot(graphAreaEl, 40, 40, [])
   }
+  pushUndoState()
 }
 
 initApp()
@@ -257,6 +304,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
         const content = evt.target?.result as string
         if (content) {
           await loadSmpProject(graphAreaEl, content, file.name)
+          pushUndoState()
         }
       }
       reader.readAsText(file, 'windows-1252')
@@ -271,6 +319,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
         if (content && svg) {
           const ds = parseDatasetContent(content, file.name)
           addDatasetToPlot(svg, ds)
+          pushUndoState()
         }
       }
       reader.readAsText(file, 'windows-1252')
@@ -293,8 +342,35 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
 })
 
 document.addEventListener('click', () => hideContextMenu(ctxMenuEl))
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu(ctxMenuEl)
+
+  const activeEl = document.activeElement
+  const isEditable =
+    activeEl &&
+    (activeEl.tagName === 'INPUT' ||
+      activeEl.tagName === 'TEXTAREA' ||
+      (activeEl as HTMLElement).isContentEditable)
+
+  if (isEditable) return
+
+  const key = e.key.toLowerCase()
+  const isCtrlOrCmd = e.ctrlKey || e.metaKey
+
+  if (key === 'delete' || key === 'backspace' || (isCtrlOrCmd && key === 'd')) {
+    e.preventDefault()
+    if (deleteSelectedObjects()) {
+      pushUndoState()
+    }
+  } else if (isCtrlOrCmd && key === 'z') {
+    e.preventDefault()
+    if (e.shiftKey) {
+      redo(graphAreaEl)
+    } else {
+      undo(graphAreaEl)
+    }
+  } else if (isCtrlOrCmd && key === 'y') {
+    e.preventDefault()
+    redo(graphAreaEl)
+  }
 })
-
-

@@ -49,9 +49,9 @@ export interface PlotVisualOptions {
   yColumn?: number
 }
 
-const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
-const svgSmpMetaMap = new WeakMap<SVGSVGElement, SmpMetadata>()
-const svgSmpDocMap = new WeakMap<SVGSVGElement, SmpPlotDoc>()
+export const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
+export const svgSmpMetaMap = new WeakMap<SVGSVGElement, SmpMetadata>()
+export const svgSmpDocMap = new WeakMap<SVGSVGElement, SmpPlotDoc>()
 const svgBaseScaleMap = new WeakMap<
   SVGSVGElement,
   { xMin: number; xMax: number; yMin: number; yMax: number }
@@ -105,7 +105,9 @@ function getCachedArrowOverlay(): HTMLElement | null {
 
 function getPlotOverlay(svg: SVGSVGElement): HTMLDivElement {
   let overlay = svgOverlayMap.get(svg)
-  if (!overlay) {
+  // Re-create if the cached overlay is no longer connected (e.g. removed from the
+  // DOM by an undo/redo restore) so overlay visuals keep rendering.
+  if (!overlay || !overlay.isConnected) {
     overlay = document.createElement('div')
     overlay.className = 'plot-overlay'
     overlay.style.left = parseFloat(svg.style.left) ? `${parseFloat(svg.style.left)}px` : '0px'
@@ -190,8 +192,8 @@ function getProcessedDataset(ds: Dataset): Dataset {
 let selectedLegendIndex: number = -1
 let selectedAnnotationIndex: number = -1
 
-const allDatasets: Dataset[] = []
-const activeSvgs: SVGSVGElement[] = []
+export const allDatasets: Dataset[] = []
+export const activeSvgs: SVGSVGElement[] = []
 
 export const SMP_SCALE = 0.02
 
@@ -228,6 +230,84 @@ export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
 
 export function getPlotDatasets(svg: SVGSVGElement): Dataset[] {
   return svgDataMap.get(svg) || []
+}
+
+// Lightweight digest of live workspace state used to skip no-op undo pushes.
+// Must cover every mutating source: drag→geometry, delete→counts,
+// create/load→counts+geometry, axis/title/arrow dialogs→legend/annotation/axis
+// fields, addDataset→dataset count, clearPlotScale→baseScale. Data arrays are
+// immutable after load, and selection never triggers a push, so both are excluded.
+// Doc fields are projected through exportPlotToSmpDoc() — the exact projection
+// captureWorkspaceSnapshot() stores — so the digest always matches what undo/redo
+// restores (a plot without a live doc still gets a synthesized one in both).
+export function captureWorkspaceDigest(): string {
+  return JSON.stringify(
+    activeSvgs.map((svg) => {
+      const smpMeta = svgSmpMetaMap.get(svg)
+      const baseScale = svgBaseScaleMap.get(svg)
+      const doc = exportPlotToSmpDoc(svg, svgSmpDocMap.get(svg)?.name || 'PLOT.SMP')
+      const datasets = svgDataMap.get(svg) || []
+
+      return {
+        left: parseFloat(svg.style.left) || 0,
+        top: parseFloat(svg.style.top) || 0,
+        width: parseFloat(svg.style.width) || 400,
+        height: parseFloat(svg.style.height) || 300,
+        baseScale: baseScale
+          ? { xMin: baseScale.xMin, xMax: baseScale.xMax, yMin: baseScale.yMin, yMax: baseScale.yMax }
+          : null,
+        doc: {
+          name: doc.name,
+          left: doc.left,
+          top: doc.top,
+          width: doc.width,
+          height: doc.height,
+          axisX: doc.axisX,
+          axisY: doc.axisY,
+          axisTop: doc.axisTop || null,
+          axisRight: doc.axisRight || null,
+          legendItems: doc.legendItems.map((item) => ({
+            type: item.type || null,
+            text: item.text,
+            rawText: item.rawText || null,
+            xNorm: item.xNorm,
+            yNorm: item.yNorm,
+            rotation: item.rotation,
+            fontFamily: item.fontFamily,
+            fontSize: item.fontSize,
+            fontWeight: item.fontWeight,
+            align: item.align || null,
+            x2Norm: item.x2Norm ?? null,
+            y2Norm: item.y2Norm ?? null,
+            rawLine: item.rawLine || null,
+          })),
+          annotationLines: (doc.annotationLines || []).map((aLine) => ({ ...aLine })),
+          xLabel: doc.xLabel || null,
+          yLabel: doc.yLabel || null,
+          datasets: datasets.map((ds) => ({
+            name: ds.name,
+            color: ds.color,
+            xLen: ds.x.length,
+            yLen: ds.y.length,
+            options: ds.options || null,
+          })),
+        },
+        meta: smpMeta
+          ? {
+              xMin: smpMeta.xMin ?? null,
+              xMax: smpMeta.xMax ?? null,
+              xStep: smpMeta.xStep ?? null,
+              yMin: smpMeta.yMin ?? null,
+              yMax: smpMeta.yMax ?? null,
+              yStep: smpMeta.yStep ?? null,
+              xLabel: smpMeta.xLabel ?? null,
+              yLabel: smpMeta.yLabel ?? null,
+              docsLen: smpMeta.docs?.length ?? 0,
+            }
+          : null,
+      }
+    })
+  )
 }
 
 export function getAllPlotSvgs(graphArea: HTMLElement): SVGSVGElement[] {
@@ -405,6 +485,91 @@ export function setObjectSelection(objs: SelectableObject[]): void {
 
 export function clearObjectSelection(): void {
   setObjectSelection([])
+}
+
+export function deleteSelectedObjects(): boolean {
+  const selected = getSelectedObjects()
+  let deletedAny = false
+
+  if (selected.length > 0) {
+    const plotSvgsToDelete = new Set<SVGSVGElement>()
+    const legendDeletions = new Map<SVGSVGElement, number[]>()
+    const annotationDeletions = new Map<SVGSVGElement, number[]>()
+
+    selected.forEach((o) => {
+      if (o.kind === 'plot') {
+        plotSvgsToDelete.add(o.svg)
+      } else if (o.kind === 'legend' && o.itemIdx !== undefined) {
+        if (!legendDeletions.has(o.svg)) legendDeletions.set(o.svg, [])
+        legendDeletions.get(o.svg)!.push(o.itemIdx)
+      } else if (o.kind === 'annotation' && o.annotationIdx !== undefined) {
+        if (!annotationDeletions.has(o.svg)) annotationDeletions.set(o.svg, [])
+        annotationDeletions.get(o.svg)!.push(o.annotationIdx)
+      }
+    })
+
+    plotSvgsToDelete.forEach((svg) => {
+      const idx = activeSvgs.indexOf(svg)
+      if (idx !== -1) {
+        activeSvgs.splice(idx, 1)
+        svg.remove()
+        const ov = svgOverlayMap.get(svg)
+        if (ov) ov.remove()
+        svgSmpDocMap.delete(svg)
+        svgSmpMetaMap.delete(svg)
+        svgDataMap.delete(svg)
+        deletedAny = true
+      }
+    })
+
+    legendDeletions.forEach((indices, svg) => {
+      const smpDoc = svgSmpDocMap.get(svg)
+      if (smpDoc && smpDoc.legendItems) {
+        indices.sort((a, b) => b - a).forEach((i) => {
+          if (i >= 0 && i < smpDoc.legendItems.length) {
+            smpDoc.legendItems.splice(i, 1)
+            deletedAny = true
+          }
+        })
+        updatePlotVisual(svg)
+      }
+    })
+
+    annotationDeletions.forEach((indices, svg) => {
+      const smpDoc = svgSmpDocMap.get(svg)
+      if (smpDoc && smpDoc.annotationLines) {
+        const lines = smpDoc.annotationLines
+        indices.sort((a, b) => b - a).forEach((i) => {
+          if (i >= 0 && i < lines.length) {
+            lines.splice(i, 1)
+            deletedAny = true
+          }
+        })
+        updatePlotVisual(svg)
+      }
+    })
+
+    clearObjectSelection()
+  } else {
+    const selPlot = getSelectedPlotSvg()
+    if (selPlot) {
+      const idx = activeSvgs.indexOf(selPlot)
+      if (idx !== -1) {
+        activeSvgs.splice(idx, 1)
+        selPlot.remove()
+        const ov = svgOverlayMap.get(selPlot)
+        if (ov) ov.remove()
+        svgSmpDocMap.delete(selPlot)
+        svgSmpMetaMap.delete(selPlot)
+        svgDataMap.delete(selPlot)
+        setSelectedPlotSvg(null)
+        clearObjectSelection()
+        deletedAny = true
+      }
+    }
+  }
+
+  return deletedAny
 }
 
 export function setMarqueeSelection(svgs: SVGSVGElement[]): void {
@@ -619,6 +784,20 @@ export function clearPlotScale(target: 'all' | 'x' | 'y' = 'all'): void {
     const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
     drawPlot(svg, ds, w, h)
   }
+}
+
+export function getPlotBaseScale(
+  svg: SVGSVGElement
+): { xMin: number; xMax: number; yMin: number; yMax: number } | undefined {
+  return svgBaseScaleMap.get(svg)
+}
+
+export function setPlotBaseScale(
+  svg: SVGSVGElement,
+  base: { xMin: number; xMax: number; yMin: number; yMax: number } | null
+): void {
+  if (base === null) svgBaseScaleMap.delete(svg)
+  else svgBaseScaleMap.set(svg, base)
 }
 
 export function drawPlot(
@@ -1627,30 +1806,8 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
 
 
 
-export async function createPlot(
-  graphArea: HTMLElement,
-  x: number,
-  y: number,
-  initialDatasets: Dataset[] = [],
-  width: number = 400,
-  height: number = 300
-): Promise<SVGSVGElement> {
-  boxCount++
-
-  const svg = createSVGElement('svg')
-  svg.setAttribute('class', 'plot-svg')
-  svg.style.left = `${x}px`
-  svg.style.top = `${y}px`
-  svg.style.width = `${width}px`
-  svg.style.height = `${height}px`
-
-  graphArea.appendChild(svg)
-  activeSvgs.push(svg)
-  setObjectSelection([{ kind: 'plot', svg }])
-
-  svgDataMap.set(svg, initialDatasets)
+export function wirePlotInteractions(svg: SVGSVGElement): void {
   setupPlotFileDrop(svg)
-  drawPlot(svg, initialDatasets, width, height)
 
   svg.addEventListener('click', (e: MouseEvent) => {
     if (e.target === svg || ((e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir'))) {
@@ -1665,11 +1822,11 @@ export async function createPlot(
   svg.addEventListener('mousedown', (e: MouseEvent) => {
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
+    const graphArea = svg.parentElement || document.body
     if (!dir) {
       // Left-drag on the plot body: if the plot is already marquee-selected AND click is on frame border line,
       // start a group-move. Otherwise, let MarqueeSelect handle it.
       if (e.button !== 0) return
-      const graphArea = svg.parentElement || document.body
       const rect = graphArea.getBoundingClientRect()
       const zoom = getCanvasZoom()
       const gx = (e.clientX - rect.left) / zoom
@@ -1733,6 +1890,32 @@ export async function createPlot(
     }
     document.body.style.userSelect = 'none'
   })
+}
+
+export async function createPlot(
+  graphArea: HTMLElement,
+  x: number,
+  y: number,
+  initialDatasets: Dataset[] = [],
+  width: number = 400,
+  height: number = 300
+): Promise<SVGSVGElement> {
+  boxCount++
+
+  const svg = createSVGElement('svg')
+  svg.setAttribute('class', 'plot-svg')
+  svg.style.left = `${x}px`
+  svg.style.top = `${y}px`
+  svg.style.width = `${width}px`
+  svg.style.height = `${height}px`
+
+  graphArea.appendChild(svg)
+  activeSvgs.push(svg)
+  setObjectSelection([{ kind: 'plot', svg }])
+
+  svgDataMap.set(svg, initialDatasets)
+  wirePlotInteractions(svg)
+  drawPlot(svg, initialDatasets, width, height)
 
   return svg
 }
@@ -1753,8 +1936,10 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
   return val
 }
 
-// Global mousemove & mouseup listeners for resize with snap to grid
-export function initPlotDragListeners(): void {
+// Global mousemove & mouseup listeners for resize with snap to grid.
+// onDragCommit is invoked after a resize/group-move finishes, letting the caller
+// (e.g. undo manager) record the mutation without Plot importing it.
+export function initPlotDragListeners(onDragCommit?: () => void): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
@@ -1977,20 +2162,28 @@ export function initPlotDragListeners(): void {
   })
 
   document.addEventListener('mouseup', () => {
+    let wasDragging = false
     if (activeGroupDrag) {
       activeGroupDrag = null
       document.body.style.userSelect = ''
+      wasDragging = true
     }
 
-    if (!activeDrag) return
-    const { svg } = activeDrag
-    activeDrag = null
-    document.body.style.userSelect = ''
-    const ds = svgDataMap.get(svg)
-    if (ds) {
-      const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
-      const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
-      drawPlot(svg, ds, w, h)
+    if (activeDrag) {
+      const { svg } = activeDrag
+      activeDrag = null
+      document.body.style.userSelect = ''
+      const ds = svgDataMap.get(svg)
+      if (ds) {
+        const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
+        const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
+        drawPlot(svg, ds, w, h)
+      }
+      wasDragging = true
+    }
+
+    if (wasDragging) {
+      onDragCommit?.()
     }
   })
 }

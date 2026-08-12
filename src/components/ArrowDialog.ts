@@ -1,5 +1,6 @@
 import type { SmpLineAnnotation } from '../types.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { pushUndoState } from '../utils/undoManager.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentAnnotationIndex: number = -1
@@ -82,6 +83,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       }
 
       updatePlotVisual(svg)
+      pushUndoState()
       hide()
     }
 
@@ -99,6 +101,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       if (currentAnnotationIndex >= 0 && currentAnnotationIndex < smpDoc.annotationLines.length) {
         smpDoc.annotationLines.splice(currentAnnotationIndex, 1)
         updatePlotVisual(svg)
+        pushUndoState()
       }
       hide()
     })

@@ -1,6 +1,7 @@
 import type { SmpAxisSpec } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { pushUndoState } from '../utils/undoManager.ts'
 
 type AxisTarget = 'x' | 'y' | 'u' | 'r'
 
@@ -51,6 +52,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisFontFamily) targetSpec.fontFamily = axisFontFamily.value
 
     updatePlotVisual(svg)
+    pushUndoState()
   }
 
   const hide = () => hideAxisDialog(overlayEl)
