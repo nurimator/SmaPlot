@@ -84,7 +84,7 @@ export async function copySvgToClipboard(svgString: string): Promise<boolean> {
   return false
 }
 
-export function hideMarqueeSelection(marqueeCtxMenuEl?: HTMLElement | null): void {
+export function hideMarqueeExport(marqueeCtxMenuEl?: HTMLElement | null): void {
   if (activeMarqueeBox) {
     activeMarqueeBox.remove()
     activeMarqueeBox = null
@@ -95,7 +95,7 @@ export function hideMarqueeSelection(marqueeCtxMenuEl?: HTMLElement | null): voi
   }
 }
 
-export function initMarqueeSelection(
+export function initMarqueeExport(
   graphAreaEl: HTMLElement,
   marqueeCtxMenuEl: HTMLElement,
   statusFileTextEl?: HTMLElement | null
@@ -131,13 +131,17 @@ export function initMarqueeSelection(
 
     isRightDragging = true
     hasRightDragged = false
+    document.body.style.userSelect = 'none'
+    window.getSelection()?.removeAllRanges()
   })
 
   window.addEventListener('mousemove', (e: MouseEvent) => {
     if (!isRightDragging) return
+    window.getSelection()?.removeAllRanges()
     const dist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY)
     if (dist > 5) {
       hasRightDragged = true
+      e.preventDefault()
 
       const rect = graphAreaEl.getBoundingClientRect()
       const zoom = getCanvasZoom()
@@ -163,6 +167,8 @@ export function initMarqueeSelection(
   window.addEventListener('mouseup', (e: MouseEvent) => {
     if (!isRightDragging) return
     isRightDragging = false
+    document.body.style.userSelect = ''
+    window.getSelection()?.removeAllRanges()
 
     if (hasRightDragged && currentMarqueeBounds && currentMarqueeBounds.width > 5 && currentMarqueeBounds.height > 5) {
       e.preventDefault()
@@ -194,18 +200,18 @@ export function initMarqueeSelection(
     if (success && statusFileTextEl) {
       statusFileTextEl.textContent = 'SVG marquee selection copied to clipboard!'
     }
-    hideMarqueeSelection(marqueeCtxMenuEl)
+    hideMarqueeExport(marqueeCtxMenuEl)
   })
 
   document.addEventListener('click', (e: MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.closest('#marqueeCtxMenu') || target.closest('.marquee-selection-box')) return
-    hideMarqueeSelection(marqueeCtxMenuEl)
+    hideMarqueeExport(marqueeCtxMenuEl)
   })
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      hideMarqueeSelection(marqueeCtxMenuEl)
+      hideMarqueeExport(marqueeCtxMenuEl)
     }
   })
 }

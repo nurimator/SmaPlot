@@ -126,7 +126,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
         text: doc.yLabel,
         rawText: doc.yLabel,
         xNorm: -400,
-        yNorm: 7000,
+        yNorm: 5000,
         rotation: -90,
         fontFamily: 'cambria',
         fontSize: 12,

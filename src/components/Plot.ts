@@ -15,6 +15,19 @@ function createSVGElement<K extends keyof SVGElementTagNameMap>(tag: K): SVGElem
 
 export const PLOT_MARGIN = { l: 65, r: 25, t: 25, b: 55 }
 
+export const BORDER_TOL = 2 // px tolerance for clicking on plot frame border lines
+
+// Check if a point is on the border (edges only) of a rectangle, within tolerance.
+export function hitsRectBorder(gx: number, gy: number, l: number, t: number, w: number, h: number): boolean {
+  const r = l + w
+  const b = t + h
+  // Must be within the outer padded rect
+  if (gx < l - BORDER_TOL || gx > r + BORDER_TOL || gy < t - BORDER_TOL || gy > b + BORDER_TOL) return false
+  // Must NOT be fully inside the inner rect (i.e. must be near an edge)
+  if (gx > l + BORDER_TOL && gx < r - BORDER_TOL && gy > t + BORDER_TOL && gy < b - BORDER_TOL) return false
+  return true
+}
+
 export interface PlotVisualOptions {
   show?: boolean
   lineStyle?: string
@@ -46,9 +59,34 @@ const svgOverlayMap = new WeakMap<SVGSVGElement, HTMLDivElement>()
 let activeDrag: ActiveDrag | null = null
 let selectedPlotSvg: SVGSVGElement | null = null
 let rafId: number | null = null
-let legendDragRafId: number | null = null
-let annotationDragRafId: number | null = null
 let boxCount = 0
+
+export interface SelectableObject {
+  kind: 'plot' | 'legend' | 'annotation'
+  svg: SVGSVGElement
+  itemIdx?: number
+  annotationIdx?: number
+}
+
+const selectedObjects: SelectableObject[] = []
+
+interface GroupDragItem {
+  kind: 'plot' | 'legend' | 'annotation'
+  svg: SVGSVGElement
+  startLeft?: number
+  startTop?: number
+  itemIdx?: number
+  startXNorm?: number
+  startYNorm?: number
+  annotationIdx?: number
+  startX1Norm?: number
+  startY1Norm?: number
+  startX2Norm?: number
+  startY2Norm?: number
+  targetType?: 'start' | 'end' | 'line'
+}
+
+let activeGroupDrag: { items: GroupDragItem[]; startX: number; startY: number } | null = null
 
 // Cached overlay elements (populated lazily)
 let _cachedTitleOverlay: HTMLElement | null = null
@@ -151,29 +189,7 @@ function getProcessedDataset(ds: Dataset): Dataset {
   return { ...ds, x: sourceX, y: sourceY, options: opts }
 }
 
-interface ActiveLegendItemDrag {
-  svg: SVGSVGElement
-  itemIdx: number
-  startX: number
-  startY: number
-  startXNorm: number
-  startYNorm: number
-}
-let activeLegendItemDrag: ActiveLegendItemDrag | null = null
 let selectedLegendIndex: number = -1
-
-interface ActiveAnnotationDrag {
-  svg: SVGSVGElement
-  annotationIdx: number
-  targetType: 'start' | 'end' | 'line'
-  startX: number
-  startY: number
-  startX1Norm: number
-  startY1Norm: number
-  startX2Norm: number
-  startY2Norm: number
-}
-let activeAnnotationDrag: ActiveAnnotationDrag | null = null
 let selectedAnnotationIndex: number = -1
 
 const allDatasets: Dataset[] = []
@@ -292,12 +308,252 @@ export function setSelectedPlotSvg(svg: SVGSVGElement | null): void {
   if (svg === selectedPlotSvg) return
   const prev = selectedPlotSvg
   selectedPlotSvg = svg
-  if (prev) updatePlotVisual(prev)
-  if (svg) updatePlotVisual(svg)
+  if (prev) {
+    updatePlotVisual(prev)
+    updateSelectionBorder(prev)
+  }
+  if (svg) {
+    updatePlotVisual(svg)
+    updateSelectionBorder(svg)
+  }
 }
 
 export function getSelectedPlotSvg(): SVGSVGElement | null {
   return selectedPlotSvg
+}
+
+export function getMultiSelectedSvgs(): SVGSVGElement[] {
+  const seen = new Set<SVGSVGElement>()
+  selectedObjects.forEach((o) => seen.add(o.svg))
+  return [...seen]
+}
+
+export function isMultiSelected(svg: SVGSVGElement): boolean {
+  return selectedObjects.some((o) => o.svg === svg)
+}
+
+export function getSelectedObjects(): SelectableObject[] {
+  return [...selectedObjects]
+}
+
+function updateSelectionBorder(svg: SVGSVGElement): void {
+  const ov = svgOverlayMap.get(svg)
+  if (!ov) return
+  const isSel = isMultiSelected(svg)
+
+  // Remove existing frame border element
+  const existing = ov.querySelector('.ov-frame-border')
+  if (existing) existing.remove()
+
+  if (isSel) {
+    // Add a border element positioned exactly on the inner plot frame
+    const border = document.createElement('div')
+    border.className = 'ov-frame-border'
+    border.style.position = 'absolute'
+    border.style.left = `${PLOT_MARGIN.l}px`
+    border.style.top = `${PLOT_MARGIN.t}px`
+    const w = parseFloat(svg.style.width) || 400
+    const h = parseFloat(svg.style.height) || 300
+    border.style.width = `${Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r)}px`
+    border.style.height = `${Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b)}px`
+    border.style.border = '1.5px dashed #0284c7'
+    border.style.boxSizing = 'border-box'
+    border.style.pointerEvents = 'none'
+    ov.appendChild(border)
+  }
+}
+
+export function setObjectSelection(objs: SelectableObject[]): void {
+  const objKey = (o: SelectableObject): string =>
+    o.kind === 'plot' ? '' : `${o.kind}:${o.itemIdx ?? ''}:${o.annotationIdx ?? ''}`
+  const collectInner = (map: Map<SVGSVGElement, Set<string>>, o: SelectableObject): void => {
+    if (o.kind === 'plot') return
+    if (!map.has(o.svg)) map.set(o.svg, new Set())
+    map.get(o.svg)!.add(objKey(o))
+  }
+  const prevInner = new Map<SVGSVGElement, Set<string>>()
+  selectedObjects.forEach((o) => collectInner(prevInner, o))
+  const nextInner = new Map<SVGSVGElement, Set<string>>()
+  objs.forEach((o) => collectInner(nextInner, o))
+
+  const changed = new Set<SVGSVGElement>()
+  new Set([...prevInner.keys(), ...nextInner.keys()]).forEach((s) => {
+    const a = prevInner.get(s) ?? new Set<string>()
+    const b = nextInner.get(s) ?? new Set<string>()
+    if (a.size !== b.size || [...a].some((k) => !b.has(k))) changed.add(s)
+  })
+
+  selectedObjects.forEach((o) => updateSelectionBorder(o.svg))
+  selectedObjects.length = 0
+  objs.forEach((o) => {
+    selectedObjects.push(o)
+    updateSelectionBorder(o.svg)
+  })
+
+  const last = objs[objs.length - 1]
+  if (last) {
+    setSelectedPlotSvg(last.svg)
+  } else {
+    setSelectedPlotSvg(null)
+  }
+
+  changed.forEach((s) => updatePlotVisual(s))
+}
+
+export function clearObjectSelection(): void {
+  setObjectSelection([])
+}
+
+export function setMarqueeSelection(svgs: SVGSVGElement[]): void {
+  setObjectSelection(svgs.map((svg) => ({ kind: 'plot' as const, svg })))
+}
+
+export function clearMarqueeSelection(): void {
+  setObjectSelection([])
+}
+
+export function isObjectSelected(obj: SelectableObject): boolean {
+  return selectedObjects.some(
+    (o) => o.kind === obj.kind && o.svg === obj.svg && o.itemIdx === obj.itemIdx && o.annotationIdx === obj.annotationIdx
+  )
+}
+
+// Every movable object (plot box, legend item, annotation line) with its on-canvas
+// bounding box in graph-area local coordinates, for marquee hit-testing.
+export function getSelectableObjects(): { obj: SelectableObject; l: number; t: number; w: number; h: number }[] {
+  const result: { obj: SelectableObject; l: number; t: number; w: number; h: number }[] = []
+  for (const svg of activeSvgs) {
+    const left = parseFloat(svg.style.left) || 0
+    const top = parseFloat(svg.style.top) || 0
+    const width = parseFloat(svg.style.width) || 400
+    const height = parseFloat(svg.style.height) || 300
+    result.push({
+      obj: { kind: 'plot', svg },
+      l: left + PLOT_MARGIN.l,
+      t: top + PLOT_MARGIN.t,
+      w: Math.max(10, width - PLOT_MARGIN.l - PLOT_MARGIN.r),
+      h: Math.max(10, height - PLOT_MARGIN.t - PLOT_MARGIN.b),
+    })
+
+    const smpDoc = svgSmpDocMap.get(svg)
+    if (!smpDoc) continue
+    const plotW = Math.max(10, width - PLOT_MARGIN.l - PLOT_MARGIN.r)
+    const plotH = Math.max(10, height - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+    smpDoc.legendItems.forEach((item, itemIdx) => {
+      const px = left + PLOT_MARGIN.l + (item.xNorm / 10000) * plotW
+      const py = top + PLOT_MARGIN.t + (item.yNorm / 10000) * plotH
+      let objW: number
+      let objH: number
+      if (item.text.startsWith('%01E')) {
+        const lines = item.text.split('\n').length
+        objW = 90
+        objH = lines * 11 + 6
+        result.push({ obj: { kind: 'legend', svg, itemIdx }, l: px - 4, t: py - objH / 2, w: objW + 8, h: objH + 4 })
+      } else {
+        const isRot = item.rotation !== 0
+        const textLen = Math.max(40, item.text.length * 7 + 8)
+        const fontH = (item.fontSize || 12) + 6
+        const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
+
+        if (isRot) {
+          const topY = anchor === 'end' ? py - textLen : anchor === 'middle' ? py - textLen / 2 : py - textLen
+          result.push({
+            obj: { kind: 'legend', svg, itemIdx },
+            l: px - fontH - 2,
+            t: topY - 2,
+            w: fontH + 4,
+            h: textLen + 4,
+          })
+        } else {
+          const leftX = anchor === 'end' ? px - textLen : anchor === 'middle' ? px - textLen / 2 : px
+          result.push({
+            obj: { kind: 'legend', svg, itemIdx },
+            l: leftX - 2,
+            t: py - fontH + 2,
+            w: textLen + 4,
+            h: fontH + 4,
+          })
+        }
+      }
+    })
+
+    smpDoc.annotationLines?.forEach((aLine, annotationIdx) => {
+      const x1 = left + PLOT_MARGIN.l + (aLine.x1Norm / 100) * plotW
+      const y1 = top + PLOT_MARGIN.t + (aLine.y1Norm / 100) * plotH
+      const x2 = left + PLOT_MARGIN.l + (aLine.x2Norm / 100) * plotW
+      const y2 = top + PLOT_MARGIN.t + (aLine.y2Norm / 100) * plotH
+      const minX = Math.min(x1, x2) - 4
+      const minY = Math.min(y1, y2) - 4
+      result.push({
+        obj: { kind: 'annotation', svg, annotationIdx },
+        l: minX,
+        t: minY,
+        w: Math.abs(x2 - x1) + 8,
+        h: Math.abs(y2 - y1) + 8,
+      })
+    })
+  }
+  return result
+}
+
+// Start state of every selected object for a group move. Inner objects (legend /
+// annotation) of a selected plot box are excluded: they ride along with their plot.
+function buildGroupDragItems(selection: SelectableObject[]): GroupDragItem[] {
+  const selectedPlots = new Set<SVGSVGElement>()
+  selection.forEach((o) => {
+    if (o.kind === 'plot') selectedPlots.add(o.svg)
+  })
+
+  const items: GroupDragItem[] = []
+  for (const o of selection) {
+    if (o.kind === 'plot') {
+      items.push({
+        kind: 'plot',
+        svg: o.svg,
+        startLeft: parseFloat(o.svg.style.left) || 0,
+        startTop: parseFloat(o.svg.style.top) || 0,
+      })
+      continue
+    }
+    if (selectedPlots.has(o.svg)) continue
+
+    if (o.kind === 'legend') {
+      const item = svgSmpDocMap.get(o.svg)?.legendItems[o.itemIdx!]
+      if (item) {
+        items.push({
+          kind: 'legend',
+          svg: o.svg,
+          itemIdx: o.itemIdx,
+          startXNorm: item.xNorm,
+          startYNorm: item.yNorm,
+        })
+      }
+    } else if (o.kind === 'annotation') {
+      const aLine = svgSmpDocMap.get(o.svg)?.annotationLines?.[o.annotationIdx!]
+      if (aLine) {
+        items.push({
+          kind: 'annotation',
+          svg: o.svg,
+          annotationIdx: o.annotationIdx,
+          startX1Norm: aLine.x1Norm,
+          startY1Norm: aLine.y1Norm,
+          startX2Norm: aLine.x2Norm,
+          startY2Norm: aLine.y2Norm,
+        })
+      }
+    }
+  }
+  return items
+}
+
+function startGroupDrag(startX: number, startY: number): void {
+  activeGroupDrag = {
+    items: buildGroupDragItems(selectedObjects),
+    startX,
+    startY,
+  }
+  document.body.style.userSelect = 'none'
 }
 
 export function updatePlotVisual(svg: SVGSVGElement): void {
@@ -643,31 +899,55 @@ export function drawPlot(
     const y2 = margin.t + (aLine.y2Norm / 100) * plotH
 
     const isSelected = selectedAnnotationIndex === aIdx && svg === getSelectedPlotSvg()
+    const isMarqueeSel = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
     const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
       if (e.button !== 0) return
-      e.stopPropagation()
-      setSelectedPlotSvg(svg)
-      if (selectedAnnotationIndex === aIdx && targetType === 'line') {
-        selectedAnnotationIndex = -1
-        updatePlotVisual(svg)
+      const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
+
+      if (!wasSelected) {
+        // Not yet selected — don't stopPropagation, let MarqueeSelect handle.
         return
       }
+
+      // Object was already selected — stopPropagation and start group drag
+      e.stopPropagation()
+      setSelectedPlotSvg(svg)
       selectedAnnotationIndex = aIdx
       selectedLegendIndex = -1
       updatePlotVisual(svg)
 
-      activeAnnotationDrag = {
-        svg,
-        annotationIdx: aIdx,
-        targetType,
+      const selection = getSelectedObjects()
+      if (selection.length > 1) {
+        activeGroupDrag = {
+          items: buildGroupDragItems(selection).map((it) =>
+            it.kind === 'annotation' && it.svg === svg && it.annotationIdx === aIdx ? { ...it, targetType } : it
+          ),
+          startX: e.clientX,
+          startY: e.clientY,
+        }
+        document.body.style.userSelect = 'none'
+        return
+      }
+
+      // Single annotation: keep endpoint editing behavior
+      activeGroupDrag = {
+        items: [
+          {
+            kind: 'annotation',
+            svg,
+            annotationIdx: aIdx,
+            targetType,
+            startX1Norm: aLine.x1Norm,
+            startY1Norm: aLine.y1Norm,
+            startX2Norm: aLine.x2Norm,
+            startY2Norm: aLine.y2Norm,
+          },
+        ],
         startX: e.clientX,
         startY: e.clientY,
-        startX1Norm: aLine.x1Norm,
-        startY1Norm: aLine.y1Norm,
-        startX2Norm: aLine.x2Norm,
-        startY2Norm: aLine.y2Norm,
       }
+      document.body.style.userSelect = 'none'
     }
 
     const l = createSVGElement('line')
@@ -729,6 +1009,17 @@ export function drawPlot(
       handle2.addEventListener('mousedown', handleMouseDown('end'))
       ov.appendChild(handle2)
     }
+
+    if (isMarqueeSel && !isSelected) {
+      const ov = getPlotOverlay(svg)
+      const selBox = createOverlayEl('ov-box-multi')
+      selBox.style.left = `${Math.min(x1, x2) - 4}px`
+      selBox.style.top = `${Math.min(y1, y2) - 4}px`
+      selBox.style.width = `${Math.abs(x2 - x1) + 8}px`
+      selBox.style.height = `${Math.abs(y2 - y1) + 8}px`
+      selBox.addEventListener('mousedown', handleMouseDown('line'))
+      ov.appendChild(selBox)
+    }
   })
 
   // ----------------------------------------------------
@@ -756,7 +1047,7 @@ export function drawPlot(
         text: yLbl,
         rawText: yLbl,
         xNorm: -400,
-        yNorm: 3000,
+        yNorm: 5000,
         rotation: -90,
         fontFamily: 'cambria',
         fontSize: 12,
@@ -771,12 +1062,10 @@ export function drawPlot(
       const isRotated = item.rotation !== 0
       const px = margin.l + (item.xNorm / 10000) * plotW
       const renderPx = px
-      const isYAxisLabel = isRotated && item.xNorm < 0
-      const py = isYAxisLabel
-        ? margin.t + plotH / 2
-        : margin.t + (item.yNorm / 10000) * plotH
+      const py = margin.t + (item.yNorm / 10000) * plotH
 
       const isSelected = selectedLegendIndex === itemIdx && svg === getSelectedPlotSvg()
+      const isMarqueeSel = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
       let lastClickTime = 0
 
@@ -793,35 +1082,34 @@ export function drawPlot(
 
       const handleLegendMouseDown = (e: MouseEvent) => {
         if (e.button !== 0) return
-        e.stopPropagation()
-        setSelectedPlotSvg(svg)
-        if (selectedLegendIndex === itemIdx) {
-          selectedLegendIndex = -1
-          selectedAnnotationIndex = -1
-          updatePlotVisual(svg)
-          return
-        }
-        selectedLegendIndex = itemIdx
-        selectedAnnotationIndex = -1
-        updatePlotVisual(svg)
+        const wasSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
+        // Double-click detection (always works)
         const now = Date.now()
         if (now - lastClickTime < 350 || e.detail >= 2) {
           lastClickTime = 0
+          e.stopPropagation()
+          setSelectedPlotSvg(svg)
+          selectedLegendIndex = itemIdx
+          selectedAnnotationIndex = -1
+          updatePlotVisual(svg)
           openTitleModal(e)
           return
         }
         lastClickTime = now
 
-        activeLegendItemDrag = {
-          svg,
-          itemIdx,
-          startX: e.clientX,
-          startY: e.clientY,
-          startXNorm: item.xNorm,
-          startYNorm: item.yNorm,
+        if (!wasSelected) {
+          // Not yet selected — don't stopPropagation, let MarqueeSelect handle.
+          return
         }
-        document.body.style.userSelect = 'none'
+
+        // Object was already selected — stopPropagation and start group drag
+        e.stopPropagation()
+        setSelectedPlotSvg(svg)
+        selectedLegendIndex = itemIdx
+        selectedAnnotationIndex = -1
+        updatePlotVisual(svg)
+        startGroupDrag(e.clientX, e.clientY)
       }
 
       if (item.text.startsWith('%01E')) {
@@ -873,7 +1161,7 @@ export function drawPlot(
         textEl.setAttribute('font-weight', String(item.fontWeight))
         textEl.setAttribute('fill', '#000000')
 
-        const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : (isRotated ? 'middle' : 'start')
+        const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
         textEl.setAttribute('text-anchor', anchor)
 
         if (isRotated) {
@@ -957,6 +1245,32 @@ export function drawPlot(
             parentEl.appendChild(handle)
           })
         }
+
+        if (isMarqueeSel && !isSelected && !item.text.startsWith('%01E')) {
+          const ov = getPlotOverlay(svg)
+          let parentEl: HTMLElement = ov
+          if (isRotated) {
+            const rotWrap = createOverlayEl('ov-rot-wrap')
+            rotWrap.style.left = `${renderPx}px`
+            rotWrap.style.top = `${py}px`
+            rotWrap.style.transform = `rotate(${item.rotation}deg)`
+            ov.appendChild(rotWrap)
+            parentEl = rotWrap
+          }
+          const boxW = Math.max(40, item.text.length * 7 + 8)
+          const boxH = (item.fontSize || 12) + 6
+          const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
+          const boxX = anchor === 'middle' ? -boxW / 2 : anchor === 'end' ? -boxW : -4
+          const boxY = -(item.fontSize || 12) - 3
+
+          const selBox = createOverlayEl('ov-box-multi')
+          selBox.style.left = isRotated ? `${boxX}px` : `${renderPx + boxX}px`
+          selBox.style.top = isRotated ? `${boxY}px` : `${py + boxY}px`
+          selBox.style.width = `${boxW}px`
+          selBox.style.height = `${boxH}px`
+          selBox.addEventListener('mousedown', handleLegendMouseDown)
+          parentEl.appendChild(selBox)
+        }
       }
 
       if (isSelected && item.text.startsWith('%01E')) {
@@ -988,6 +1302,17 @@ export function drawPlot(
           handle.style.top = `${c.y}px`
           ov.appendChild(handle)
         })
+      }
+
+      if (isMarqueeSel && !isSelected && item.text.startsWith('%01E')) {
+        const ov = getPlotOverlay(svg)
+        const selBox = createOverlayEl('ov-box-multi')
+        selBox.style.left = `${renderPx - 4}px`
+        selBox.style.top = `${py - 6}px`
+        selBox.style.width = '60px'
+        selBox.style.height = `${item.text.split('\n').length * 11 + 6}px`
+        selBox.addEventListener('mousedown', handleLegendMouseDown)
+        ov.appendChild(selBox)
       }
     })
   } else {
@@ -1232,6 +1557,7 @@ export function drawPlot(
   }
 
   syncPlotOverlay(svg)
+  updateSelectionBorder(svg)
 }
 
 export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
@@ -1328,15 +1654,14 @@ export async function createPlot(
 
   graphArea.appendChild(svg)
   activeSvgs.push(svg)
-  setSelectedPlotSvg(svg)
+  setObjectSelection([{ kind: 'plot', svg }])
 
   svgDataMap.set(svg, initialDatasets)
   setupPlotFileDrop(svg)
   drawPlot(svg, initialDatasets, width, height)
 
   svg.addEventListener('click', (e: MouseEvent) => {
-    setSelectedPlotSvg(svg)
-    if (e.target === svg || (e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir')) {
+    if (e.target === svg || ((e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir'))) {
       if (selectedLegendIndex !== -1 || selectedAnnotationIndex !== -1) {
         selectedLegendIndex = -1
         selectedAnnotationIndex = -1
@@ -1346,10 +1671,37 @@ export async function createPlot(
   })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
-    setSelectedPlotSvg(svg)
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
-    if (!dir) return
+    if (!dir) {
+      // Left-drag on the plot body: if the plot is already marquee-selected AND click is on frame border line,
+      // start a group-move. Otherwise, let MarqueeSelect handle it.
+      if (e.button !== 0) return
+      const graphArea = svg.parentElement || document.body
+      const rect = graphArea.getBoundingClientRect()
+      const zoom = getCanvasZoom()
+      const gx = (e.clientX - rect.left) / zoom
+      const gy = (e.clientY - rect.top) / zoom
+
+      const left = parseFloat(svg.style.left) || 0
+      const top = parseFloat(svg.style.top) || 0
+      const width = parseFloat(svg.style.width) || 400
+      const height = parseFloat(svg.style.height) || 300
+      const l = left + PLOT_MARGIN.l
+      const t = top + PLOT_MARGIN.t
+      const w = Math.max(10, width - PLOT_MARGIN.l - PLOT_MARGIN.r)
+      const h = Math.max(10, height - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+      const hitBorder = hitsRectBorder(gx, gy, l, t, w, h)
+
+      if (isMultiSelected(svg) && hitBorder) {
+        e.stopPropagation()
+        startGroupDrag(e.clientX, e.clientY)
+      }
+      // Don't stopPropagation — MarqueeSelect will start marquee selection or point hit-test
+      return
+    }
+    setSelectedPlotSvg(svg)
     e.preventDefault()
     e.stopPropagation()
 
@@ -1412,99 +1764,75 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
 // Global mousemove & mouseup listeners for resize with snap to grid
 export function initPlotDragListeners(): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
-    if (activeLegendItemDrag) {
-      const dragRef = activeLegendItemDrag
-      if (legendDragRafId) cancelAnimationFrame(legendDragRafId)
-      const clientX = e.clientX
-      const clientY = e.clientY
-      legendDragRafId = requestAnimationFrame(() => {
-        legendDragRafId = null
-        const { svg, itemIdx, startX, startY, startXNorm, startYNorm } = dragRef
-        const smpDoc = getPlotSmpDoc(svg)
-        if (smpDoc && smpDoc.legendItems[itemIdx]) {
-          const zoom = getCanvasZoom()
-          const dx = (clientX - startX) / zoom
-          const dy = (clientY - startY) / zoom
-
-          const widthPx = parseFloat(svg.style.width) || 500
-          const heightPx = parseFloat(svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
-
-          const dxNorm = Math.round((dx / plotW) * 10000)
-          const dyNorm = Math.round((dy / plotH) * 10000)
-
-          const item = smpDoc.legendItems[itemIdx]
-          item.xNorm = startXNorm + dxNorm
-          item.yNorm = startYNorm + dyNorm
-
-          updatePlotVisual(svg)
-
-          const titleOverlayEl = getCachedTitleOverlay()
-          if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
-            showTitleDialog(titleOverlayEl, itemIdx, svg)
-          }
-        }
-      })
-      return
-    }
-
-    if (activeAnnotationDrag) {
-      const dragRef = activeAnnotationDrag
-      if (annotationDragRafId) cancelAnimationFrame(annotationDragRafId)
-      const clientX = e.clientX
-      const clientY = e.clientY
+    if (activeGroupDrag) {
+      const dragRef = activeGroupDrag
+      const zoom = getCanvasZoom()
+      const dx = (e.clientX - dragRef.startX) / zoom
+      const dy = (e.clientY - dragRef.startY) / zoom
       const shiftKey = e.shiftKey
-      annotationDragRafId = requestAnimationFrame(() => {
-        annotationDragRafId = null
-        const { svg, annotationIdx, targetType, startX, startY, startX1Norm, startY1Norm, startX2Norm, startY2Norm } = dragRef
-        const smpDoc = getPlotSmpDoc(svg)
-        if (smpDoc && smpDoc.annotationLines && smpDoc.annotationLines[annotationIdx]) {
-          const zoom = getCanvasZoom()
-          const dx = (clientX - startX) / zoom
-          const dy = (clientY - startY) / zoom
+      const touchedSvgs = new Set<SVGSVGElement>()
 
-          const widthPx = parseFloat(svg.style.width) || 500
-          const heightPx = parseFloat(svg.style.height) || 350
+      for (const item of dragRef.items) {
+        if (item.kind === 'plot') {
+          const snappedLeft = snapToGridThreshold(item.startLeft! + PLOT_MARGIN.l + dx, 100, 6) - PLOT_MARGIN.l
+          const snappedTop = snapToGridThreshold(item.startTop! + PLOT_MARGIN.t + dy, 100, 6) - PLOT_MARGIN.t
+          item.svg.style.left = `${snappedLeft}px`
+          item.svg.style.top = `${snappedTop}px`
+          syncPlotOverlay(item.svg)
+        } else if (item.kind === 'legend') {
+          const smpDoc = getPlotSmpDoc(item.svg)
+          const legendItem = smpDoc?.legendItems[item.itemIdx!]
+          if (!smpDoc || !legendItem) continue
+          const widthPx = parseFloat(item.svg.style.width) || 500
+          const heightPx = parseFloat(item.svg.style.height) || 350
           const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
           const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
-
+          legendItem.xNorm = Math.round(item.startXNorm! + (dx / plotW) * 10000)
+          legendItem.yNorm = Math.round(item.startYNorm! + (dy / plotH) * 10000)
+          touchedSvgs.add(item.svg)
+        } else if (item.kind === 'annotation') {
+          const smpDoc = getPlotSmpDoc(item.svg)
+          const aLine = smpDoc?.annotationLines?.[item.annotationIdx!]
+          if (!smpDoc || !aLine) continue
+          const widthPx = parseFloat(item.svg.style.width) || 500
+          const heightPx = parseFloat(item.svg.style.height) || 350
+          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
           const dxNorm = (dx / plotW) * 100
           const dyNorm = (dy / plotH) * 100
 
-          const aLine = smpDoc.annotationLines[annotationIdx]
-          if (targetType === 'start') {
-            const rawX1 = startX1Norm + dxNorm
-            const rawY1 = startY1Norm + dyNorm
+          if (item.targetType === 'start') {
+            const rawX1 = item.startX1Norm! + dxNorm
+            const rawY1 = item.startY1Norm! + dyNorm
             if (shiftKey) {
-              const dxPx = ((rawX1 - startX2Norm) / 100) * plotW
-              const dyPx = ((rawY1 - startY2Norm) / 100) * plotH
+              const dxPx = ((rawX1 - item.startX2Norm!) / 100) * plotW
+              const dyPx = ((rawY1 - item.startY2Norm!) / 100) * plotH
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
-                aLine.y1Norm = startY2Norm
+                aLine.y1Norm = item.startY2Norm!
                 aLine.x1Norm = rawX1
               } else {
-                aLine.x1Norm = startX2Norm
+                aLine.x1Norm = item.startX2Norm!
                 aLine.y1Norm = rawY1
               }
             } else {
               aLine.x1Norm = rawX1
               aLine.y1Norm = rawY1
             }
-          } else if (targetType === 'end') {
-            const rawX2 = startX2Norm + dxNorm
-            const rawY2 = startY2Norm + dyNorm
+          } else if (item.targetType === 'end') {
+            const rawX2 = item.startX2Norm! + dxNorm
+            const rawY2 = item.startY2Norm! + dyNorm
             if (shiftKey) {
-              const dxPx = ((rawX2 - startX1Norm) / 100) * plotW
-              const dyPx = ((rawY2 - startY1Norm) / 100) * plotH
+              const dxPx = ((rawX2 - item.startX1Norm!) / 100) * plotW
+              const dyPx = ((rawY2 - item.startY1Norm!) / 100) * plotH
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
-                aLine.y2Norm = startY1Norm
+                aLine.y2Norm = item.startY1Norm!
                 aLine.x2Norm = rawX2
               } else {
-                aLine.x2Norm = startX1Norm
+                aLine.x2Norm = item.startX1Norm!
                 aLine.y2Norm = rawY2
               }
             } else {
@@ -1512,20 +1840,34 @@ export function initPlotDragListeners(): void {
               aLine.y2Norm = rawY2
             }
           } else {
-            aLine.x1Norm = startX1Norm + dxNorm
-            aLine.y1Norm = startY1Norm + dyNorm
-            aLine.x2Norm = startX2Norm + dxNorm
-            aLine.y2Norm = startY2Norm + dyNorm
+            aLine.x1Norm = item.startX1Norm! + dxNorm
+            aLine.y1Norm = item.startY1Norm! + dyNorm
+            aLine.x2Norm = item.startX2Norm! + dxNorm
+            aLine.y2Norm = item.startY2Norm! + dyNorm
           }
-
-          updatePlotVisual(svg)
-
-          const arrowOverlayEl = getCachedArrowOverlay()
-          if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
-            showArrowDialog(arrowOverlayEl, annotationIdx, svg)
-          }
+          touchedSvgs.add(item.svg)
         }
-      })
+      }
+
+      for (const svg of touchedSvgs) {
+        updatePlotVisual(svg)
+      }
+
+      // Keep the Title / Arrow dialogs in sync with the dragged object
+      const firstLegend = dragRef.items.find((it) => it.kind === 'legend')
+      if (firstLegend) {
+        const titleOverlayEl = getCachedTitleOverlay()
+        if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
+          showTitleDialog(titleOverlayEl, firstLegend.itemIdx!, firstLegend.svg)
+        }
+      }
+      const firstAnnotation = dragRef.items.find((it) => it.kind === 'annotation')
+      if (firstAnnotation) {
+        const arrowOverlayEl = getCachedArrowOverlay()
+        if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
+          showArrowDialog(arrowOverlayEl, firstAnnotation.annotationIdx!, firstAnnotation.svg)
+        }
+      }
       return
     }
 
@@ -1643,15 +1985,9 @@ export function initPlotDragListeners(): void {
   })
 
   document.addEventListener('mouseup', () => {
-    if (activeLegendItemDrag) {
-      activeLegendItemDrag = null
+    if (activeGroupDrag) {
+      activeGroupDrag = null
       document.body.style.userSelect = ''
-      if (legendDragRafId) { cancelAnimationFrame(legendDragRafId); legendDragRafId = null }
-    }
-    if (activeAnnotationDrag) {
-      activeAnnotationDrag = null
-      document.body.style.userSelect = ''
-      if (annotationDragRafId) { cancelAnimationFrame(annotationDragRafId); annotationDragRafId = null }
     }
 
     if (!activeDrag) return

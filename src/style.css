@@ -311,6 +311,8 @@ body {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .workspace-grid {
@@ -322,6 +324,8 @@ body {
   position: relative;
   overflow: hidden;
   display: flex;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .workspace-grid::-webkit-scrollbar,
@@ -341,6 +345,8 @@ body {
   background-size: 100px 100px;
   border-right: 1px solid #64748b;
   border-bottom: 1px solid #64748b;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ===== SVG Plot (no container) ===== */
@@ -355,6 +361,13 @@ body {
   z-index: 10;
   cursor: default;
   overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.plot-svg text {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .plot-svg .handle {
@@ -371,12 +384,27 @@ body {
 .plot-svg .handle-bottom-left { cursor: nesw-resize; }
 .plot-svg .handle-bottom-right { cursor: nwse-resize; }
 
+/* Transform-box indicator drawn on the selected boxplot itself (via its overlay) */
+.plot-overlay.plot-overlay-selected {
+  border: 1.5px dashed #0284c7;
+  box-sizing: border-box;
+}
+
 /* ===== Plot Control Overlay (HTML selection/transform aids, not exported) ===== */
 .plot-overlay {
   position: absolute;
   z-index: 10;
   pointer-events: none;
   overflow: visible;
+  box-sizing: border-box;
+}
+
+.ov-box-multi {
+  position: absolute;
+  border: 1.5px dashed #0284c7;
+  background: transparent;
+  pointer-events: auto;
+  box-sizing: border-box;
 }
 
 .ov-line {

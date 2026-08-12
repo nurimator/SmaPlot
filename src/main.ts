@@ -3,7 +3,8 @@ import { initTitlebar } from './components/Titlebar.ts'
 import { initMenubar } from './components/Menubar.ts'
 import { initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
-import { initMarqueeSelection } from './components/MarqueeSelection.ts'
+import { initMarqueeExport } from './components/MarqueeExport.ts'
+import { initMarqueeSelect } from './components/MarqueeSelect.ts'
 import {
   addDatasetToPlot,
   clearPlotScale,
@@ -17,6 +18,7 @@ import {
   initPlotDragListeners,
   setPlotSmpDoc,
   setPlotSmpMeta,
+  setObjectSelection,
   setSelectedPlotSvg,
 } from './components/Plot.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
@@ -204,7 +206,7 @@ if (ctxMenuEl) {
 graphAreaEl.addEventListener('mousedown', (e) => {
   const target = e.target as HTMLElement
   if (target.closest('.plot-svg, .plot-overlay')) return
-  setSelectedPlotSvg(null)
+  setObjectSelection([])
 })
 
 // Double click on plot area axis or labels to open Axis dialog
@@ -221,11 +223,14 @@ graphAreaEl.addEventListener('dblclick', (e) => {
 // Initialize Plot drag & resize listeners
 initPlotDragListeners()
 
+// Left-drag marquee selection of plot elements (select + group move)
+initMarqueeSelect(graphAreaEl)
+
 // Initialize Marquee Drag Selection & SVG Clipboard Copy
 const marqueeCtxMenuEl = document.querySelector<HTMLElement>('#marqueeCtxMenu')
 const statusFileTextEl = document.querySelector<HTMLElement>('#statusFileText')
 if (marqueeCtxMenuEl) {
-  initMarqueeSelection(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
+  initMarqueeExport(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
 }
 
 
@@ -353,7 +358,7 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
   const target = e.target as HTMLElement
   const svg = target.closest('.plot-svg, .plot-overlay') as SVGSVGElement | null
   if (!svg) return
-  setSelectedPlotSvg(svg)
+  setObjectSelection([{ kind: 'plot', svg }])
   e.preventDefault()
   showContextMenu(ctxMenuEl, e.clientX, e.clientY)
 })

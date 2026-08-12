@@ -169,19 +169,16 @@ export function initCanvasZoom(
     }
   })
 
-  // Mouse pan listeners
+  // Mouse pan listeners (middle-click or Space+drag only; left-drag is reserved for marquee selection)
   container.addEventListener('mousedown', (e: MouseEvent) => {
     const target = e.target as HTMLElement
-    const isPlotTarget = target.closest('.plot-svg') !== null
     const isScrollbarTarget = target.closest('.scrollbar-v') || target.closest('.scrollbar-h')
     if (isScrollbarTarget) return
 
     const isMiddleClick = e.button === 1
     const isSpaceClick = e.button === 0 && isSpacePressed
-    const isBgClick = e.button === 0 && !isPlotTarget
 
-    if (isMiddleClick || isSpaceClick || isBgClick) {
-      if (isBgClick && isPlotTarget) return
+    if (isMiddleClick || isSpaceClick) {
       isPanning = true
       startMouseX = e.clientX
       startMouseY = e.clientY
@@ -321,7 +318,7 @@ export function initCanvasZoom(
     })
   }
 
-  // Wheel listener for cursor-centered zoom
+  // Wheel listener for cursor-centered zoom (pinch) + 2-finger trackpad / wheel pan
   container.addEventListener(
     'wheel',
     (e: WheelEvent) => {
@@ -346,8 +343,51 @@ export function initCanvasZoom(
 
         clampPan(container)
         applyTransform(graphAreaEl, statusEl)
+      } else {
+        // Two-finger scroll on a trackpad (and plain mouse wheel) pans the canvas
+        e.preventDefault()
+        panX -= e.deltaX
+        panY -= e.deltaY
+        clampPan(container)
+        applyTransform(graphAreaEl, statusEl)
       }
     },
     { passive: false }
   )
+
+  // Two-finger touch pan (trackpad-equivalent gesture on touch devices)
+  let touchPanStart: { midX: number; midY: number; panX: number; panY: number } | null = null
+  const getTouchMid = (touches: TouchList): { midX: number; midY: number } => ({
+    midX: (touches[0].clientX + touches[1].clientX) / 2,
+    midY: (touches[0].clientY + touches[1].clientY) / 2,
+  })
+
+  container.addEventListener(
+    'touchstart',
+    (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      const mid = getTouchMid(e.touches)
+      touchPanStart = { ...mid, panX, panY }
+      e.preventDefault()
+    },
+    { passive: false }
+  )
+
+  container.addEventListener(
+    'touchmove',
+    (e: TouchEvent) => {
+      if (!touchPanStart || e.touches.length < 2) return
+      e.preventDefault()
+      const mid = getTouchMid(e.touches)
+      panX = touchPanStart.panX + (mid.midX - touchPanStart.midX)
+      panY = touchPanStart.panY + (mid.midY - touchPanStart.midY)
+      clampPan(container)
+      applyTransform(graphAreaEl, statusEl)
+    },
+    { passive: false }
+  )
+
+  container.addEventListener('touchend', (e: TouchEvent) => {
+    if (e.touches.length < 2) touchPanStart = null
+  })
 }
