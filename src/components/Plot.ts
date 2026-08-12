@@ -1572,14 +1572,72 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   drawPlot(svg, currentDatasets, w, h)
 }
 
+export function clearAllPlots(graphArea: HTMLElement): void {
+  for (const svg of activeSvgs) {
+    const overlay = svgOverlayMap.get(svg)
+    if (overlay && overlay.parentElement) {
+      overlay.parentElement.removeChild(overlay)
+    }
+    if (svg.parentElement) {
+      svg.parentElement.removeChild(svg)
+    }
+  }
+
+  const remaining = graphArea.querySelectorAll('.plot-svg, .plot-overlay')
+  remaining.forEach((el) => el.remove())
+
+  activeSvgs.length = 0
+  allDatasets.length = 0
+  globalDataManager.clearDatasets()
+  setObjectSelection([])
+  setSelectedPlotSvg(null)
+  selectedLegendIndex = -1
+  selectedAnnotationIndex = -1
+  boxCount = 0
+}
+
+export async function loadSmpProject(
+  graphArea: HTMLElement,
+  content: string,
+  fileName: string
+): Promise<boolean> {
+  const { smpMeta } = parseSmpContent(content, fileName)
+  if (!smpMeta.docs || smpMeta.docs.length === 0) return false
+
+  clearAllPlots(graphArea)
+
+  for (let d = 0; d < smpMeta.docs.length; d++) {
+    const doc = smpMeta.docs[d]
+    const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
+    const svg = await createPlot(graphArea, svgLeft, svgTop, [], svgWidth, svgHeight)
+    setPlotSmpDoc(svg, doc)
+    setPlotSmpMeta(svg, smpMeta)
+    for (const ds of doc.datasets) {
+      addDatasetToPlot(svg, ds)
+    }
+  }
+
+  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+  if (statusFileEl) {
+    statusFileEl.textContent = `1:${fileName}`
+  }
+  const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
+  if (statusDotEl) {
+    statusDotEl.classList.remove('status-dot-idle')
+  }
+
+  return true
+}
+
 export function setupPlotFileDrop(svg: SVGSVGElement): void {
   svg.addEventListener('dragover', (e: DragEvent) => {
     e.preventDefault()
-    e.dataTransfer!.dropEffect = 'copy'
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
   })
 
   svg.addEventListener('drop', (e: DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     const files = e.dataTransfer?.files
     if (!files || files.length === 0) return
 
@@ -1587,35 +1645,17 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      if (file.name.toLowerCase().endsWith('.smp')) {
+      const ext = file.name.toLowerCase().split('.').pop()
+      if (ext === 'smp' || ext === 'sma') {
         const reader = new FileReader()
         reader.onload = async (evt) => {
           const content = evt.target?.result as string
-          if (content) {
-            const { smpMeta } = parseSmpContent(content, file.name)
-            if (smpMeta.docs && smpMeta.docs.length > 0) {
-              for (let d = 0; d < smpMeta.docs.length; d++) {
-                const doc = smpMeta.docs[d]
-                const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
-
-                let targetSvg = d === 0 ? svg : (graphArea ? await createPlot(graphArea, svgLeft, svgTop, [], svgWidth, svgHeight) : svg)
-                if (targetSvg) {
-                  targetSvg.style.left = `${svgLeft}px`
-                  targetSvg.style.top = `${svgTop}px`
-                  targetSvg.style.width = `${svgWidth}px`
-                  targetSvg.style.height = `${svgHeight}px`
-                  setPlotSmpDoc(targetSvg, doc)
-                  setPlotSmpMeta(targetSvg, smpMeta)
-                  for (const ds of doc.datasets) {
-                    addDatasetToPlot(targetSvg, ds)
-                  }
-                }
-              }
-            }
+          if (content && graphArea) {
+            await loadSmpProject(graphArea, content, file.name)
           }
         }
         reader.readAsText(file, 'windows-1252')
-      } else if (file.name.endsWith('.txt') || file.type.startsWith('text/')) {
+      } else if (ext === 'txt' || file.type.startsWith('text/')) {
         const reader = new FileReader()
         reader.onload = (evt) => {
           const content = evt.target?.result as string

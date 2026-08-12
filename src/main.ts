@@ -14,10 +14,8 @@ import {
   getAllPlotSvgs,
   getBoxCount,
   getSelectedPlotSvg,
-  getSvgRectForSmpDoc,
   initPlotDragListeners,
-  setPlotSmpDoc,
-  setPlotSmpMeta,
+  loadSmpProject,
   setObjectSelection,
   setSelectedPlotSvg,
 } from './components/Plot.ts'
@@ -30,7 +28,6 @@ import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import { initArrowDialog } from './components/ArrowDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
-import { parseSmpContent } from './utils/smpParser.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
 
@@ -125,45 +122,17 @@ if (globalFileInput) {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      if (file.name.toLowerCase().endsWith('.smp') || file.name.toLowerCase().endsWith('.sma')) {
+      const ext = file.name.toLowerCase().split('.').pop()
+      if (ext === 'smp' || ext === 'sma') {
         const reader = new FileReader()
         reader.onload = async (evt) => {
           const content = evt.target?.result as string
           if (content) {
-            const { smpMeta } = parseSmpContent(content, file.name)
-            if (smpMeta.docs && smpMeta.docs.length > 0) {
-              for (let d = 0; d < smpMeta.docs.length; d++) {
-                const doc = smpMeta.docs[d]
-                const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
-
-                let targetSvg = d === 0 ? getSelectedPlotSvg() : null
-                if (!targetSvg) {
-                  targetSvg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
-                } else {
-                  targetSvg.style.left = `${svgLeft}px`
-                  targetSvg.style.top = `${svgTop}px`
-                  targetSvg.style.width = `${svgWidth}px`
-                  targetSvg.style.height = `${svgHeight}px`
-                }
-                setPlotSmpDoc(targetSvg, doc)
-                setPlotSmpMeta(targetSvg, smpMeta)
-                for (const ds of doc.datasets) {
-                  addDatasetToPlot(targetSvg, ds)
-                }
-              }
-              const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-              if (statusFileEl) {
-                statusFileEl.textContent = `1:${file.name}`
-              }
-              const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
-              if (statusDotEl) {
-                statusDotEl.classList.remove('status-dot-idle')
-              }
-            }
+            await loadSmpProject(graphAreaEl, content, file.name)
           }
         }
         reader.readAsText(file, 'windows-1252')
-      } else if (file.name.endsWith('.txt') || file.type.startsWith('text/')) {
+      } else if (ext === 'txt' || file.type.startsWith('text/')) {
         let svg = getSelectedPlotSvg()
         if (!svg) {
           svg = await createPlot(graphAreaEl, 40, 40, [])
@@ -252,27 +221,7 @@ async function initApp() {
     if (res.ok) {
       const buffer = await res.arrayBuffer()
       const text = new TextDecoder('windows-1252').decode(buffer)
-      const { smpMeta } = parseSmpContent(text, 'FTIR.SMP')
-      if (smpMeta.docs && smpMeta.docs.length > 0) {
-        for (let d = 0; d < smpMeta.docs.length; d++) {
-          const doc = smpMeta.docs[d]
-          const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
-          const svg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
-          setPlotSmpDoc(svg, doc)
-          setPlotSmpMeta(svg, smpMeta)
-          for (const ds of doc.datasets) {
-            addDatasetToPlot(svg, ds)
-          }
-        }
-        const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-        if (statusFileEl) {
-          statusFileEl.textContent = '1:FTIR.SMP'
-        }
-        const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
-        if (statusDotEl) {
-          statusDotEl.classList.remove('status-dot-idle')
-        }
-      }
+      await loadSmpProject(graphAreaEl, text, 'FTIR.SMP')
     } else {
       await createPlot(graphAreaEl, 40, 40, [])
     }
@@ -307,28 +256,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
       reader.onload = async (evt) => {
         const content = evt.target?.result as string
         if (content) {
-          const { smpMeta } = parseSmpContent(content, file.name)
-          if (smpMeta.docs && smpMeta.docs.length > 0) {
-            for (let d = 0; d < smpMeta.docs.length; d++) {
-              const doc = smpMeta.docs[d]
-              const { svgLeft, svgTop, svgWidth, svgHeight } = getSvgRectForSmpDoc(doc)
-
-              const svg = await createPlot(graphAreaEl, svgLeft, svgTop, [], svgWidth, svgHeight)
-              setPlotSmpDoc(svg, doc)
-              setPlotSmpMeta(svg, smpMeta)
-              for (const ds of doc.datasets) {
-                addDatasetToPlot(svg, ds)
-              }
-            }
-            const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-            if (statusFileEl) {
-              statusFileEl.textContent = `1:${file.name}`
-            }
-            const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
-            if (statusDotEl) {
-              statusDotEl.classList.remove('status-dot-idle')
-            }
-          }
+          await loadSmpProject(graphAreaEl, content, file.name)
         }
       }
       reader.readAsText(file, 'windows-1252')

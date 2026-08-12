@@ -16,6 +16,11 @@ export class DataManager {
     }
   }
 
+  public clearDatasets(): void {
+    this.datasets = []
+    this.notify()
+  }
+
   public removeDataset(index: number): void {
     if (index >= 0 && index < this.datasets.length) {
       this.datasets.splice(index, 1)
