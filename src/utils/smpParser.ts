@@ -306,7 +306,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             i++
             if (i < docLines.length) {
               const rawTxt = docLines[i].trim()
-              const txt = smpToUnicode(rawTxt)
+              const txt = smpToUnicode(rawTxt).replace(/\\n/g, '\n')
               i++
               let rotation = 0
               let fontWeight = 400
