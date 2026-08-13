@@ -636,6 +636,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         rawLines: [...data.rawLines],
         fileName: docBlock.name,
         filePath: spec.filePath || `${docBlock.name} > ${spec.name}`,
+        smpSeriesName: spec.name,
+        smpDataName: rawDataKey,
         options: {
           show: true,
           lineColor: spec.color,

@@ -9,6 +9,10 @@ export interface Dataset {
   rawLines?: string[][]
   fileName?: string
   filePath?: string
+  // Native Sma4Win identifiers, including an optional numeric prefix such as
+  // "1 SG.txt". These are distinct from the display name used by the UI.
+  smpSeriesName?: string
+  smpDataName?: string
   options?: PlotVisualOptions
 }
 
@@ -139,5 +143,4 @@ export interface ActiveDrag {
   initialItemPositions?: { xPx: number; yPx: number; x2Px?: number; y2Px?: number }[]
   initialAnnotationPositions?: { useMm?: boolean; x1Norm?: number; y1Norm?: number; x2Norm?: number; y2Norm?: number; x1Px: number; y1Px: number; x2Px: number; y2Px: number }[]
 }
-
 

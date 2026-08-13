@@ -51,7 +51,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   // Series Specs
   datasets.forEach((ds) => {
     const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-    const specHeader = `[${cleanName}.txt]`
+    const specHeader = `[${ds.smpSeriesName || `${cleanName}.txt`}]`
     lines.push(specHeader)
     lines.push(ds.filePath || `C:\\Sma4Win\\${cleanName}.txt`)
     const numericPointCount = Math.min(ds.x?.length || 0, ds.y?.length || 0)
@@ -298,7 +298,7 @@ function dataSectionLines(datasets: Dataset[]): string[] {
     first = false
 
     const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-    lines.push(`[${cleanName}.txt] ${nowStamp}`)
+    lines.push(`[${ds.smpDataName || `${cleanName}.txt`}] ${nowStamp}`)
 
     const rows: string[][] =
       ds.rawLines && ds.rawLines.length > 0
@@ -334,8 +334,9 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
   const seen = new Set<string>()
   for (const doc of docs) {
     for (const ds of doc.datasets || []) {
-      if (!seen.has(ds.name)) {
-        seen.add(ds.name)
+      const dataKey = ds.smpDataName || ds.name
+      if (!seen.has(dataKey)) {
+        seen.add(dataKey)
         allDatasets.push(ds)
       }
     }
