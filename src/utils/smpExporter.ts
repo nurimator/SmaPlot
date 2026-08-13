@@ -1,4 +1,4 @@
-import type { SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
+import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 
 export function hexToBgr(hex: string): number {
@@ -35,27 +35,28 @@ function plotTypeToCode(pt?: string): number {
   }
 }
 
-export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
+export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData = true): string {
   const lines: string[] = []
 
   if (isMultiDoc && doc.name) {
     lines.push(`[${doc.name}]`)
-  } else {
-    lines.push(' Sma4Win ver. 1.8  SMP file')
-    lines.push('')
-    lines.push('1 1 215 279 0 0 0')
   }
+  lines.push(' Sma4Win ver. 1.8  SMP file')
+  lines.push('')
+  lines.push('1 1 215 279 0 0 0')
 
   const datasets = doc.datasets || []
   lines.push(`${datasets.length}`)
 
   // Series Specs
-  datasets.forEach((ds, idx) => {
+  datasets.forEach((ds) => {
     const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-    const specHeader = `[${idx + 1} ${cleanName}.txt]`
+    const specHeader = `[${cleanName}.txt]`
     lines.push(specHeader)
     lines.push(ds.filePath || `C:\\Sma4Win\\${cleanName}.txt`)
-    lines.push('0 0 0 0 0 1 3787 0 -1 ')
+    const numericPointCount = Math.min(ds.x?.length || 0, ds.y?.length || 0)
+    const pointCount = numericPointCount || ds.rawLines?.filter((row) => row.length >= 2).length || 0
+    lines.push(`0 0 0 0 0 1 ${pointCount} 0 -1 `)
 
     const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || '#000000')
     lines.push(`60 ${bgrColor} 300 0 0 0 0`)
@@ -64,9 +65,12 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     const sizeVal = Math.round((ds.options?.size || 3) * 100)
     lines.push(`1 ${symCode} ${sizeVal} ${dotColorBgr}`)
     lines.push('0 0 1 0 0 0 16777215 5')
-    lines.push('0 1 0')
-    lines.push(ds.options?.xExpr || 'x')
-    lines.push(ds.options?.yExpr || 'y')
+    const xExpr = ds.options?.xExpr || 'x'
+    const yExpr = ds.options?.yExpr || 'y'
+    const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
+    lines.push(`0 ${hasTransform ? 1 : 0} 0`)
+    lines.push(xExpr)
+    lines.push(yExpr)
     lines.push('0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00')
     lines.push('1 40 0 300 1')
     lines.push('')
@@ -91,7 +95,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     const maxStr = formatFloatSci(axis?.max ?? defaultMax)
     const stepStr = formatFloatSci(axis?.step ?? defaultStep)
     const subDivs = axis?.subDivs || 5
-    lines.push(`${minStr} ${maxStr} ${stepStr} 0 0 10000 -1 -1 0 1 0 0 1 ${subDivs} 5 1.000000e+00 1`)
+    lines.push(`${minStr} ${maxStr} ${stepStr} 0 0 10000 -1 -1 0 1 0 0 1 5 5 1.000000e+00 1`)
 
     const showTicks = axis?.showTicks !== false ? 1 : 0
     const insideTicks = axis?.insideTicks !== false ? 1 : 0
@@ -114,7 +118,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     const fontSz = Math.round((axis?.fontSize || 12) * 100)
     const startVal = `-${fontSz}`
     const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
-    const extraVal = (idx === 0 || idx === 1) ? `162 ${isItalic} 2 1 18` : `0 ${isItalic} 0 2 18`
+    const extraVal = (idx === 0 || idx === 1) ? `162 3 2 1 18` : `0 0 0 2 18`
     lines.push(`${startVal} 0 0 0 ${weight} ${isItalic} 0 0 ${extraVal}`)
     lines.push(axis?.fontFamily || 'Times New Roman')
 
@@ -165,22 +169,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
         xNorm: -400,
         yNorm: 5000,
         rotation: -90,
-        fontFamily: 'cambria',
-        fontSize: 12,
-        fontWeight: 400,
-      })
-    }
-    if (datasets.length > 0) {
-      const legendBoxText = datasets
-        .map((_ds, i) => `%0${i + 1}E%0${i + 1}N`)
-        .join('\\n')
-      legendItems.push({
-        type: 'text',
-        text: legendBoxText,
-        rawText: legendBoxText,
-        xNorm: 300,
-        yNorm: 700,
-        rotation: 0,
         fontFamily: 'cambria',
         fontSize: 12,
         fontWeight: 400,
@@ -290,55 +278,71 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
   lines.push('0')
   lines.push('')
 
-  // DATA Section
-  lines.push('[DATA]')
-  const nowStamp = formatDateTimestamp()
-
-  datasets.forEach((ds, idx) => {
-    if (idx > 0) {
-      lines.push('')
-    }
-    const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-    const header = `[${idx + 1} ${cleanName}.txt] ${nowStamp}`
-    lines.push(header)
-
-    const dataPairs: string[] = []
-
-    if (ds.rawLines && ds.rawLines.length > 0) {
-      ds.rawLines.forEach((row) => {
-        dataPairs.push(row.length >= 2 ? `${row.join(' ')} ` : row.join(' '))
-      })
-    } else {
-      const len = Math.min(ds.x?.length || 0, ds.y?.length || 0)
-      for (let i = 0; i < len; i++) {
-        dataPairs.push(`${ds.x[i]} ${ds.y[i]} `)
-      }
-    }
-
-    if (dataPairs.length > 0) {
-      for (let k = 0; k < dataPairs.length - 1; k++) {
-        lines.push(dataPairs[k])
-      }
-      const lastLine = dataPairs[dataPairs.length - 1].trimEnd()
-      lines.push(`${lastLine} [End of Data]`)
-    } else {
-      lines.push('[End of Data]')
-    }
-  })
+  // DATA Section (single-doc export includes its own [DATA]; multi-doc projects
+  // collect every dataset into one trailing [DATA] section, matching real Sma4Win)
+  if (writeData) {
+    lines.push(...dataSectionLines(datasets))
+  }
 
   // Sma4Win desktop app requires Windows CRLF line endings (\r\n)
   return lines.join('\r\n')
+}
+
+function dataSectionLines(datasets: Dataset[]): string[] {
+  const lines: string[] = ['[DATA]']
+  const nowStamp = formatDateTimestamp()
+
+  let first = true
+  for (const ds of datasets) {
+    if (!first) lines.push('')
+    first = false
+
+    const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+    lines.push(`[${cleanName}.txt] ${nowStamp}`)
+
+    const rows: string[][] =
+      ds.rawLines && ds.rawLines.length > 0
+        ? ds.rawLines
+        : (ds.x || []).map((x, i) => [String(x), String(ds.y?.[i] ?? 0)])
+
+    if (rows.length > 0) {
+      for (const row of rows) {
+        lines.push(row.length >= 2 ? `${row[0]}\t${row[1]}` : row[0])
+      }
+      lines.push('[End of Data]')
+    } else {
+      lines.push('[End of Data]')
+    }
+  }
+
+  return lines
 }
 
 export function serializeSmpProject(docs: SmpPlotDoc[]): string {
   if (docs.length === 0) return ''
   if (docs.length === 1) return serializeSmpDoc(docs[0], false)
 
-  const chunks: string[] = [' Sma4Win ver. 1.8  SMP file', '', '1 1 215 279 0 0 0']
-  docs.forEach((doc) => {
-    chunks.push(serializeSmpDoc(doc, true))
-  })
-  return chunks.join('\r\n\r\n')
+  const chunks: string[] = [
+    ' Sma4Win ver. 1.1  SMA file',
+    `${docs.length} 0 0 0 0 100`,
+    ...docs.map((doc) => serializeSmpDoc(doc, true, false)),
+  ]
+
+  // One shared [DATA] section at the end, de-duplicated by dataset name,
+  // mirroring how real Sma4Win stores multi-plot project files.
+  const allDatasets: Dataset[] = []
+  const seen = new Set<string>()
+  for (const doc of docs) {
+    for (const ds of doc.datasets || []) {
+      if (!seen.has(ds.name)) {
+        seen.add(ds.name)
+        allDatasets.push(ds)
+      }
+    }
+  }
+  chunks.push(dataSectionLines(allDatasets).join('\r\n'))
+
+  return chunks.join('\r\n')
 }
 
 export function downloadFile(content: string, fileName: string, mimeType = 'text/plain'): void {
