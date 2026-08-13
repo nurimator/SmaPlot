@@ -49,6 +49,8 @@ export class DataManager {
 
 export const globalDataManager = new DataManager()
 
+let activeSelectCallback: ((fileName: string) => void) | null = null
+
 export function renderDataManagerListBox(
   listBoxEl: HTMLElement,
   datasets: Dataset[],
@@ -92,7 +94,14 @@ export function renderDataManagerListBox(
     item.addEventListener('dblclick', () => {
       listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
       item.classList.add('selected')
-      if (onOpenProperty) onOpenProperty(identifier)
+      const cb = activeSelectCallback
+      activeSelectCallback = null
+      hideDataManagerDialog(document.querySelector('#dataManagerOverlay') as HTMLElement)
+      if (cb) {
+        cb(identifier)
+      } else if (onOpenProperty) {
+        onOpenProperty(identifier)
+      }
     })
 
     listBoxEl.appendChild(item)
@@ -129,10 +138,14 @@ export function initDataManagerDialog(
   cancelBtn?.addEventListener('click', hide)
 
   const triggerPropertyModal = () => {
+    const cb = activeSelectCallback
+    activeSelectCallback = null
     hide()
-    if (onOpenProperty) {
-      const selected = listBox?.querySelector<HTMLElement>('.dm-list-item.selected')
-      const fileName = selected?.getAttribute('data-filename') || 'Dataset.txt'
+    const selected = listBox?.querySelector<HTMLElement>('.dm-list-item.selected')
+    const fileName = selected?.getAttribute('data-filename') || 'Dataset.txt'
+    if (cb) {
+      cb(fileName)
+    } else if (onOpenProperty) {
       onOpenProperty(fileName)
     }
   }
@@ -142,14 +155,26 @@ export function initDataManagerDialog(
 
   if (listBox) {
     renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
+      const cb = activeSelectCallback
+      activeSelectCallback = null
       hide()
-      if (onOpenProperty) onOpenProperty(fn)
+      if (cb) {
+        cb(fn)
+      } else if (onOpenProperty) {
+        onOpenProperty(fn)
+      }
     })
 
     globalDataManager.subscribe(() => {
       renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
+        const cb = activeSelectCallback
+        activeSelectCallback = null
         hide()
-        if (onOpenProperty) onOpenProperty(fn)
+        if (cb) {
+          cb(fn)
+        } else if (onOpenProperty) {
+          onOpenProperty(fn)
+        }
       })
     })
 
@@ -176,7 +201,11 @@ export function initDataManagerDialog(
   }
 }
 
-export function showDataManagerDialog(overlayEl: HTMLElement): void {
+export function showDataManagerDialog(
+  overlayEl: HTMLElement,
+  onSelectDatasetCallback?: (selectedFileName: string) => void
+): void {
+  activeSelectCallback = onSelectDatasetCallback || null
   overlayEl.style.display = 'flex'
 }
 

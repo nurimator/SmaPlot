@@ -15,6 +15,7 @@ import {
   getActiveDrag,
   getAllPlotSvgs,
   getBoxCount,
+  getPlotDatasets,
   getSelectedPlotSvg,
   hitTestGraph,
   hitTestAxisArea,
@@ -28,6 +29,7 @@ import {
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
 import {
+  globalDataManager,
   initDataManagerDialog,
   showDataManagerDialog,
 } from './components/DataManager.ts'
@@ -35,6 +37,7 @@ import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
+import { initReadValueDialog, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
@@ -52,6 +55,7 @@ const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
+const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
@@ -64,6 +68,7 @@ if (titlebarEl) initTitlebar(titlebarEl)
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
+if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 
 function handleSaveProject(): void {
   const svgs = getAllPlotSvgs(graphAreaEl)
@@ -162,6 +167,37 @@ if (toolbarEl) {
       showArrowDialog(arrowOverlayEl)
     } else if (action === 'chart' || title === 'Chart') {
       showPropertyDialog(propOverlayEl)
+    } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
+      const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
+      if (!svg) {
+        alert('No plot available in workspace.')
+        return
+      }
+      const datasets = getPlotDatasets(svg)
+      if (datasets.length === 1) {
+        showReadValueDialog(readValueOverlayEl, svg, datasets[0])
+      } else if (datasets.length > 1) {
+        showDataManagerDialog(dmOverlayEl, (fileName) => {
+          const chosen =
+            datasets.find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName) ||
+            datasets[0]
+          showReadValueDialog(readValueOverlayEl, svg, chosen)
+        })
+      } else {
+        if (globalDataManager.getDatasets().length > 0) {
+          showDataManagerDialog(dmOverlayEl, (fileName) => {
+            const globalDs = globalDataManager
+              .getDatasets()
+              .find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName)
+            if (globalDs) {
+              addDatasetToPlot(svg, globalDs)
+              showReadValueDialog(readValueOverlayEl, svg, globalDs)
+            }
+          })
+        } else {
+          alert('No data loaded in selected plot.')
+        }
+      }
     }
   })
 }
