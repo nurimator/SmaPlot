@@ -57,10 +57,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     lines.push(ds.filePath || `C:\\Sma4Win\\${cleanName}.txt`)
     lines.push('0 0 0 0 0 1 3787 0 -1 ')
 
-    const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || '#3b82f6')
+    const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || '#000000')
     lines.push(`60 ${bgrColor} 300 0 0 0 0`)
     const symCode = plotTypeToCode(ds.options?.plotType)
-    const dotColorBgr = hexToBgr(ds.options?.dotColor || ds.options?.lineColor || ds.color || '#3b82f6')
+    const dotColorBgr = hexToBgr(ds.options?.dotColor || ds.options?.lineColor || ds.color || '#000000')
     const sizeVal = Math.round((ds.options?.size || 3) * 100)
     lines.push(`1 ${symCode} ${sizeVal} ${dotColorBgr}`)
     lines.push('0 0 1 0 0 0 16777215 5')

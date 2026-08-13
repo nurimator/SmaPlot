@@ -27,12 +27,7 @@ export function parseDatasetContent(text: string, fileName: string, filePath?: s
   }
 
   const cleanName = fileName.replace(/\.txt$/i, '')
-  const PALETTE = ['#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
-  let hash = 0
-  for (let i = 0; i < cleanName.length; i++) {
-    hash = (hash << 5) - hash + cleanName.charCodeAt(i)
-  }
-  const color = PALETTE[Math.abs(hash) % PALETTE.length]
+  const color = '#000000'
 
   return {
     name: cleanName,

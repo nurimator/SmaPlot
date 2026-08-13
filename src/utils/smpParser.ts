@@ -62,18 +62,95 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
   }
 }
 
+function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: number[]; rawLines: string[][] }> {
+  const datasetsMap: Record<string, { x: number[]; y: number[]; rawLines: string[][] }> = {}
+  let activeDataHeader = ''
+  let inDataBlock = false
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (line === '[DATA]') {
+      inDataBlock = true
+      continue
+    }
+    if (line.startsWith('[OTHERS]') || line.startsWith('[MASKS]')) {
+      inDataBlock = false
+      continue
+    }
+    if (!inDataBlock) continue
+
+    if (line.includes('[End of Data]')) {
+      const cleanLine = line.replace('[End of Data]', '').trim()
+      if (cleanLine && activeDataHeader && datasetsMap[activeDataHeader]) {
+        const parts = cleanLine.split(/\s+/)
+        if (parts.length >= 2) {
+          const px = parseFloat(parts[0])
+          const py = parseFloat(parts[1])
+          if (!isNaN(px) && !isNaN(py)) {
+            datasetsMap[activeDataHeader].x.push(px)
+            datasetsMap[activeDataHeader].y.push(py)
+            datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
+          }
+        }
+      }
+      activeDataHeader = ''
+      continue
+    }
+
+    if (line.startsWith('[') && line.includes(']')) {
+      const headerName = line.split(']')[0].slice(1).trim()
+      if (headerName.toLowerCase().includes('end of data')) {
+        activeDataHeader = ''
+        continue
+      }
+      activeDataHeader = headerName
+      if (!datasetsMap[activeDataHeader]) {
+        datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [] }
+      }
+      continue
+    }
+
+    if (!activeDataHeader) continue
+
+    if (line.startsWith('#')) {
+      datasetsMap[activeDataHeader].rawLines.push([line])
+      continue
+    }
+
+    const parts = line.split(/\s+/)
+    if (parts.length >= 2) {
+      const px = parseFloat(parts[0])
+      const py = parseFloat(parts[1])
+      if (!isNaN(px) && !isNaN(py)) {
+        datasetsMap[activeDataHeader].x.push(px)
+        datasetsMap[activeDataHeader].y.push(py)
+        datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
+      }
+    }
+  }
+
+  return datasetsMap
+}
+
 export function parseSmpContent(text: string, defaultFileName: string): ParseSmpResult {
   const lines = text.split(/\r?\n/)
+  const globalFileDatasetsMap = parseDataBlockLines(lines)
 
   // Detect document blocks (e.g. [HEMATIT1.SMP], [HEMATIT2.SMP] or single doc)
   const docBlocks: { name: string; lines: string[] }[] = []
   let currentDocName = defaultFileName
   let currentDocLines: string[] = []
 
+  const isRealDocLines = (larr: string[]) =>
+    larr.some((l) => {
+      const t = l.trim()
+      return t === '[GRAPH]' || t.startsWith('[AXIS-') || t === '[DATA]'
+    })
+
   for (const line of lines) {
     const trimmed = line.trim()
     if (trimmed.match(/^\[.*\.SMP\]$/i)) {
-      if (currentDocLines.length > 0) {
+      if (isRealDocLines(currentDocLines)) {
         docBlocks.push({ name: currentDocName, lines: currentDocLines })
       }
       currentDocName = trimmed.slice(1, -1)
@@ -82,7 +159,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       currentDocLines.push(line)
     }
   }
-  if (currentDocLines.length > 0) {
+  if (isRealDocLines(currentDocLines)) {
     docBlocks.push({ name: currentDocName, lines: currentDocLines })
   }
 
@@ -136,13 +213,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++ // path line
         }
         if (i < docLines.length) i++ // config 1
-        let color = '#3b82f6'
+        let color = '#000000'
         let width = 1
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
           if (parts.length >= 2) {
             const colorInt = parseInt(parts[1], 10)
-            if (!isNaN(colorInt) && colorInt > 0) {
+            if (!isNaN(colorInt) && colorInt >= 0) {
               color = bgrToHex(colorInt)
             }
             if (parts.length >= 3) {
@@ -521,93 +598,42 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     }
 
     // Parse datasets for this document
-    const datasetsMap: Record<string, { x: number[]; y: number[]; rawLines: string[][] }> = {}
-    let activeDataHeader = ''
-    let inDataBlock = false
-
-    for (const rawLine of docLines) {
-      const line = rawLine.trim()
-      if (line === '[DATA]') {
-        inDataBlock = true
-        continue
-      }
-      if (!inDataBlock) continue
-      if (line.startsWith('[OTHERS]') || line.startsWith('[MASKS]')) {
-        inDataBlock = false
-        continue
-      }
-
-      if (line.includes('[End of Data]')) {
-        const cleanLine = line.replace('[End of Data]', '').trim()
-        if (cleanLine && activeDataHeader && datasetsMap[activeDataHeader]) {
-          const parts = cleanLine.split(/\s+/)
-          if (parts.length >= 2) {
-            const px = parseFloat(parts[0])
-            const py = parseFloat(parts[1])
-            if (!isNaN(px) && !isNaN(py)) {
-              datasetsMap[activeDataHeader].x.push(px)
-              datasetsMap[activeDataHeader].y.push(py)
-              datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
-            }
-          }
-        }
-        activeDataHeader = ''
-        continue
-      }
-
-      if (line.startsWith('[') && line.includes(']')) {
-        const headerName = line.split(']')[0].slice(1).trim()
-        if (headerName.toLowerCase().includes('end of data')) {
-          activeDataHeader = ''
-          continue
-        }
-        activeDataHeader = headerName
-        if (!datasetsMap[activeDataHeader]) {
-          datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [] }
-        }
-        continue
-      }
-
-      if (!activeDataHeader) continue
-
-      if (line.startsWith('#')) {
-        datasetsMap[activeDataHeader].rawLines.push([line])
-        continue
-      }
-
-      const parts = line.split(/\s+/)
-      if (parts.length >= 2) {
-        const px = parseFloat(parts[0])
-        const py = parseFloat(parts[1])
-        if (!isNaN(px) && !isNaN(py)) {
-          datasetsMap[activeDataHeader].x.push(px)
-          datasetsMap[activeDataHeader].y.push(py)
-          datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
-        }
-      }
-    }
+    const localDatasetsMap = parseDataBlockLines(docLines)
+    const mergedDatasetsMap = { ...globalFileDatasetsMap, ...localDatasetsMap }
 
     const docDatasets: Dataset[] = []
-    const headerKeys = Object.keys(datasetsMap)
+    const specKeys = Object.keys(seriesSpecs)
+    const targetKeys = specKeys.length > 0 ? specKeys : Object.keys(mergedDatasetsMap)
 
-    headerKeys.forEach((key) => {
-      if (key.toLowerCase().includes('end of data')) return
-      const spec = seriesSpecs[key] || {
-        name: key,
-        cleanName: key.replace(/^\d+\s+/, '').replace(/\.txt$/i, ''),
-        color: '#3b82f6',
-        xExpr: 'x',
-        yExpr: 'y',
-        filePath: '',
-      }
-      const data = datasetsMap[key]
+    targetKeys.forEach((specKey) => {
+      if (specKey.toLowerCase().includes('end of data')) return
+      const cleanSpecName = specKey.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+      const spec =
+        seriesSpecs[specKey] ||
+        seriesSpecs[`[${specKey}]`] ||
+        Object.values(seriesSpecs).find((s) => s.cleanName === cleanSpecName || s.name === specKey || s.name === cleanSpecName) || {
+          name: specKey,
+          cleanName: cleanSpecName,
+          color: '#000000',
+          xExpr: 'x',
+          yExpr: 'y',
+          filePath: '',
+        }
+
+      const rawDataKey =
+        Object.keys(mergedDatasetsMap).find((k) => {
+          const cleanK = k.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+          return k === specKey || k === spec.name || cleanK === cleanSpecName
+        }) || specKey
+
+      const data = mergedDatasetsMap[rawDataKey] || { x: [], y: [], rawLines: [] }
 
       const ds: Dataset = {
         name: spec.cleanName,
         color: spec.color,
-        x: data.x,
-        y: data.y,
-        rawLines: data.rawLines,
+        x: [...data.x],
+        y: [...data.y],
+        rawLines: [...data.rawLines],
         fileName: docBlock.name,
         filePath: spec.filePath || `${docBlock.name} > ${spec.name}`,
         options: {
