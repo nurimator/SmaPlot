@@ -110,7 +110,8 @@ export function renderDataManagerListBox(
 
 export function initDataManagerDialog(
   overlayEl: HTMLElement,
-  onOpenProperty?: (selectedFileName?: string) => void
+  onOpenProperty?: (selectedFileName?: string) => void,
+  onDeleteDataset?: (identifier: string) => void
 ): void {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#dataManagerDialog')
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
@@ -120,10 +121,9 @@ export function initDataManagerDialog(
   }
 
   const closeHeaderBtn = overlayEl.querySelector('#closeDataManagerBtn')
-  const closeDMBtn = overlayEl.querySelector('#closeDMBtn')
+  const deleteBtn = overlayEl.querySelector('#closeDMBtn')
   const okBtn = overlayEl.querySelector('#dmOkBtn')
   const cancelBtn = overlayEl.querySelector('#dmCancelBtn')
-  const propBtn = overlayEl.querySelector('#dmPropBtn')
 
   const upBtn = overlayEl.querySelector('#dmUpBtn')
   const downBtn = overlayEl.querySelector('#dmDownBtn')
@@ -134,8 +134,16 @@ export function initDataManagerDialog(
   const hide = () => hideDataManagerDialog(overlayEl)
 
   closeHeaderBtn?.addEventListener('click', hide)
-  closeDMBtn?.addEventListener('click', hide)
   cancelBtn?.addEventListener('click', hide)
+
+  deleteBtn?.addEventListener('click', () => {
+    if (!listBox || !onDeleteDataset) return
+    const selectedItems = listBox.querySelectorAll<HTMLElement>('.dm-list-item.selected')
+    selectedItems.forEach((item) => {
+      const identifier = item.getAttribute('data-filename')
+      if (identifier) onDeleteDataset(identifier)
+    })
+  })
 
   const triggerPropertyModal = () => {
     const cb = activeSelectCallback
@@ -151,7 +159,6 @@ export function initDataManagerDialog(
   }
 
   okBtn?.addEventListener('click', triggerPropertyModal)
-  propBtn?.addEventListener('click', triggerPropertyModal)
 
   if (listBox) {
     renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {

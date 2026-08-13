@@ -2309,6 +2309,33 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   drawPlot(svg, currentDatasets, w, h)
 }
 
+function datasetIdentifier(ds: Dataset): string {
+  return ds.filePath || ds.fileName || `${ds.name}.txt`
+}
+
+export function removeDatasetFromAllPlots(identifier: string): void {
+  const gds = globalDataManager.getDatasets()
+  const idx = gds.findIndex((d) => datasetIdentifier(d) === identifier)
+  if (idx >= 0) {
+    globalDataManager.removeDataset(idx)
+  }
+
+  for (let i = allDatasets.length - 1; i >= 0; i--) {
+    if (datasetIdentifier(allDatasets[i]) === identifier) {
+      allDatasets.splice(i, 1)
+    }
+  }
+
+  for (const svg of activeSvgs) {
+    const ds = svgDataMap.get(svg) || []
+    const filtered = ds.filter((d) => datasetIdentifier(d) !== identifier)
+    if (filtered.length !== ds.length) {
+      svgDataMap.set(svg, filtered)
+      updatePlotVisual(svg)
+    }
+  }
+}
+
 export function clearAllPlots(graphArea: HTMLElement): void {
   for (const svg of activeSvgs) {
     const overlay = svgOverlayMap.get(svg)

@@ -22,6 +22,7 @@ import {
   isInsidePlotArea,
   initPlotDragListeners,
   loadSmpProject,
+  removeDatasetFromAllPlots,
   setObjectSelection,
   setSelectedPlotSvg,
   setTrimmingMode,
@@ -341,9 +342,15 @@ if (axisOverlayEl) initAxisDialog(axisOverlayEl)
 
 // Data Manager callback: when a file is selected, transition to Property modal
 if (dmOverlayEl) {
-  initDataManagerDialog(dmOverlayEl, (selectedFileName) => {
-    showPropertyDialog(propOverlayEl, selectedFileName)
-  })
+  initDataManagerDialog(
+    dmOverlayEl,
+    (selectedFileName) => {
+      showPropertyDialog(propOverlayEl, selectedFileName)
+    },
+    (identifier) => {
+      removeDatasetFromAllPlots(identifier)
+    }
+  )
 }
 
 // Reflect canUndo()/canRedo() on the Undo/Redo menu items and toolbar buttons
