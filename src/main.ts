@@ -5,6 +5,7 @@ import { initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { initMarqueeExport } from './components/MarqueeExport.ts'
 import { initMarqueeSelect } from './components/MarqueeSelect.ts'
+import { initTrimMode } from './components/TrimMode.ts'
 import {
   addDatasetToPlot,
   clearPlotScale,
@@ -19,6 +20,7 @@ import {
   loadSmpProject,
   setObjectSelection,
   setSelectedPlotSvg,
+  setTrimmingMode,
 } from './components/Plot.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
@@ -110,8 +112,30 @@ if (menubarEl) {
   })
 }
 
+let trimmingActive = false
+const trimBtn = toolbarEl?.querySelector<HTMLElement>('.toolbar-btn[data-action="trimming"]')
+
+const exitTrimMode = () => {
+  if (!trimmingActive) return
+  trimmingActive = false
+  setTrimmingMode(false)
+  trimBtn?.classList.remove('active')
+  graphAreaEl.classList.remove('trimming-mode')
+}
+
 if (toolbarEl) {
   initToolbar(toolbarEl, async (action, title) => {
+    if (action === 'trimming') {
+      trimmingActive = !trimmingActive
+      setTrimmingMode(trimmingActive)
+      trimBtn?.classList.toggle('active', trimmingActive)
+      graphAreaEl.classList.toggle('trimming-mode', trimmingActive)
+      return
+    }
+
+    // Any other toolbar action exits trimming mode (restoring marquee selection).
+    exitTrimMode()
+
     if (action === 'undo') {
       undo(graphAreaEl)
     } else if (action === 'redo') {
@@ -231,6 +255,10 @@ initPlotDragListeners(pushUndoState)
 
 // Left-drag marquee selection of plot elements (select + group move)
 initMarqueeSelect(graphAreaEl)
+
+// Trimming mode: left-drag on a plot's graph area re-scopes its X/Y axis range.
+// Mode auto-exits after one successful trim (onFinish restores toolbar + marquee).
+initTrimMode(graphAreaEl, () => pushUndoState(), exitTrimMode)
 
 // Initialize Marquee Drag Selection & SVG Clipboard Copy
 const marqueeCtxMenuEl = document.querySelector<HTMLElement>('#marqueeCtxMenu')

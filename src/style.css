@@ -385,6 +385,7 @@ body {
   background: transparent;
   pointer-events: auto;
   box-sizing: border-box;
+  cursor: move;
 }
 
 .ov-line {
@@ -590,6 +591,24 @@ body {
   pointer-events: none;
   z-index: 99;
   box-sizing: border-box;
+}
+
+/* ===== Trim Selection Box (Trimming Mode) ===== */
+.trim-selection-box {
+  position: absolute;
+  border: 1px solid #ff9500;
+  background-color: rgba(255, 149, 0, 0.15);
+  pointer-events: none;
+  cursor: crosshair;
+  z-index: 99;
+  box-sizing: border-box;
+}
+
+/* Crosshair cursor while trimming mode is active (covers selection-highlight
+   overlay children like .ov-box/.ov-handle that otherwise show a move cursor) */
+.graph-area.trimming-mode,
+.graph-area.trimming-mode * {
+  cursor: crosshair !important;
 }
 
 

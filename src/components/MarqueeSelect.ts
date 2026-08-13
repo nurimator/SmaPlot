@@ -1,5 +1,5 @@
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
-import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, setObjectSelection } from './Plot.ts'
+import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, isTrimmingMode, setObjectSelection } from './Plot.ts'
 import type { SelectableObject } from './Plot.ts'
 import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
@@ -54,6 +54,8 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     if (e.button !== 0) return
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
     const target = e.target as HTMLElement
+    // Trimming mode takes over left-drag; suspend marquee selection.
+    if (isTrimmingMode()) return
     // While a Rectangle/Arrow mouse-draw is in progress the next left-drag draws
     // the shape instead of a marquee selection.
     if (isShapeDrawing()) return

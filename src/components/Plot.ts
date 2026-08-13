@@ -592,6 +592,49 @@ export function isObjectSelected(obj: SelectableObject): boolean {
   )
 }
 
+// Trimming mode (toolbar "Trimming" toggle). While active, the left-drag marquee
+// selection is suspended and left-drag on a plot's graph area instead defines a
+// trim rectangle that re-scopes the plot's X/Y axis start & end (zooming data in).
+let trimmingMode = false
+
+export function isTrimmingMode(): boolean {
+  return trimmingMode
+}
+
+export function setTrimmingMode(on: boolean): void {
+  trimmingMode = on
+}
+
+// Return the live SmpPlotDoc for a plot, synthesizing & caching one (from the
+// base data scale) if it does not yet exist, so axis min/max edits persist.
+export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
+  let doc = svgSmpDocMap.get(svg)
+  if (!doc) {
+    doc = exportPlotToSmpDoc(svg, svgSmpDocMap.get(svg)?.name || 'PLOT.SMP')
+    svgSmpDocMap.set(svg, doc)
+  }
+  const base = svgBaseScaleMap.get(svg)
+  const makeAxis = (min: number, max: number): SmpAxisSpec => ({
+    min,
+    max,
+    step: Math.abs(max - min) / 5 || 2,
+    subDivs: 5,
+    showTicks: true,
+    showSubTicks: true,
+    showLabels: true,
+    insideTicks: true,
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+  })
+  if (!doc.axisX) {
+    doc.axisX = makeAxis(base?.xMin ?? 0, base?.xMax ?? 10)
+  }
+  if (!doc.axisY) {
+    doc.axisY = makeAxis(base?.yMin ?? 0, base?.yMax ?? 10)
+  }
+  return doc
+}
+
 // Every movable object (plot box, legend item, annotation line) with its on-canvas
 // bounding box in graph-area local coordinates, for marquee hit-testing.
 export function getSelectableObjects(): { obj: SelectableObject; l: number; t: number; w: number; h: number }[] {
@@ -1230,6 +1273,7 @@ export function drawPlot(
 
     const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
       if (e.button !== 0) return
+      if (isTrimmingMode()) return
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
       if (!wasSelected) {
@@ -1545,6 +1589,7 @@ export function drawPlot(
 
       const handleLegendMouseDown = (e: MouseEvent) => {
         if (e.button !== 0) return
+        if (isTrimmingMode()) return
         const wasSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
         // Double-click detection (always works)
@@ -1594,7 +1639,7 @@ export function drawPlot(
             legLine.setAttribute('y2', String(legY))
             legLine.setAttribute('stroke', color)
             legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
-            legLine.style.cursor = 'move'
+            legLine.style.cursor = isSelected ? 'move' : 'pointer'
             legLine.addEventListener('mousedown', handleLegendMouseDown)
             legLine.addEventListener('dblclick', openTitleModal)
             svg.appendChild(legLine)
@@ -1607,7 +1652,7 @@ export function drawPlot(
             legTxt.setAttribute('font-weight', String(item.fontWeight))
             legTxt.setAttribute('fill', '#000000')
             legTxt.textContent = labelText
-            legTxt.style.cursor = 'move'
+            legTxt.style.cursor = isSelected ? 'move' : 'pointer'
             legTxt.addEventListener('mousedown', handleLegendMouseDown)
             legTxt.addEventListener('dblclick', openTitleModal)
             svg.appendChild(legTxt)
@@ -1626,7 +1671,7 @@ export function drawPlot(
         fo.setAttribute('width', '600')
         fo.setAttribute('height', '400')
         fo.style.overflow = 'visible'
-        fo.style.cursor = 'move'
+        fo.style.cursor = isSelected ? 'move' : 'pointer'
 
         if (isRotated) {
           fo.setAttribute('transform', `rotate(${item.rotation} ${renderPx} ${py})`)
@@ -1640,7 +1685,7 @@ export function drawPlot(
         container.style.color = '#000000'
         container.style.display = 'inline-block'
         container.style.userSelect = 'none'
-        container.style.cursor = 'move'
+        container.style.cursor = isSelected ? 'move' : 'pointer'
 
         if (item.align === 'center') container.style.textAlign = 'center'
         else if (item.align === 'right') container.style.textAlign = 'right'
@@ -2113,6 +2158,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
+    if (isTrimmingMode()) return
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
     const graphArea = svg.parentElement || document.body
