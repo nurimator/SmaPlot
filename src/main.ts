@@ -545,5 +545,11 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   } else if (isCtrlOrCmd && key === 'y') {
     e.preventDefault()
     redo(graphAreaEl)
+  } else if (isCtrlOrCmd && key === 's') {
+    e.preventDefault()
+    handleSaveProject()
+  } else if (isCtrlOrCmd && key === 'o') {
+    e.preventDefault()
+    if (globalFileInput) globalFileInput.click()
   }
 })
