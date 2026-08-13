@@ -24,7 +24,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   const closeBtn = overlayEl.querySelector('#closePropDialogBtn')
   const cancelBtn = overlayEl.querySelector('#cancelPropBtn')
   const applyBtn = overlayEl.querySelector('#applyPropBtn')
-  const helpBtn = overlayEl.querySelector('#helpPropBtn')
   const tabs = overlayEl.querySelectorAll<HTMLButtonElement>('.tab-btn')
 
   // Form Elements
@@ -130,10 +129,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
 
   xColSelect?.addEventListener('change', applyVisualOptions)
   yColSelect?.addEventListener('change', applyVisualOptions)
-
-  helpBtn?.addEventListener('click', () => {
-    alert('Property Help: Adjust line styles (No Line, Solid, dotted, Dash Dot, dash Dot Dot, face), colors, symbol pitch, or math expressions to transform graphs in real-time.')
-  })
 
   // Tab switching logic (file, plot, more...)
   tabs.forEach((tab) => {

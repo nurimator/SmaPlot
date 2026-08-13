@@ -1245,7 +1245,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: 4px 10px;
   background-color: var(--slate-100);
   border-bottom: 1px solid var(--slate-200);
   cursor: move;
@@ -1254,7 +1254,7 @@ body {
 
 .dialog-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--slate-800);
   letter-spacing: -0.01em;
 }
@@ -1262,40 +1262,26 @@ body {
 .dialog-close-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--slate-500);
   cursor: pointer;
-  line-height: 1;
-  padding: 2px 6px;
+  padding: 0;
   border-radius: 4px;
   transition: all 0.12s ease;
+}
+
+.dialog-close-btn .icon {
+  width: 12px;
+  height: 12px;
 }
 
 .dialog-close-btn:hover {
   color: var(--slate-900);
   background-color: var(--slate-200);
-}
-
-.dialog-help-btn {
-  background: none;
-  border: 1px solid var(--slate-300);
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--slate-600);
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 6px;
-  transition: all 0.12s ease;
-}
-
-.dialog-help-btn:hover {
-  background-color: var(--slate-200);
-  color: var(--slate-900);
 }
 
 .dialog-tabs {

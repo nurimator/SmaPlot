@@ -6,8 +6,8 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
   let initialTop = 0
 
   handleEl.addEventListener('mousedown', (e: MouseEvent) => {
-    // Ignore clicks on close or help buttons inside header
-    if ((e.target as HTMLElement).closest('.dialog-close-btn, .dialog-help-btn')) {
+    // Ignore clicks on close button inside header
+    if ((e.target as HTMLElement).closest('.dialog-close-btn')) {
       return
     }
 

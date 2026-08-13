@@ -20,7 +20,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const closeBtn = overlayEl.querySelector('#closeAxisDialogBtn')
   const cancelBtn = overlayEl.querySelector('#cancelAxisBtn')
   const applyBtn = overlayEl.querySelector('#applyAxisBtn')
-  const helpBtn = overlayEl.querySelector('#helpAxisBtn')
   const tabs = overlayEl.querySelectorAll<HTMLButtonElement>('.tab-btn')
 
   // Scale Tab Elements
@@ -115,10 +114,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   applyBtn?.addEventListener('click', () => {
     applyAxisOptions()
     hide()
-  })
-
-  helpBtn?.addEventListener('click', () => {
-    alert(`${currentAxisTarget.toUpperCase()}-axis dialog properties for Sma4Win replica.`)
   })
 
   // Real-time update listeners for all controls
