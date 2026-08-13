@@ -37,11 +37,115 @@ export function generateMarqueeSvg(
       clone.setAttribute('y', `${topPx}`)
       clone.setAttribute('width', `${widthPx}`)
       clone.setAttribute('height', `${heightPx}`)
+      clone.setAttribute('overflow', 'visible')
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
 
       const handles = clone.querySelectorAll('.handle, [data-dir]')
       handles.forEach((h) => h.remove())
+
+      const foreignObjects = clone.querySelectorAll('foreignObject')
+      foreignObjects.forEach((fo) => {
+        const div = fo.querySelector('div')
+        if (!div) return
+
+
+        const fontSize = div.style.fontSize || '12px'
+        const fontFamily = div.style.fontFamily || 'sans-serif'
+        const fontWeight = div.style.fontWeight || '400'
+        const color = div.style.color || '#000000'
+        const textAlign = div.style.textAlign || 'left'
+
+        const textNode = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+
+        let foX = parseFloat(fo.getAttribute('x') || '0')
+        let foY = parseFloat(fo.getAttribute('y') || '0')
+        const fontSzNum = parseFloat(fontSize) || 12
+
+        if (textAlign === 'center') {
+          textNode.setAttribute('text-anchor', 'middle')
+          textNode.style.textAnchor = 'middle'
+        } else if (textAlign === 'right') {
+          textNode.setAttribute('text-anchor', 'end')
+          textNode.style.textAnchor = 'end'
+        } else {
+          textNode.setAttribute('text-anchor', 'start')
+          textNode.style.textAnchor = 'start'
+        }
+
+        textNode.setAttribute('x', String(foX))
+        textNode.setAttribute('y', String(foY + fontSzNum))
+
+        if (fo.hasAttribute('transform')) {
+          textNode.setAttribute('transform', fo.getAttribute('transform')!)
+        }
+
+        textNode.setAttribute('font-size', fontSize)
+        textNode.setAttribute('font-family', fontFamily)
+        textNode.setAttribute('font-weight', fontWeight)
+        textNode.setAttribute('fill', color)
+
+        const parseHtmlToSvgText = (htmlNode: Node, svgParent: SVGElement, currentX: string) => {
+          Array.from(htmlNode.childNodes).forEach((child) => {
+            if (child.nodeType === Node.TEXT_NODE) {
+              const txt = child.textContent
+              if (txt) {
+                svgParent.appendChild(document.createTextNode(txt))
+              }
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+              const el = child as HTMLElement
+              const tagName = el.tagName.toLowerCase()
+
+              if (tagName === 'br') {
+                const brTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+                brTspan.setAttribute('x', currentX)
+                brTspan.setAttribute('dy', '1.2em')
+                svgParent.appendChild(brTspan)
+                return
+              }
+
+              const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+
+              if (tagName === 'sub') {
+                tspan.setAttribute('baseline-shift', 'sub')
+                tspan.setAttribute('font-size', '0.75em')
+              } else if (tagName === 'sup') {
+                tspan.setAttribute('baseline-shift', 'super')
+                tspan.setAttribute('font-size', '0.75em')
+              } else if (tagName === 'i' || tagName === 'em') {
+                tspan.setAttribute('font-style', 'italic')
+              } else if (tagName === 'b' || tagName === 'strong') {
+                tspan.setAttribute('font-weight', 'bold')
+              }
+
+              parseHtmlToSvgText(child, tspan, currentX)
+              svgParent.appendChild(tspan)
+            }
+          })
+        }
+
+        parseHtmlToSvgText(div, textNode, String(foX))
+
+        fo.parentNode?.replaceChild(textNode, fo)
+      })
+
+      const texts = clone.querySelectorAll('text')
+      texts.forEach(txt => {
+        if (!txt.hasAttribute('font-family')) {
+          txt.setAttribute('font-family', 'Inter, system-ui, sans-serif')
+        }
+
+        // Apply text-anchor to style for broader compatibility
+        if (txt.hasAttribute('text-anchor')) {
+          txt.style.textAnchor = txt.getAttribute('text-anchor') || 'start'
+        }
+
+        // Replace dominant-baseline="hanging" with dy="0.75em"
+        if (txt.getAttribute('dominant-baseline') === 'hanging') {
+          txt.removeAttribute('dominant-baseline')
+          txt.setAttribute('dy', '0.75em')
+        }
+      })
 
       masterSvg.appendChild(clone)
     }
