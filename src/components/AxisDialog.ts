@@ -71,8 +71,11 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     }
 
     if (targetSpec.autoStep) {
-      targetSpec.step = computeAutoStep(targetSpec.min, targetSpec.max)
-      if (axisIncrement) axisIncrement.value = String(targetSpec.step)
+      const auto = computeAutoStep(targetSpec.min, targetSpec.max)
+      targetSpec.step = auto.increment
+      targetSpec.subDivs = auto.division
+      if (axisIncrement) axisIncrement.value = String(auto.increment)
+      if (axisDivision) axisDivision.value = String(auto.division)
     } else if (axisIncrement && axisIncrement.value !== '') {
       targetSpec.step = Math.abs(parseFloat(axisIncrement.value)) || 1
     }
@@ -135,8 +138,11 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
         const maxVal = parseFloat(axisTo.value) || 100
         const autoSt = computeAutoStep(minVal, maxVal)
         if (axisIncrement) {
-          axisIncrement.value = String(autoSt)
+          axisIncrement.value = String(autoSt.increment)
           axisIncrement.disabled = true
+        }
+        if (axisDivision) {
+          axisDivision.value = String(autoSt.division)
         }
       }
     } else if (axisIncrement) {

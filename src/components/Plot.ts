@@ -1143,14 +1143,18 @@ export function clearPlotScale(target: 'all' | 'x' | 'y' = 'all'): void {
         doc.axisX.min = reversed ? xMax : xMin
         doc.axisX.max = reversed ? xMin : xMax
         doc.axisX.autoStep = true
-        doc.axisX.step = computeAutoStep(xMin, xMax)
+        const autoX = computeAutoStep(xMin, xMax)
+        doc.axisX.step = autoX.increment
+        doc.axisX.subDivs = autoX.division
       }
       if (target === 'all' || target === 'y') {
         const reversed = doc.axisY.min > doc.axisY.max
         doc.axisY.min = reversed ? yMax : yMin
         doc.axisY.max = reversed ? yMin : yMax
         doc.axisY.autoStep = true
-        doc.axisY.step = computeAutoStep(yMin, yMax)
+        const autoY = computeAutoStep(yMin, yMax)
+        doc.axisY.step = autoY.increment
+        doc.axisY.subDivs = autoY.division
       }
     }
 
@@ -1266,13 +1270,19 @@ export function drawPlot(
 
   // Determine steps for X and Y axes
   let xStep = Math.abs(smpDoc?.axisX.step || smpMeta?.xStep || 0)
+  let autoSubDivsX: number | null = null
   if (smpDoc?.axisX.autoStep || xStep <= 0) {
-    xStep = computeAutoStep(xMin, xMax)
+    const autoX = computeAutoStep(xMin, xMax)
+    xStep = autoX.increment
+    autoSubDivsX = autoX.division
   }
 
   let yStep = Math.abs(smpDoc?.axisY.step || smpMeta?.yStep || 0)
+  let autoSubDivsY: number | null = null
   if (smpDoc?.axisY.autoStep || yStep <= 0) {
-    yStep = computeAutoStep(yMin, yMax)
+    const autoY = computeAutoStep(yMin, yMax)
+    yStep = autoY.increment
+    autoSubDivsY = autoY.division
   }
 
   const sx = (v: number) => margin.l + ((v - xMin) / (xMax - xMin)) * plotW
@@ -1312,8 +1322,8 @@ export function drawPlot(
   // ----------------------------------------------------
   // 4-AXIS INSIDE TICKS & MINOR SUB-TICKS ENGINE
   // ----------------------------------------------------
-  const subDivsX = smpDoc?.axisX.subDivs || 5
-  const subDivsY = smpDoc?.axisY.subDivs || 5
+  const subDivsX = autoSubDivsX !== null ? autoSubDivsX : smpDoc?.axisX.subDivs || 5
+  const subDivsY = autoSubDivsY !== null ? autoSubDivsY : smpDoc?.axisY.subDivs || 5
 
   const getMajorTicks = (minVal: number, maxVal: number, stepVal: number): number[] => {
     const ticks: number[] = []

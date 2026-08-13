@@ -22,18 +22,37 @@ export function niceScale(min: number, max: number, maxTicks: number): NiceScale
   return { min: niceMin, max: niceMax, step: niceStep }
 }
 
-export function computeAutoStep(min: number, max: number): number {
+export interface AutoStepResult {
+  increment: number
+  division: number
+}
+
+export function computeAutoStep(min: number, max: number): AutoStepResult {
   const range = Math.abs(max - min)
-  if (range === 0) return 1
-  const roughStep = range / 5
-  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)))
-  const residual = roughStep / magnitude
-  let step: number
-  if (residual <= 1.5) step = 1 * magnitude
-  else if (residual <= 3.5) step = 2 * magnitude
-  else if (residual <= 7.5) step = 5 * magnitude
-  else step = 10 * magnitude
-  return parseFloat(step.toPrecision(12))
+  if (!isFinite(range) || range <= 0) {
+    return { increment: 1, division: 2 }
+  }
+  const lo = range / 5
+  const hi = range / 2
+  const kLo = Math.floor(Math.log10(lo)) - 1
+  const kHi = Math.floor(Math.log10(hi)) + 1
+  let preferred: number | null = null
+  let fallback: number | null = null
+  for (let k = kLo; k <= kHi; k++) {
+    const mag = Math.pow(10, k)
+    for (const mult of [1, 2, 5]) {
+      const inc = mult * mag
+      if (inc < lo * (1 - 1e-9) || inc > hi * (1 + 1e-9)) continue
+      if (mult === 1 || mult === 2) {
+        if (preferred === null || inc < preferred) preferred = inc
+      } else if (fallback === null || inc < fallback) {
+        fallback = inc
+      }
+    }
+  }
+  const increment = preferred !== null ? preferred : fallback !== null ? fallback : 1
+  const division = preferred !== null ? 2 : 5
+  return { increment, division }
 }
 
 export function formatTick(value: number): string {
