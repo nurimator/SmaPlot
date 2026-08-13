@@ -16,6 +16,9 @@ import {
   getAllPlotSvgs,
   getBoxCount,
   getSelectedPlotSvg,
+  hitTestGraph,
+  hitTestAxisArea,
+  isInsidePlotArea,
   initPlotDragListeners,
   loadSmpProject,
   setObjectSelection,
@@ -238,16 +241,45 @@ graphAreaEl.addEventListener('mousedown', (e) => {
   setObjectSelection([])
 })
 
-// Double click on plot area axis or labels to open Axis dialog
-graphAreaEl.addEventListener('dblclick', (e) => {
+// Double-click on a plot. Detected via timing on `mousedown` (not native `dblclick`)
+// because selecting the plot re-renders the SVG (`replaceChildren`), detaching the
+// element under the cursor so the browser never fires a `dblclick` for it.
+//  - on the graph (data points / lines, detected geometrically via `hitTestGraph`) → open the Property panel for that graph
+//  - on empty area inside the box plot (not series, ticks, axis, title, legend) → open the Data Manager
+// Legend / annotation / title elements carry their own mousedown handlers, so they are unaffected here.
+let lastPlotClickTime = 0
+let lastPlotClickSvg: SVGSVGElement | null = null
+graphAreaEl.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return
   const target = e.target as HTMLElement
-  if (target.closest('rect, line, path, text, .plot-overlay, .ov-box-multi')) return
+  if (target.closest('[data-dir]')) return
   const svg = target.closest('.plot-svg') as SVGSVGElement | null
-  if (svg && axisOverlayEl) {
+  if (!svg) return
+  const now = Date.now()
+  if (now - lastPlotClickTime < 350 && lastPlotClickSvg === svg) {
+    lastPlotClickTime = 0
+    lastPlotClickSvg = null
+    e.stopPropagation()
+    e.preventDefault()
     setSelectedPlotSvg(svg)
-    const isY = e.clientY < svg.getBoundingClientRect().top + svg.getBoundingClientRect().height / 2
-    showAxisDialog(axisOverlayEl, isY ? 'y' : 'x', svg)
+
+    // Check axis zones first (border, ticks, labels) using geometry — works even after SVG re-render
+    const axisDir = hitTestAxisArea(svg, e.clientX, e.clientY)
+    if (axisDir) {
+      showAxisDialog(axisOverlayEl, axisDir, svg)
+      return
+    }
+
+    const hitDataset = hitTestGraph(svg, e.clientX, e.clientY)
+    if (hitDataset) {
+      showPropertyDialog(propOverlayEl, hitDataset, svg)
+    } else if (isInsidePlotArea(svg, e.clientX, e.clientY)) {
+      showDataManagerDialog(dmOverlayEl)
+    }
+    return
   }
+  lastPlotClickTime = now
+  lastPlotClickSvg = svg
 })
 
 // Initialize Plot drag & resize listeners

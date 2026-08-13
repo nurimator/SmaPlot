@@ -30,6 +30,158 @@ export function hitsRectBorder(gx: number, gy: number, l: number, t: number, w: 
   return true
 }
 
+// Distance from point (px,py) to segment (x1,y1)-(x2,y2).
+function distToSeg(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const len2 = dx * dx + dy * dy
+  if (len2 === 0) return Math.hypot(px - x1, py - y1)
+  let t = ((px - x1) * dx + (py - y1) * dy) / len2
+  t = Math.max(0, Math.min(1, t))
+  const cx = x1 + t * dx
+  const cy = y1 + t * dy
+  return Math.hypot(px - cx, py - cy)
+}
+
+// Geometric hit-test: is the (client) point on the graph — i.e. near a data point
+// or the connecting line of any visible series? Used to distinguish "grafik" (open
+// Property) from empty area inside the box plot (open Data Manager). Independent of
+// which DOM element is the event target, since the SVG re-renders on selection.
+export function hitTestGraph(svg: SVGSVGElement, clientX: number, clientY: number): Dataset | null {
+  const rawDatasets = svgDataMap.get(svg) || []
+  if (rawDatasets.length === 0) return null
+  const datasets = rawDatasets.map(ds => getProcessedDataset(ds))
+  const w = svg.clientWidth || parseFloat(svg.style.width) || svg.getBoundingClientRect().width || 400
+  const h = svg.clientHeight || parseFloat(svg.style.height) || svg.getBoundingClientRect().height || 300
+  const margin = PLOT_MARGIN
+  const plotW = Math.max(10, w - margin.l - margin.r)
+  const plotH = Math.max(10, h - margin.t - margin.b)
+  const smpDoc = svgSmpDocMap.get(svg)
+  const smpMeta = svgSmpMetaMap.get(svg)
+  const baseScale = svgBaseScaleMap.get(svg)
+  
+  let xMin = smpDoc?.axisX.min ?? smpMeta?.xMin ?? (baseScale ? baseScale.xMin : 0)
+  let xMax = smpDoc?.axisX.max ?? smpMeta?.xMax ?? (baseScale ? baseScale.xMax : 10)
+  let yMin = smpDoc?.axisY.min ?? smpMeta?.yMin ?? (baseScale ? baseScale.yMin : 0)
+  let yMax = smpDoc?.axisY.max ?? smpMeta?.yMax ?? (baseScale ? baseScale.yMax : 10)
+  
+  if (!smpDoc && !smpMeta && !baseScale && datasets.length > 0) {
+    xMin = Infinity
+    xMax = -Infinity
+    yMin = Infinity
+    yMax = -Infinity
+    for (const ds of datasets) {
+      for (let i = 0; i < ds.x.length; i++) {
+        if (ds.x[i] < xMin) xMin = ds.x[i]
+        if (ds.x[i] > xMax) xMax = ds.x[i]
+        if (ds.y[i] < yMin) yMin = ds.y[i]
+        if (ds.y[i] > yMax) yMax = ds.y[i]
+      }
+    }
+    if (xMin === Infinity) xMin = 0
+    if (xMax === -Infinity) xMax = 10
+    if (yMin === Infinity) yMin = 0
+    if (yMax === -Infinity) yMax = 10
+    if (yMin > 0) yMin = 0
+  }
+  
+  const sx = (v: number) => margin.l + ((v - xMin) / (xMax - xMin || 1)) * plotW
+  const sy = (v: number) => margin.t + plotH - ((v - yMin) / (yMax - yMin || 1)) * plotH
+
+  const rect = svg.getBoundingClientRect()
+  const zoom = getCanvasZoom()
+  const gx = (clientX - rect.left) / zoom
+  const gy = (clientY - rect.top) / zoom
+  const threshold = 6 / zoom
+
+  for (let idx = 0; idx < datasets.length; idx++) {
+    const ds = datasets[idx]
+    const opts = ds.options || {}
+    if (opts.show === false) continue
+    const px = ds.x
+    const py = ds.y
+    for (let i = 1; i < px.length; i++) {
+      if (distToSeg(gx, gy, sx(px[i - 1]), sy(py[i - 1]), sx(px[i]), sy(py[i])) <= threshold) return rawDatasets[idx]
+    }
+    const ptR = (opts.size || 3) / zoom + threshold
+    for (let i = 0; i < px.length; i++) {
+      if (Math.hypot(gx - sx(px[i]), gy - sy(py[i])) <= ptR) return rawDatasets[idx]
+    }
+  }
+  return null
+}
+
+export function isInsidePlotArea(svg: SVGSVGElement, clientX: number, clientY: number): boolean {
+  const w = svg.clientWidth || parseFloat(svg.style.width) || svg.getBoundingClientRect().width || 400
+  const h = svg.clientHeight || parseFloat(svg.style.height) || svg.getBoundingClientRect().height || 300
+  const margin = PLOT_MARGIN
+  const plotW = Math.max(10, w - margin.l - margin.r)
+  const plotH = Math.max(10, h - margin.t - margin.b)
+
+  const rect = svg.getBoundingClientRect()
+  const zoom = getCanvasZoom()
+  const gx = (clientX - rect.left) / zoom
+  const gy = (clientY - rect.top) / zoom
+
+  return gx >= margin.l && gx <= margin.l + plotW && gy >= margin.t && gy <= margin.t + plotH
+}
+
+// Detect whether a click is in an axis zone:
+//  - border frame stroke (±5px around the 4 edges of the plot box)
+//  - bottom margin (X-axis labels/ticks area, below bottom edge)
+//  - left margin (Y-axis labels/ticks area, left of left edge)
+// Returns 'x', 'y', or null.
+export function hitTestAxisArea(svg: SVGSVGElement, clientX: number, clientY: number): 'x' | 'y' | null {
+  const w = svg.clientWidth || parseFloat(svg.style.width) || svg.getBoundingClientRect().width || 400
+  const h = svg.clientHeight || parseFloat(svg.style.height) || svg.getBoundingClientRect().height || 300
+  const margin = PLOT_MARGIN
+  const plotW = Math.max(10, w - margin.l - margin.r)
+  const plotH = Math.max(10, h - margin.t - margin.b)
+
+  const rect = svg.getBoundingClientRect()
+  const zoom = getCanvasZoom()
+  const gx = (clientX - rect.left) / zoom
+  const gy = (clientY - rect.top) / zoom
+
+  const frameL = margin.l
+  const frameR = margin.l + plotW
+  const frameT = margin.t
+  const frameB = margin.t + plotH
+  const tol = 6 // px tolerance around border edges
+
+  // Inside the plot box (not axis area)
+  const insideX = gx > frameL + tol && gx < frameR - tol
+
+  // On or near the frame border strokes
+  const onLeftEdge = gx >= frameL - tol && gx <= frameL + tol && gy >= frameT - tol && gy <= frameB + tol
+  const onRightEdge = gx >= frameR - tol && gx <= frameR + tol && gy >= frameT - tol && gy <= frameB + tol
+  const onTopEdge = gy >= frameT - tol && gy <= frameT + tol && gx >= frameL - tol && gx <= frameR + tol
+  const onBottomEdge = gy >= frameB - tol && gy <= frameB + tol && gx >= frameL - tol && gx <= frameR + tol
+
+  // Bottom margin zone (X labels/ticks below box, top margin above box)
+  const inXMarginBottom = gy > frameB + tol && gy <= h && gx >= frameL && gx <= frameR
+  const inXMarginTop = gy < frameT - tol && gy >= 0 && gx >= frameL && gx <= frameR
+
+  // Left margin zone (Y labels/ticks left of box), right margin (right of box)
+  const inYMarginLeft = gx < frameL - tol && gx >= 0 && gy >= frameT && gy <= frameB
+  const inYMarginRight = gx > frameR + tol && gx <= w && gy >= frameT && gy <= frameB
+
+  if (inXMarginBottom || inXMarginTop || onBottomEdge || onTopEdge) {
+    // bottom/top edges and margins → X axis
+    if (onBottomEdge || onTopEdge || inXMarginBottom || inXMarginTop) return 'x'
+  }
+  if (inYMarginLeft || inYMarginRight || onLeftEdge || onRightEdge) {
+    if (insideX && (onTopEdge || onBottomEdge)) return 'x' // horizontal edges take priority inside
+    return 'y'
+  }
+
+  // On the border frame itself (corner hits etc.)
+  if (onLeftEdge || onRightEdge) return 'y'
+  if (onTopEdge || onBottomEdge) return 'x'
+
+  return null
+}
+
 export interface PlotVisualOptions {
   show?: boolean
   lineStyle?: string
