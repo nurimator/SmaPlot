@@ -930,7 +930,7 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
       const py = top + PLOT_MARGIN.t + (item.yNorm / 10000) * plotH
       let objW: number
       let objH: number
-      if (item.text.startsWith('%01E')) {
+      if (isSeriesLegendText(item.text)) {
         const lines = item.text.split('\n').length
         objW = 90
         objH = lines * 11 + 6
@@ -1938,45 +1938,129 @@ export function drawPlot(
         startGroupDrag(e.clientX, e.clientY)
       }
 
-      if (item.text.startsWith('%01E')) {
-        // Series Legend Box e.g. %01ESG\n%02EKP\n%03EGS
+      if (isSeriesLegendText(item.text)) {
+        // Series Legend Box e.g. %01E KP\n%02E SG\n%03E GS  or  %01E%01N
         const rawLines = item.text.split('\n')
         let legY = py
         rawLines.forEach((lineStr) => {
-          const match = lineStr.match(/^%(\d+)E\s*(.*)/)
-          if (match) {
-            const idx = parseInt(match[1], 10) - 1
-            const labelText = match[2].trim()
-            const ds = processedDatasets[idx]
-            const color = ds?.options?.lineColor || ds?.color || '#000000'
+          const head = lineStr.match(/%(\d+)E/)
+          if (!head) return
+          const idx = parseInt(head[1], 10) - 1
+          const ds = processedDatasets[idx]
+          const color = ds?.options?.lineColor || ds?.color || '#000000'
 
-            const legLine = createSVGElement('line')
-            legLine.setAttribute('x1', String(renderPx))
-            legLine.setAttribute('y1', String(legY))
-            legLine.setAttribute('x2', String(renderPx + 16))
-            legLine.setAttribute('y2', String(legY))
-            legLine.setAttribute('stroke', color)
-            legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
-            legLine.style.cursor = isSelected ? 'move' : 'pointer'
-            legLine.addEventListener('mousedown', handleLegendMouseDown)
-            legLine.addEventListener('dblclick', openTitleModal)
-            svg.appendChild(legLine)
+          // %nN is dataset n name; %nE corresponds to graphic style of dataset n (removed from text)
+          const labelText = lineStr
+            .replace(/%(\d+)N/g, (_m, n) => processedDatasets[parseInt(n, 10) - 1]?.name || `Series ${n}`)
+            .replace(/%(\d+)E/g, '')
+            .trim()
 
-            const legTxt = createSVGElement('text')
-            legTxt.setAttribute('x', String(renderPx + 20))
-            legTxt.setAttribute('y', String(legY + 3))
-            legTxt.setAttribute('font-size', '10')
-            legTxt.setAttribute('font-family', item.fontFamily || 'Cambria, Times New Roman, serif')
-            legTxt.setAttribute('font-weight', String(item.fontWeight))
-            legTxt.setAttribute('fill', '#000000')
-            legTxt.textContent = labelText
-            legTxt.style.cursor = isSelected ? 'move' : 'pointer'
-            legTxt.addEventListener('mousedown', handleLegendMouseDown)
-            legTxt.addEventListener('dblclick', openTitleModal)
-            svg.appendChild(legTxt)
+          // Draw legend line sample
+          const legLine = createSVGElement('line')
+          legLine.setAttribute('x1', String(renderPx))
+          legLine.setAttribute('y1', String(legY))
+          legLine.setAttribute('x2', String(renderPx + 18))
+          legLine.setAttribute('y2', String(legY))
+          legLine.setAttribute('stroke', color)
+          legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
 
-            legY += 11
+          const brush = ds?.options?.brush || ds?.options?.lineStyle || 'solid'
+          const lineType = ds?.options?.lineType || 'solid'
+          let dashArray = 'none'
+          if (lineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
+            dashArray = '2 2'
+          } else if (lineType === 'dash_dot') {
+            dashArray = '6 3 2 3'
+          } else if (lineType === 'dash_dot_dot') {
+            dashArray = '6 3 2 3 2 3'
+          } else if (brush === 'dash' || brush === 'dashed') {
+            dashArray = '6 3'
           }
+          if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
+
+          legLine.style.cursor = isSelected ? 'move' : 'pointer'
+          legLine.addEventListener('mousedown', handleLegendMouseDown)
+          legLine.addEventListener('dblclick', openTitleModal)
+          svg.appendChild(legLine)
+
+          // Draw legend marker symbol if set
+          const plotType = ds?.options?.plotType || 'no_dot'
+          if (plotType !== 'no_dot' && plotType !== 'none') {
+            const dotColor = ds?.options?.dotColor || color
+            const paintColor = ds?.options?.paintColor || '#ffffff'
+            const r = Math.max(3, ds?.options?.size || 3.5)
+            const cx = renderPx + 9
+
+            if (plotType === 'circle' || plotType === 'filled_circle') {
+              const circle = createSVGElement('circle')
+              circle.setAttribute('cx', String(cx))
+              circle.setAttribute('cy', String(legY))
+              circle.setAttribute('r', String(r))
+              circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
+              circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
+              circle.setAttribute('stroke-width', '1')
+              circle.style.cursor = isSelected ? 'move' : 'pointer'
+              circle.addEventListener('mousedown', handleLegendMouseDown)
+              circle.addEventListener('dblclick', openTitleModal)
+              svg.appendChild(circle)
+            } else if (plotType === 'square' || plotType === 'filled_square') {
+              const rect = createSVGElement('rect')
+              rect.setAttribute('x', String(cx - r))
+              rect.setAttribute('y', String(legY - r))
+              rect.setAttribute('width', String(r * 2))
+              rect.setAttribute('height', String(r * 2))
+              rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
+              rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
+              rect.setAttribute('stroke-width', '1')
+              rect.style.cursor = isSelected ? 'move' : 'pointer'
+              rect.addEventListener('mousedown', handleLegendMouseDown)
+              rect.addEventListener('dblclick', openTitleModal)
+              svg.appendChild(rect)
+            } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
+              const poly = createSVGElement('polygon')
+              const p1 = `${cx},${legY - r}`
+              const p2 = `${cx - r},${legY + r}`
+              const p3 = `${cx + r},${legY + r}`
+              poly.setAttribute('points', `${p1} ${p2} ${p3}`)
+              poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
+              poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
+              poly.setAttribute('stroke-width', '1')
+              poly.style.cursor = isSelected ? 'move' : 'pointer'
+              poly.addEventListener('mousedown', handleLegendMouseDown)
+              poly.addEventListener('dblclick', openTitleModal)
+              svg.appendChild(poly)
+            } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
+              const poly = createSVGElement('polygon')
+              const p1 = `${cx},${legY - r}`
+              const p2 = `${cx + r},${legY}`
+              const p3 = `${cx},${legY + r}`
+              const p4 = `${cx - r},${legY}`
+              poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
+              poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
+              poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('stroke-width', '1')
+              poly.style.cursor = isSelected ? 'move' : 'pointer'
+              poly.addEventListener('mousedown', handleLegendMouseDown)
+              poly.addEventListener('dblclick', openTitleModal)
+              svg.appendChild(poly)
+            }
+          }
+
+          // Draw legend text next to icon
+          const legTxt = createSVGElement('text')
+          legTxt.setAttribute('x', String(renderPx + 22))
+          legTxt.setAttribute('y', String(legY + 3.5))
+          legTxt.setAttribute('font-size', '10')
+          legTxt.setAttribute('font-family', item.fontFamily || 'Cambria, Times New Roman, serif')
+          legTxt.setAttribute('font-weight', String(item.fontWeight))
+          legTxt.setAttribute('fill', '#000000')
+          legTxt.textContent = labelText
+          legTxt.style.cursor = isSelected ? 'move' : 'pointer'
+          legTxt.addEventListener('mousedown', handleLegendMouseDown)
+          legTxt.addEventListener('dblclick', openTitleModal)
+          svg.appendChild(legTxt)
+
+          legY += 11
         })
       } else {
         const rawStr = item.rawText || item.text
@@ -2070,7 +2154,7 @@ export function drawPlot(
         }
       }
 
-      if (isSelected && item.text.startsWith('%01E')) {
+      if (isSelected && isSeriesLegendText(item.text)) {
         let boxX = renderPx - 4
         let boxY = py - 6
         let boxW = 60
@@ -2248,45 +2332,26 @@ export function drawPlot(
               poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
               poly.setAttribute('stroke-width', '1')
               seriesGroup.appendChild(poly)
+            } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
+              const poly = createSVGElement('polygon')
+              const p1 = `${px},${py - dotSize}`
+              const p2 = `${px + dotSize},${py}`
+              const p3 = `${px},${py + dotSize}`
+              const p4 = `${px - dotSize},${py}`
+              poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
+              poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
+              poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('stroke-width', '1')
+              seriesGroup.appendChild(poly)
             }
           }
         }
       }
     }
 
-  // Fallback Legend if not provided by smpDoc legendItems
-  const hasSeriesLegendInDoc = (smpDoc?.legendItems || []).some((item) => item.text.startsWith('%01E'))
-  if (processedDatasets.length > 0 && !hasSeriesLegendInDoc) {
-    const legendX = Math.max(margin.l, margin.l + plotW - 110)
-    const legendY = margin.t + 10
-    let drawnLegends = 0
-    for (let i = 0; i < processedDatasets.length; i++) {
-      const ds = processedDatasets[i]
-      const dsOpts = ds.options || {}
-      if (dsOpts.show === false) continue
-
-      const ly = legendY + drawnLegends * 11
-      const line = createSVGElement('line')
-      line.setAttribute('x1', String(legendX))
-      line.setAttribute('y1', String(ly))
-      line.setAttribute('x2', String(legendX + 16))
-      line.setAttribute('y2', String(ly))
-      line.setAttribute('stroke', dsOpts.lineColor || ds.color)
-      line.setAttribute('stroke-width', String(dsOpts.width || 1))
-      svg.appendChild(line)
-
-      const text = createSVGElement('text')
-      text.setAttribute('x', String(legendX + 20))
-      text.setAttribute('y', String(ly + 3))
-      text.setAttribute('font-size', '10')
-      text.setAttribute('font-family', 'Cambria, Times New Roman, serif')
-      text.setAttribute('fill', '#000000')
-      text.textContent = ds.name
-      svg.appendChild(text)
-
-      drawnLegends++
-    }
-  }
+  // Series legends are inserted manually (Insert → Insert Legend) and only
+  // rendered from smpDoc.legendItems that contain %nE codes. They are no longer
+  // auto-generated from the plotted datasets on import.
 
   // Edge and Corner drag handles aligned with plot frame box (selected plots only)
   if (isMultiSelected(svg)) {
@@ -2383,6 +2448,10 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
 
 function datasetIdentifier(ds: Dataset): string {
   return ds.filePath || ds.fileName || `${ds.name}.txt`
+}
+
+function isSeriesLegendText(text: string): boolean {
+  return /^%\d+E/.test((text || '').trim())
 }
 
 export function removeDatasetFromAllPlots(identifier: string): void {

@@ -50,6 +50,8 @@ export class DataManager {
 export const globalDataManager = new DataManager()
 
 let activeSelectCallback: ((fileName: string) => void) | null = null
+let legendSelectCallback: ((identifiers: string[]) => void) | null = null
+let multiSelectMode = false
 
 export function renderDataManagerListBox(
   listBoxEl: HTMLElement,
@@ -87,11 +89,16 @@ export function renderDataManagerListBox(
     item.appendChild(text)
 
     item.addEventListener('click', () => {
-      listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
-      item.classList.add('selected')
+      if (multiSelectMode) {
+        item.classList.toggle('selected')
+      } else {
+        listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
+        item.classList.add('selected')
+      }
     })
 
     item.addEventListener('dblclick', () => {
+      if (multiSelectMode) return
       listBoxEl.querySelectorAll('.dm-list-item').forEach((i) => i.classList.remove('selected'))
       item.classList.add('selected')
       const cb = activeSelectCallback
@@ -137,6 +144,7 @@ export function initDataManagerDialog(
   cancelBtn?.addEventListener('click', hide)
 
   deleteBtn?.addEventListener('click', () => {
+    if (multiSelectMode) return
     if (!listBox || !onDeleteDataset) return
     const selectedItems = listBox.querySelectorAll<HTMLElement>('.dm-list-item.selected')
     selectedItems.forEach((item) => {
@@ -158,7 +166,21 @@ export function initDataManagerDialog(
     }
   }
 
-  okBtn?.addEventListener('click', triggerPropertyModal)
+  okBtn?.addEventListener('click', () => {
+    if (legendSelectCallback) {
+      const selectedItems = listBox?.querySelectorAll<HTMLElement>('.dm-list-item.selected') || []
+      const identifiers = Array.from(selectedItems)
+        .map((i) => i.getAttribute('data-filename'))
+        .filter((v): v is string => Boolean(v))
+      const cb = legendSelectCallback
+      legendSelectCallback = null
+      multiSelectMode = false
+      hide()
+      if (identifiers.length > 0) cb(identifiers)
+      return
+    }
+    triggerPropertyModal()
+  })
 
   if (listBox) {
     renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
@@ -213,9 +235,34 @@ export function showDataManagerDialog(
   onSelectDatasetCallback?: (selectedFileName: string) => void
 ): void {
   activeSelectCallback = onSelectDatasetCallback || null
+  legendSelectCallback = null
+  multiSelectMode = false
+  const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
+  if (okBtn) okBtn.textContent = 'Open'
+  const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
+  if (delBtn) delBtn.style.display = ''
+  overlayEl.style.display = 'flex'
+}
+
+export function showDataManagerForLegend(
+  overlayEl: HTMLElement,
+  onChoose: (identifiers: string[]) => void
+): void {
+  legendSelectCallback = onChoose
+  multiSelectMode = true
+  const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
+  if (okBtn) okBtn.textContent = 'Insert'
+  const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
+  if (delBtn) delBtn.style.display = 'none'
   overlayEl.style.display = 'flex'
 }
 
 export function hideDataManagerDialog(overlayEl: HTMLElement): void {
+  legendSelectCallback = null
+  multiSelectMode = false
+  const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
+  if (okBtn) okBtn.textContent = 'Open'
+  const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
+  if (delBtn) delBtn.style.display = ''
   overlayEl.style.display = 'none'
 }

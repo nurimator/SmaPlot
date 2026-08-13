@@ -14,6 +14,10 @@ interface SmpSeriesSpec {
   cleanName: string
   color: string
   width: number
+  lineType?: string
+  plotType?: string
+  dotColor?: string
+  markerSize?: number
   xExpr: string
   yExpr: string
   filePath?: string
@@ -23,6 +27,7 @@ export interface ParseSmpResult {
   datasets: Dataset[]
   smpMeta: SmpMetadata
 }
+
 
 function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec {
   return {
@@ -149,7 +154,35 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           }
           i++
         }
-        if (i < docLines.length) i++ // config 3
+        let lineType = 'solid'
+        let plotType = 'no_dot'
+        let dotColor: string | undefined
+        let markerSize = 3
+        if (i < docLines.length) {
+          const parts = docLines[i].trim().split(/\s+/)
+          if (parts.length >= 2) {
+            const symCode = parseInt(parts[1], 10)
+            if (!isNaN(symCode)) {
+              if (symCode === 1) plotType = 'filled_circle'
+              else if (symCode === 2) plotType = 'filled_square'
+              else if (symCode === 3) plotType = 'triangle'
+              else if (symCode === 4) plotType = 'filled_triangle'
+              else if (symCode === 5) plotType = 'circle'
+              else if (symCode === 6) plotType = 'square'
+              else if (symCode === 10) plotType = 'filled_diamond'
+              else if (symCode === 11) plotType = 'diamond'
+            }
+          }
+          if (parts.length >= 3) {
+            const mSz = parseInt(parts[2], 10)
+            if (!isNaN(mSz) && mSz > 0) markerSize = Math.max(1, Math.round(mSz / 100))
+          }
+          if (parts.length >= 4) {
+            const dcInt = parseInt(parts[3], 10)
+            if (!isNaN(dcInt)) dotColor = bgrToHex(dcInt)
+          }
+          i++
+        }
         if (i < docLines.length) i++ // config 4
         if (i < docLines.length) i++ // config 5
         let xExpr = 'x'
@@ -168,6 +201,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           cleanName,
           color,
           width,
+          lineType,
+          plotType,
+          dotColor,
+          markerSize,
           xExpr,
           yExpr,
           filePath,
@@ -500,19 +537,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         continue
       }
 
-      if (line.startsWith('[') && line.includes(']')) {
-        activeDataHeader = line.split(']')[0].slice(1).trim()
-        if (!datasetsMap[activeDataHeader]) {
-          datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [] }
-        }
-        continue
-      }
-
-      if (!activeDataHeader) continue
-
       if (line.includes('[End of Data]')) {
         const cleanLine = line.replace('[End of Data]', '').trim()
-        if (cleanLine) {
+        if (cleanLine && activeDataHeader && datasetsMap[activeDataHeader]) {
           const parts = cleanLine.split(/\s+/)
           if (parts.length >= 2) {
             const px = parseFloat(parts[0])
@@ -527,6 +554,21 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         activeDataHeader = ''
         continue
       }
+
+      if (line.startsWith('[') && line.includes(']')) {
+        const headerName = line.split(']')[0].slice(1).trim()
+        if (headerName.toLowerCase().includes('end of data')) {
+          activeDataHeader = ''
+          continue
+        }
+        activeDataHeader = headerName
+        if (!datasetsMap[activeDataHeader]) {
+          datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [] }
+        }
+        continue
+      }
+
+      if (!activeDataHeader) continue
 
       if (line.startsWith('#')) {
         datasetsMap[activeDataHeader].rawLines.push([line])
@@ -549,6 +591,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     const headerKeys = Object.keys(datasetsMap)
 
     headerKeys.forEach((key) => {
+      if (key.toLowerCase().includes('end of data')) return
       const spec = seriesSpecs[key] || {
         name: key,
         cleanName: key.replace(/^\d+\s+/, '').replace(/\.txt$/i, ''),
@@ -572,8 +615,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           lineColor: spec.color,
           width: spec.width || 1,
           lineStyle: 'solid',
-          plotType: 'no_dot',
-          lineType: 'solid',
+          plotType: spec.plotType || 'no_dot',
+          lineType: spec.lineType || 'solid',
+          dotColor: spec.dotColor || spec.color,
+          paintColor: '#ffffff',
+          size: spec.markerSize || 3,
           xTransCheck: spec.xExpr !== 'x',
           xExpr: spec.xExpr,
           yTransCheck: spec.yExpr !== 'y',

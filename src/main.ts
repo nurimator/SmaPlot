@@ -34,6 +34,7 @@ import {
   globalDataManager,
   initDataManagerDialog,
   showDataManagerDialog,
+  showDataManagerForLegend,
 } from './components/DataManager.ts'
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
@@ -116,6 +117,34 @@ async function handleNewProject(): Promise<void> {
   pushUndoState()
 }
 
+async function handleInsertLegend(): Promise<void> {
+  const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
+  if (!svg) {
+    alert('No plot available in workspace.')
+    return
+  }
+
+  showDataManagerForLegend(dmOverlayEl, (identifiers) => {
+    const plotDatasets = getPlotDatasets(svg)
+    const codes = identifiers
+      .map((id) => {
+        const index = plotDatasets.findIndex(
+          (d) => (d.filePath || d.fileName || `${d.name}.txt`) === id
+        )
+        return index >= 0 ? `%0${index + 1}E%0${index + 1}N` : null
+      })
+      .filter((c): c is string => c !== null)
+
+    if (codes.length === 0) {
+      alert('The selected data is not part of the active plot.')
+      return
+    }
+
+    const legendCode = codes.join('\n')
+    showTitleDialog(titleOverlayEl, -1, svg, legendCode)
+  })
+}
+
 if (menubarEl) {
   initMenubar(menubarEl, async (action) => {
     if (action === 'undo') {
@@ -143,6 +172,8 @@ if (menubarEl) {
       showTitleDialog(titleOverlayEl)
     } else if (action === 'new') {
       await handleNewProject()
+    } else if (action === 'insert_legend') {
+      await handleInsertLegend()
     } else if (['graph', 'property', 'option', 'analyze', 'edit'].includes(action)) {
       showPropertyDialog(propOverlayEl)
     }

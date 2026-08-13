@@ -21,6 +21,20 @@ function formatFloatSci(val: number): string {
   return str.replace(/e([+-])(\d)$/, 'e$10$2')
 }
 
+function plotTypeToCode(pt?: string): number {
+  switch (pt) {
+    case 'circle': return 5
+    case 'filled_circle': return 1
+    case 'square': return 6
+    case 'filled_square': return 2
+    case 'triangle': return 3
+    case 'filled_triangle': return 4
+    case 'diamond': return 11
+    case 'filled_diamond': return 10
+    default: return 0
+  }
+}
+
 export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
   const lines: string[] = []
 
@@ -45,7 +59,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
 
     const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || '#3b82f6')
     lines.push(`60 ${bgrColor} 300 0 0 0 0`)
-    lines.push('1 0 300 0')
+    const symCode = plotTypeToCode(ds.options?.plotType)
+    const dotColorBgr = hexToBgr(ds.options?.dotColor || ds.options?.lineColor || ds.color || '#3b82f6')
+    const sizeVal = Math.round((ds.options?.size || 3) * 100)
+    lines.push(`1 ${symCode} ${sizeVal} ${dotColorBgr}`)
     lines.push('0 0 1 0 0 0 16777215 5')
     lines.push('0 1 0')
     lines.push(ds.options?.xExpr || 'x')
@@ -155,7 +172,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
     }
     if (datasets.length > 0) {
       const legendBoxText = datasets
-        .map((ds, i) => `%0${i + 1}E${ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')}`)
+        .map((_ds, i) => `%0${i + 1}E%0${i + 1}N`)
         .join('\\n')
       legendItems.push({
         type: 'text',

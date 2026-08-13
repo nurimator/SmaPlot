@@ -243,7 +243,8 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
 export function showTitleDialog(
   overlayEl: HTMLElement,
   itemIndex: number = -1,
-  targetSvg?: SVGSVGElement | null
+  targetSvg?: SVGSVGElement | null,
+  initialText?: string
 ): void {
   currentTargetSvg = targetSvg || getSelectedPlotSvg()
   currentItemIndex = itemIndex
@@ -311,7 +312,7 @@ export function showTitleDialog(
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
       const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"][value="left"]')
 
-      if (strEl) strEl.value = ''
+      if (strEl) strEl.value = initialText || ''
       if (rotEl) rotEl.value = '0'
       if (posXEl) posXEl.value = '24'
       if (posYEl) posYEl.value = '-5'
