@@ -437,9 +437,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 }
                 i++
               }
-              let fontFamily = 'Inter, sans-serif'
+              let fontFamily = 'Times New Roman'
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-                fontFamily = docLines[i].trim() || 'Inter, sans-serif'
+                fontFamily = docLines[i].trim() || 'Times New Roman'
                 i++
               }
               // Skip remaining font spec 2 & 3 lines for item 8 (4 lines total: spec2, name2, spec3, name3)

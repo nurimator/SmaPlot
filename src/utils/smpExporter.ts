@@ -156,7 +156,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         xNorm: 2400,
         yNorm: 11400,
         rotation: 0,
-        fontFamily: 'cambria',
+        fontFamily: 'Times New Roman',
         fontSize: 12,
         fontWeight: 400,
       })
@@ -169,7 +169,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         xNorm: -400,
         yNorm: 5000,
         rotation: -90,
-        fontFamily: 'cambria',
+        fontFamily: 'Times New Roman',
         fontSize: 12,
         fontWeight: 400,
       })
@@ -251,14 +251,20 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       const item = entry.item
       lines.push('8')
       lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} 0 1 0 0`)
-      lines.push(unicodeToSmp(item.rawText || item.text).replace(/\n/g, '\\n'))
+      // `text` is the canonical Unicode form. `rawText` is kept for rendering
+      // parsed files and may already contain the SMP-encoded representation;
+      // converting it again would corrupt the 2-byte symbol sequences.
+      lines.push(unicodeToSmp(item.text || item.rawText || '').replace(/\n/g, '\\n'))
       const rot = Math.round(item.rotation * 10)
       const weight = item.fontWeight >= 600 ? 700 : 400
       const szVal = Math.round((item.fontSize || 12) * 100)
       lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 18`)
-      lines.push(item.fontFamily || 'cambria')
-      lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 0 3 2 1 2`)
-      lines.push('Merriweather Light')
+      lines.push(item.fontFamily || 'Times New Roman')
+      // Native Sma4Win stores the Arphic option-font record with its own
+      // charset/face parameters. Keeping these values is required for the
+      // original application to import the text item correctly.
+      lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 128 3 2 1 50`)
+      lines.push('Arphic PRound-Gothic Medium JIS')
       lines.push(`-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 2 3 2 1 18`)
       lines.push('Symbol')
       lines.push('')
@@ -347,7 +353,7 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
 }
 
 export function downloadFile(content: string, fileName: string, mimeType = 'text/plain'): void {
-  const blob = new Blob([content], { type: mimeType })
+  const blob = new Blob([encodeWindows1252(content)], { type: `${mimeType};charset=windows-1252` })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -356,4 +362,38 @@ export function downloadFile(content: string, fileName: string, mimeType = 'text
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// SMP files use Windows-1252 bytes. The symbol mapper returns a JavaScript
+// string whose characters represent those decoded bytes, so it must be
+// encoded explicitly before passing it to Blob (which otherwise uses UTF-8).
+const WINDOWS_1252_SPECIAL_BYTES = new Map<number, number>([
+  [0x20ac, 0x80], [0x201a, 0x82], [0x0192, 0x83], [0x201e, 0x84],
+  [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02c6, 0x88],
+  [0x2030, 0x89], [0x0160, 0x8a], [0x2039, 0x8b], [0x0152, 0x8c],
+  [0x017d, 0x8e], [0x2018, 0x91], [0x2019, 0x92], [0x201c, 0x93],
+  [0x201d, 0x94], [0x2022, 0x95], [0x2013, 0x96], [0x2014, 0x97],
+  [0x02dc, 0x98], [0x2122, 0x99], [0x0161, 0x9a], [0x203a, 0x9b],
+  [0x0153, 0x9c], [0x017e, 0x9e], [0x0178, 0x9f],
+])
+
+function encodeWindows1252(text: string): ArrayBuffer {
+  const buffer = new ArrayBuffer(text.length)
+  const bytes = new Uint8Array(buffer)
+  let byteCount = 0
+
+  for (const char of text) {
+    const codePoint = char.codePointAt(0) || 0x3f
+    let byte = WINDOWS_1252_SPECIAL_BYTES.get(codePoint)
+
+    if (byte === undefined && codePoint <= 0xff) {
+      // This also preserves the undefined C1 slots (0x81, 0x8d, 0x8f,
+      // 0x90 and 0x9d) used by Sma4Win's custom symbol pairs.
+      byte = codePoint
+    }
+
+    bytes[byteCount++] = byte ?? 0x3f
+  }
+
+  return buffer.slice(0, byteCount)
 }

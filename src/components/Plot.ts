@@ -1872,7 +1872,7 @@ export function drawPlot(
         xNorm: 2400,
         yNorm: 11400,
         rotation: 0,
-        fontFamily: 'cambria',
+        fontFamily: 'Times New Roman',
         fontSize: 12,
         fontWeight: 400,
       })
@@ -1885,7 +1885,7 @@ export function drawPlot(
         xNorm: -400,
         yNorm: 5000,
         rotation: -90,
-        fontFamily: 'cambria',
+        fontFamily: 'Times New Roman',
         fontSize: 12,
         fontWeight: 400,
       })
@@ -2061,7 +2061,7 @@ export function drawPlot(
           legTxt.setAttribute('x', String(renderPx + 22))
           legTxt.setAttribute('y', String(legY + 3.5))
           legTxt.setAttribute('font-size', '10')
-          legTxt.setAttribute('font-family', item.fontFamily || 'Cambria, Times New Roman, serif')
+          legTxt.setAttribute('font-family', item.fontFamily || 'Times New Roman, serif')
           legTxt.setAttribute('font-weight', String(item.fontWeight))
           legTxt.setAttribute('fill', '#000000')
           legTxt.textContent = labelText
@@ -2076,10 +2076,14 @@ export function drawPlot(
         const rawStr = item.rawText || item.text
         const htmlStr = renderSmpTextToHtml(rawStr)
         const fontSz = Math.max(6, Math.round((item.fontSize || 12) * 0.72))
+        // The HTML line box adds a small amount of leading above the glyphs.
+        // Keep the SMP anchor and selection box unchanged, but lift the
+        // foreignObject so the rendered text sits inside that box correctly.
+        const textVerticalCorrection = Math.max(1, Math.round(fontSz * 0.15))
 
         const fo = createSVGElement('foreignObject')
         fo.setAttribute('x', String(renderPx))
-        fo.setAttribute('y', String(py - fontSz))
+        fo.setAttribute('y', String(py - fontSz - textVerticalCorrection))
         fo.setAttribute('width', '600')
         fo.setAttribute('height', '400')
         fo.style.overflow = 'visible'
@@ -2092,7 +2096,7 @@ export function drawPlot(
         const container = document.createElement('div')
         container.className = 'smp-latex-item'
         container.style.fontSize = `${fontSz}px`
-        container.style.fontFamily = item.fontFamily || 'Inter, sans-serif'
+        container.style.fontFamily = item.fontFamily || 'Times New Roman, serif'
         container.style.fontWeight = String(item.fontWeight || 400)
         container.style.color = '#000000'
         container.style.display = 'inline-block'
@@ -2204,7 +2208,7 @@ export function drawPlot(
       xTitle.setAttribute('y', String(margin.t + plotH + 42))
       xTitle.setAttribute('text-anchor', 'middle')
       xTitle.setAttribute('font-size', '12')
-      xTitle.setAttribute('font-family', 'Cambria, Times New Roman, serif')
+      xTitle.setAttribute('font-family', 'Times New Roman, serif')
       xTitle.setAttribute('fill', '#000000')
       xTitle.textContent = xLabel
       svg.appendChild(xTitle)
@@ -2219,7 +2223,7 @@ export function drawPlot(
       yTitle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`)
       yTitle.setAttribute('text-anchor', 'middle')
       yTitle.setAttribute('font-size', '12')
-      yTitle.setAttribute('font-family', 'Cambria, Times New Roman, serif')
+      yTitle.setAttribute('font-family', 'Times New Roman, serif')
       yTitle.setAttribute('fill', '#000000')
       yTitle.textContent = yLabel
       svg.appendChild(yTitle)

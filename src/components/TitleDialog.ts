@@ -53,7 +53,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const xNorm = Math.round((parseFloat(posXEl?.value || '0') || 0) * 100)
     const yNorm = Math.round((parseFloat(posYEl?.value || '0') || 0) * 100)
     const fontSize = parseInt(sizeEl?.value || '16', 10) || 16
-    const fontFamily = fontEl?.value || 'cambria'
+    const fontFamily = fontEl?.value || 'Times New Roman'
     const fontWeight = styleEl?.value?.toLowerCase().includes('bold') ? 700 : 400
 
     const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"]:checked')
@@ -287,7 +287,7 @@ export function showTitleDialog(
       }
 
       if (fontEl) {
-        const fontVal = item.fontFamily || 'cambria'
+        const fontVal = item.fontFamily || 'Times New Roman'
         const hasOption = Array.from(fontEl.options).some((o) => o.value === fontVal)
         if (!hasOption) {
           const opt = document.createElement('option')
@@ -317,7 +317,7 @@ export function showTitleDialog(
       if (posXEl) posXEl.value = '24'
       if (posYEl) posYEl.value = '-5'
       if (sizeEl) sizeEl.value = '16'
-      if (fontEl) fontEl.value = 'cambria'
+      if (fontEl) fontEl.value = 'Times New Roman'
       if (styleEl) styleEl.value = 'Regular'
       if (alignRadio) alignRadio.checked = true
     }
