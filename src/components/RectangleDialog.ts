@@ -1,6 +1,7 @@
 import type { SmpLineAnnotation } from '../types.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
+import { beginShapeDraw } from './ShapeDraw.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentAnnotationIndex: number = -1
@@ -12,7 +13,7 @@ export function initRectangleDialog(overlayEl: HTMLElement): void {
   const cancelBtn = overlayEl.querySelector('#rectangleCancelBtn')
   const deleteBtn = overlayEl.querySelector('#rectangleDeleteBtn')
   const saveBtn = overlayEl.querySelector('#rectangleSaveBtn')
-  const setBtn = overlayEl.querySelector('#rectangleSetBtn')
+  const drawBtn = overlayEl.querySelector('#rectangleDrawBtn')
 
   const hide = () => hideRectangleDialog(overlayEl)
 
@@ -79,7 +80,18 @@ export function initRectangleDialog(overlayEl: HTMLElement): void {
     if (shouldClose) hide()
   }
 
-  if (setBtn) setBtn.addEventListener('click', () => applyChanges(false))
+  const handleStartMouseDraw = () => {
+    const svg = currentTargetSvg || getSelectedPlotSvg()
+    if (!svg) return
+    beginShapeDraw({
+      shape: 'rectangle',
+      svg,
+      overlayEl,
+      annotationIndex: currentAnnotationIndex,
+    })
+  }
+
+  if (drawBtn) drawBtn.addEventListener('click', handleStartMouseDraw)
   if (okBtn) okBtn.addEventListener('click', () => applyChanges(true))
   if (saveBtn) saveBtn.addEventListener('click', () => applyChanges(true))
 
@@ -189,6 +201,7 @@ function formatNum(val: number): string {
 
   const dialogEl = overlayEl.querySelector<HTMLElement>('#rectangleDialog')
   if (dialogEl) {
+    dialogEl.style.display = ''
     dialogEl.style.left = `${Math.max(20, (window.innerWidth - 380) / 2)}px`
     dialogEl.style.top = `${Math.max(20, (window.innerHeight - 340) / 2)}px`
   }

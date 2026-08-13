@@ -400,7 +400,10 @@ export function setSelectedPlotSvg(svg: SVGSVGElement | null): void {
 }
 
 export function getSelectedPlotSvg(): SVGSVGElement | null {
-  return selectedPlotSvg
+  if (selectedPlotSvg && document.body.contains(selectedPlotSvg)) {
+    return selectedPlotSvg
+  }
+  return activeSvgs[0] || null
 }
 
 export function getMultiSelectedSvgs(): SVGSVGElement[] {
@@ -1414,10 +1417,10 @@ export function drawPlot(
         const ov = getPlotOverlay(svg)
 
         const highlightEl = createOverlayEl('ov-box-multi')
-        highlightEl.style.left = `${rx1 - 2}px`
-        highlightEl.style.top = `${ry1 - 2}px`
-        highlightEl.style.width = `${rw + 4}px`
-        highlightEl.style.height = `${rh + 4}px`
+        highlightEl.style.left = `${rx1 - 0.5}px`
+        highlightEl.style.top = `${ry1 - 0.5}px`
+        highlightEl.style.width = `${rw + 1}px`
+        highlightEl.style.height = `${rh + 1}px`
         highlightEl.addEventListener('mousedown', handleMouseDown('line'))
         highlightEl.addEventListener('dblclick', (e: MouseEvent) => {
           e.stopPropagation()
@@ -1426,17 +1429,29 @@ export function drawPlot(
         })
         ov.appendChild(highlightEl)
 
-        const handle1 = createOverlayEl('ov-handle')
-        handle1.style.left = `${rx1 - 2}px`
-        handle1.style.top = `${ry1 - 2}px`
-        handle1.addEventListener('mousedown', handleMouseDown('start'))
-        ov.appendChild(handle1)
+        const handleTL = createOverlayEl('ov-handle')
+        handleTL.style.left = `${rx1 - 2}px`
+        handleTL.style.top = `${ry1 - 2}px`
+        handleTL.addEventListener('mousedown', handleMouseDown('start'))
+        ov.appendChild(handleTL)
 
-        const handle2 = createOverlayEl('ov-handle')
-        handle2.style.left = `${rx1 + rw - 2}px`
-        handle2.style.top = `${ry1 + rh - 2}px`
-        handle2.addEventListener('mousedown', handleMouseDown('end'))
-        ov.appendChild(handle2)
+        const handleTR = createOverlayEl('ov-handle')
+        handleTR.style.left = `${rx1 + rw - 2}px`
+        handleTR.style.top = `${ry1 - 2}px`
+        handleTR.addEventListener('mousedown', handleMouseDown('start'))
+        ov.appendChild(handleTR)
+
+        const handleBL = createOverlayEl('ov-handle')
+        handleBL.style.left = `${rx1 - 2}px`
+        handleBL.style.top = `${ry1 + rh - 2}px`
+        handleBL.addEventListener('mousedown', handleMouseDown('end'))
+        ov.appendChild(handleBL)
+
+        const handleBR = createOverlayEl('ov-handle')
+        handleBR.style.left = `${rx1 + rw - 2}px`
+        handleBR.style.top = `${ry1 + rh - 2}px`
+        handleBR.addEventListener('mousedown', handleMouseDown('end'))
+        ov.appendChild(handleBR)
       } else {
         const len = Math.hypot(x2 - x1, y2 - y1) || 1
         const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI

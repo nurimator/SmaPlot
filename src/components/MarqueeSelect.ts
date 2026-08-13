@@ -3,6 +3,7 @@ import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBord
 import type { SelectableObject } from './Plot.ts'
 import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
+import { isShapeDrawing } from './ShapeDraw.ts'
 
 // Check whether the click point (in graph-area local coords) hits an already-selected object.
 function hitsSelectedObject(gx: number, gy: number): boolean {
@@ -53,6 +54,9 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     if (e.button !== 0) return
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
     const target = e.target as HTMLElement
+    // While a Rectangle/Arrow mouse-draw is in progress the next left-drag draws
+    // the shape instead of a marquee selection.
+    if (isShapeDrawing()) return
     // Skip only UI chrome that should never trigger marquee
     if (target.closest('.scrollbar-v, .scrollbar-h, .workspace-right, #ctxMenu, #marqueeCtxMenu')) return
     // Skip resize handles

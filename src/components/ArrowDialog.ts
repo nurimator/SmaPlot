@@ -1,6 +1,7 @@
 import type { SmpLineAnnotation } from '../types.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
+import { beginShapeDraw } from './ShapeDraw.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentAnnotationIndex: number = -1
@@ -12,8 +13,22 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
   const cancelBtn = overlayEl.querySelector('#arrowCancelBtn')
   const deleteBtn = overlayEl.querySelector('#arrowDeleteBtn')
   const saveBtn = overlayEl.querySelector('#arrowSaveBtn')
+  const drawBtn = overlayEl.querySelector('#arrowDrawBtn')
 
   const hide = () => hideArrowDialog(overlayEl)
+
+  const handleStartMouseDraw = () => {
+    const svg = currentTargetSvg || getSelectedPlotSvg()
+    if (!svg) return
+    beginShapeDraw({
+      shape: 'arrow',
+      svg,
+      overlayEl,
+      annotationIndex: currentAnnotationIndex,
+    })
+  }
+
+  if (drawBtn) drawBtn.addEventListener('click', handleStartMouseDraw)
 
   if (closeBtn) closeBtn.addEventListener('click', hide)
   if (cancelBtn) cancelBtn.addEventListener('click', hide)
@@ -208,6 +223,7 @@ export function showArrowDialog(
 
   const dialogEl = overlayEl.querySelector<HTMLElement>('#arrowDialog')
   if (dialogEl) {
+    dialogEl.style.display = ''
     dialogEl.style.left = `${Math.max(20, (window.innerWidth - 480) / 2)}px`
     dialogEl.style.top = `${Math.max(20, (window.innerHeight - 380) / 2)}px`
   }

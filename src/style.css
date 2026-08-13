@@ -403,6 +403,7 @@ body {
   border: none;
   pointer-events: auto;
   cursor: crosshair;
+  z-index: 12;
 }
 
 .ov-box {
@@ -1637,6 +1638,12 @@ body {
   line-height: 1.2;
   white-space: pre-line;
 }
+
+body.shape-drawing,
+body.shape-drawing * {
+  cursor: crosshair !important;
+}
+
 
 
 
