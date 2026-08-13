@@ -1,7 +1,19 @@
-interface SymbolEntry {
+export interface SymbolEntry {
   encodedStr: string
   unicodeChar: string
   desc: string
+  category: string
+}
+
+export function getCategory(desc: string): string {
+  if (desc.includes('GREEK CAPITAL')) return 'Greek Capital'
+  if (desc.includes('GREEK SMALL')) return 'Greek Small'
+  if (desc.includes('CYRILLIC CAPITAL')) return 'Cyrillic Capital'
+  if (desc.includes('CYRILLIC SMALL')) return 'Cyrillic Small'
+  if (desc.includes('BOX DRAWINGS')) return 'Box Drawings'
+  if (desc.includes('IDEOGRAPHIC') || desc.includes('KATAKANA')) return 'CJK Symbols'
+  if (desc.includes('FULLWIDTH') || desc.includes('HALFWIDTH')) return 'Fullwidth/Halfwidth'
+  return 'Math & Symbols'
 }
 
 const characterMapping = [
@@ -366,11 +378,11 @@ const characterMapping = [
     ['\uFF64', '\u00A4', 'HALFWIDTH IDEOGRAPHIC COMMA'],
     ['\uFF65', '\u00A5', 'HALFWIDTH KATAKANA MIDDLE DOT']
 ];
-
-const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar, encodedStr, desc]) => ({
+export const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar, encodedStr, desc]) => ({
   encodedStr,
   unicodeChar,
   desc,
+  category: getCategory(desc)
 }))
 
 // Convert 2-byte Sma4Win encoded strings to standard Unicode characters

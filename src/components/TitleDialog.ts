@@ -1,11 +1,17 @@
 import type { SmpLegendItem } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
-import { smpToUnicode } from '../utils/smpSymbolMapper.ts'
+import { smpToUnicode, SYMBOL_ENTRIES } from '../utils/smpSymbolMapper.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentItemIndex: number = -1
+
+const autoGrowTextarea = (el: HTMLTextAreaElement | null) => {
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
 
 export function initTitleDialog(overlayEl: HTMLElement): void {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#titleDialog')
@@ -19,9 +25,11 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
   const cancelBtn = overlayEl.querySelector('#titleCancelBtn')
   const okBtn = overlayEl.querySelector('#titleOkBtn')
   const putBtn = overlayEl.querySelector('#titlePutBtn')
-  const saveBtn = overlayEl.querySelector('#titleSaveBtn')
   const deleteBtn = overlayEl.querySelector('#titleDeleteBtn')
-  const helpBtn = overlayEl.querySelector('#titleHelpBtn')
+  const symbolBtn = overlayEl.querySelector('#titleSymbolBtn')
+  const symbolPanel = overlayEl.querySelector<HTMLElement>('#titleSymbolPanel')
+  const symbolCloseBtn = overlayEl.querySelector('#titleSymbolCloseBtn')
+  const symbolGrid = overlayEl.querySelector<HTMLElement>('#titleSymbolGrid')
 
   const applyTitleOptions = () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -96,7 +104,6 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
   })
 
   putBtn?.addEventListener('click', applyTitleOptions)
-  saveBtn?.addEventListener('click', applyTitleOptions)
 
   deleteBtn?.addEventListener('click', () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -111,12 +118,109 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     hide()
   })
 
-  helpBtn?.addEventListener('click', () => {
-    alert('Title / Text Editor properties for Sma4Win replica.')
+  const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
+
+  const insertSymbolAtCursor = (char: string) => {
+    if (!strEl) return
+    const start = strEl.selectionStart ?? strEl.value.length
+    const end = strEl.selectionEnd ?? strEl.value.length
+    strEl.value = strEl.value.slice(0, start) + char + strEl.value.slice(end)
+    const caret = start + char.length
+    strEl.focus()
+    strEl.setSelectionRange(caret, caret)
+    autoGrowTextarea(strEl)
+    applyTitleOptions()
+  }
+
+  const repositionSymbolPanel = () => {
+    if (!symbolPanel || !dialogEl) return
+    if (symbolPanel.style.display === 'none' || !symbolPanel.style.display) return
+    const dlgLeft = parseInt(dialogEl.style.left || '0', 10) || 0
+    const dlgTop = parseInt(dialogEl.style.top || '0', 10) || 0
+    const dlgW = dialogEl.offsetWidth || 520
+    const dlgH = dialogEl.offsetHeight || 350
+    symbolPanel.style.height = `${dlgH}px`
+    const panelW = symbolPanel.offsetWidth || 300
+    const panelH = symbolPanel.offsetHeight || dlgH
+    let panelLeft = dlgLeft + dlgW + 12
+    if (panelLeft + panelW > window.innerWidth - 20) {
+      panelLeft = Math.max(20, dlgLeft - panelW - 12)
+    }
+    let panelTop = dlgTop
+    if (panelTop + panelH > window.innerHeight - 20) {
+      panelTop = Math.max(20, window.innerHeight - 20 - panelH)
+    }
+    symbolPanel.style.left = `${panelLeft}px`
+    symbolPanel.style.top = `${panelTop}px`
+  }
+
+  const toggleSymbolPanel = () => {
+    if (!symbolPanel) return
+    const isHidden = symbolPanel.style.display === 'none' || !symbolPanel.style.display
+    if (isHidden) {
+      symbolPanel.style.display = 'flex'
+      repositionSymbolPanel()
+    } else {
+      symbolPanel.style.display = 'none'
+    }
+  }
+
+  if (symbolGrid && symbolGrid.childElementCount === 0) {
+    const categories = new Set<string>()
+    for (const entry of SYMBOL_ENTRIES) {
+      categories.add(entry.category)
+      const cell = document.createElement('button')
+      cell.type = 'button'
+      cell.className = 'title-symbol-cell'
+      cell.textContent = entry.unicodeChar
+      cell.title = entry.desc
+      cell.dataset.name = entry.desc
+      cell.dataset.category = entry.category
+      cell.addEventListener('click', () => insertSymbolAtCursor(entry.unicodeChar))
+      symbolGrid.appendChild(cell)
+    }
+
+    const categorySelect = overlayEl.querySelector<HTMLSelectElement>('#titleSymbolCategory')
+    if (categorySelect) {
+      for (const cat of categories) {
+        const opt = document.createElement('option')
+        opt.value = cat
+        opt.textContent = cat
+        categorySelect.appendChild(opt)
+      }
+    }
+  }
+
+  const symbolSearch = overlayEl.querySelector<HTMLInputElement>('#titleSymbolSearch')
+  const symbolCategory = overlayEl.querySelector<HTMLSelectElement>('#titleSymbolCategory')
+
+  const filterSymbols = () => {
+    const q = (symbolSearch?.value || '').trim().toLowerCase()
+    const cat = symbolCategory?.value || 'all'
+    const cells = symbolGrid?.querySelectorAll<HTMLElement>('.title-symbol-cell')
+    cells?.forEach((c) => {
+      const name = (c.dataset.name || '').toLowerCase()
+      const cCat = c.dataset.category || ''
+      const matchSearch = !q || name.includes(q)
+      const matchCat = cat === 'all' || cat === cCat
+      c.style.display = matchSearch && matchCat ? '' : 'none'
+    })
+  }
+
+  symbolSearch?.addEventListener('input', filterSymbols)
+  symbolCategory?.addEventListener('change', filterSymbols)
+
+  symbolBtn?.addEventListener('click', toggleSymbolPanel)
+  symbolCloseBtn?.addEventListener('click', () => {
+    if (symbolPanel) symbolPanel.style.display = 'none'
   })
 
+  if (dialogEl && symbolPanel) {
+    const mo = new MutationObserver(repositionSymbolPanel)
+    mo.observe(dialogEl, { attributes: true, attributeFilter: ['style'] })
+  }
+
   // Live input change listeners
-  const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
   const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
   const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
   const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
@@ -124,7 +228,10 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
   const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
   const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
 
-  strEl?.addEventListener('input', applyTitleOptions)
+  strEl?.addEventListener('input', () => {
+    autoGrowTextarea(strEl)
+    applyTitleOptions()
+  })
   rotEl?.addEventListener('change', applyTitleOptions)
   posXEl?.addEventListener('input', applyTitleOptions)
   posYEl?.addEventListener('input', applyTitleOptions)
@@ -215,15 +322,25 @@ export function showTitleDialog(
     }
   }
 
+  overlayEl.style.display = 'flex'
+
+  const symbolPanel = overlayEl.querySelector<HTMLElement>('#titleSymbolPanel')
+  if (symbolPanel) symbolPanel.style.display = 'none'
+
+  const strEl = overlayEl.querySelector<HTMLTextAreaElement>('#titleStringText')
+  autoGrowTextarea(strEl)
+
   const dialogEl = overlayEl.querySelector<HTMLElement>('#titleDialog')
   if (dialogEl) {
-    dialogEl.style.left = `${Math.max(20, (window.innerWidth - 520) / 2)}px`
-    dialogEl.style.top = `${Math.max(20, (window.innerHeight - 350) / 2)}px`
+    const dlgW = dialogEl.offsetWidth || 520
+    const dlgH = dialogEl.offsetHeight || 350
+    dialogEl.style.left = `${Math.max(20, (window.innerWidth - dlgW) / 2)}px`
+    dialogEl.style.top = `${Math.max(20, (window.innerHeight - dlgH) / 2)}px`
   }
-
-  overlayEl.style.display = 'flex'
 }
 
 export function hideTitleDialog(overlayEl: HTMLElement): void {
+  const symbolPanel = overlayEl.querySelector<HTMLElement>('#titleSymbolPanel')
+  if (symbolPanel) symbolPanel.style.display = 'none'
   overlayEl.style.display = 'none'
 }

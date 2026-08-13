@@ -1,4 +1,5 @@
 :root {
+  --white: #ffffff;
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
@@ -879,8 +880,8 @@ body {
 
 .title-dialog {
   width: 520px;
-  height: 350px;
-  max-height: 90vh;
+  height: auto;
+  max-height: 80vh;
 }
 
 .arrow-dialog {
@@ -1006,6 +1007,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .title-form-row {
@@ -1028,8 +1032,74 @@ body {
   padding: 6px;
   font-family: inherit;
   font-size: 12px;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   background-color: var(--white);
+  min-height: 58px;
+}
+
+.title-symbol-panel {
+  position: absolute;
+  width: 300px;
+  z-index: 1010;
+  pointer-events: auto;
+  background: var(--white);
+  border-radius: 8px;
+  box-shadow:
+    0 20px 30px -10px rgba(15, 23, 42, 0.25),
+    0 4px 12px -2px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--slate-300);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPopIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+
+.title-symbol-search {
+  margin: 8px 8px 0;
+  padding: 5px 8px;
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  background-color: var(--white);
+}
+
+.title-symbol-search:focus {
+  outline: none;
+  border-color: var(--slate-500);
+}
+
+.title-symbol-grid {
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.title-symbol-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: 1px solid var(--slate-200);
+  border-radius: 4px;
+  background: var(--slate-50);
+  font-size: 16px;
+  font-family: 'Cambria Math', 'Times New Roman', Times, serif;
+  cursor: pointer;
+  user-select: none;
+}
+
+.title-symbol-cell:hover {
+  background: var(--slate-200);
+  border-color: var(--slate-400);
 }
 
 .title-grid-row {
@@ -1074,6 +1144,10 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
+}
+
+.title-symbol-btn-span {
+  grid-column: span 2;
 }
 
 .axis-scale-top-row {

@@ -717,16 +717,30 @@
               </div>
 
               <div class="title-button-matrix" style="margin-top: 10px;">
-                <button class="btn btn-secondary" id="titleHelpBtn">Help</button>
-                <button class="btn btn-secondary" id="titleDeleteBtn">Delete</button>
                 <button class="btn btn-secondary" id="titlePutBtn">Put</button>
-                <button class="btn btn-primary" id="titleOkBtn">OK</button>
+                <button class="btn btn-secondary title-symbol-btn-span" id="titleSymbolBtn">Insert Symbol</button>
+                <button class="btn btn-secondary" id="titleDeleteBtn">Delete</button>
                 <button class="btn btn-secondary" id="titleCancelBtn">Cancel</button>
-                <button class="btn btn-secondary" id="titleSaveBtn">save</button>
+                <button class="btn btn-primary" id="titleOkBtn">OK</button>
               </div>
             </div>
           </div>
         </div>
+      </div>
+      <div class="title-symbol-panel" id="titleSymbolPanel" style="display: none;">
+        <div class="title-symbol-panel-header dialog-header" style="cursor: default;">
+          <span class="dialog-title">Symbols</span>
+          <button class="dialog-close-btn" id="titleSymbolCloseBtn" title="Collapse">
+            <span class="icon icon-chevron-left" style="width:16px;height:16px;display:inline-block"></span>
+          </button>
+        </div>
+        <div style="padding: 8px; display: flex; gap: 6px; flex-direction: column; border-bottom: 1px solid var(--slate-200);">
+          <select id="titleSymbolCategory" class="form-select full-width">
+            <option value="all">All Categories</option>
+          </select>
+          <input type="text" id="titleSymbolSearch" class="title-symbol-search" style="margin: 0;" placeholder="Search by name..." />
+        </div>
+        <div class="title-symbol-grid" id="titleSymbolGrid"></div>
       </div>
     </div>
 
