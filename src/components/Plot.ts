@@ -1862,8 +1862,8 @@ export function drawPlot(
   // LEGEND ITEMS & ANNOTATIONS (10000ths Normalized Coordinates)
   // ----------------------------------------------------
   if (smpDoc && smpDoc.legendItems.length === 0) {
-    const xLbl = smpMeta?.xLabel || smpDoc?.xLabel
-    const yLbl = smpMeta?.yLabel || smpDoc?.yLabel
+    const xLbl = smpDoc?.xLabel
+    const yLbl = smpDoc?.yLabel
     if (xLbl) {
       smpDoc.legendItems.push({
         type: 'text',
@@ -2197,7 +2197,7 @@ export function drawPlot(
     })
   } else {
     // Fallback axis labels if not in legendItems
-    const xLabel = smpMeta?.xLabel || smpDoc?.xLabel
+    const xLabel = smpDoc?.xLabel
     if (xLabel) {
       const xTitle = createSVGElement('text')
       xTitle.setAttribute('x', String(margin.l + plotW / 2))
@@ -2209,7 +2209,7 @@ export function drawPlot(
       xTitle.textContent = xLabel
       svg.appendChild(xTitle)
     }
-    const yLabel = smpMeta?.yLabel || smpDoc?.yLabel
+    const yLabel = smpDoc?.yLabel
     if (yLabel) {
       const yTitle = createSVGElement('text')
       const cx = margin.l - 42
