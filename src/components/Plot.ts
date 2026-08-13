@@ -192,6 +192,8 @@ function getProcessedDataset(ds: Dataset): Dataset {
 
 let selectedLegendIndex: number = -1
 let selectedAnnotationIndex: number = -1
+let lastAnnotationClickTime = 0
+let lastAnnotationClickKey = ''
 
 export const allDatasets: Dataset[] = []
 export const activeSvgs: SVGSVGElement[] = []
@@ -651,10 +653,23 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
     })
 
     smpDoc.annotationLines?.forEach((aLine, annotationIdx) => {
-      const x1 = left + PLOT_MARGIN.l + (aLine.x1Norm / 100) * plotW
-      const y1 = top + PLOT_MARGIN.t + (aLine.y1Norm / 100) * plotH
-      const x2 = left + PLOT_MARGIN.l + (aLine.x2Norm / 100) * plotW
-      const y2 = top + PLOT_MARGIN.t + (aLine.y2Norm / 100) * plotH
+      const docWidthMm = (smpDoc?.width || 14000) / 100
+      const docHeightMm = (smpDoc?.height || 10000) / 100
+      const scaleX = plotW / (docWidthMm || 140)
+      const scaleY = plotH / (docHeightMm || 100)
+
+      let x1: number, y1: number, x2: number, y2: number
+      if (aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect') {
+        x1 = left + PLOT_MARGIN.l + aLine.x1Norm * scaleX
+        y1 = top + PLOT_MARGIN.t + aLine.y1Norm * scaleY
+        x2 = left + PLOT_MARGIN.l + aLine.x2Norm * scaleX
+        y2 = top + PLOT_MARGIN.t + aLine.y2Norm * scaleY
+      } else {
+        x1 = left + PLOT_MARGIN.l + (aLine.x1Norm / 100) * plotW
+        y1 = top + PLOT_MARGIN.t + (aLine.y1Norm / 100) * plotH
+        x2 = left + PLOT_MARGIN.l + (aLine.x2Norm / 100) * plotW
+        y2 = top + PLOT_MARGIN.t + (aLine.y2Norm / 100) * plotH
+      }
       const minX = Math.min(x1, x2) - 4
       const minY = Math.min(y1, y2) - 4
       result.push({
@@ -1184,14 +1199,29 @@ export function drawPlot(
   svg.appendChild(yLabelFrag)
 
   // ----------------------------------------------------
-  // ANNOTATION LINES (Normalized Coordinates)
+  // ANNOTATION LINES & RECTANGLES (Page mm Coordinates)
   // ----------------------------------------------------
+  const docWidthMm = (smpDoc?.width || 14000) / 100
+  const docHeightMm = (smpDoc?.height || 10000) / 100
+  const scaleX = plotW / (docWidthMm || 140)
+  const scaleY = plotH / (docHeightMm || 100)
+
   const annotationLines = smpDoc?.annotationLines || []
   annotationLines.forEach((aLine, aIdx) => {
-    const x1 = margin.l + (aLine.x1Norm / 100) * plotW
-    const y1 = margin.t + (aLine.y1Norm / 100) * plotH
-    const x2 = margin.l + (aLine.x2Norm / 100) * plotW
-    const y2 = margin.t + (aLine.y2Norm / 100) * plotH
+    let x1: number, y1: number, x2: number, y2: number
+    const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
+
+    if (useMm) {
+      x1 = margin.l + aLine.x1Norm * scaleX
+      y1 = margin.t + aLine.y1Norm * scaleY
+      x2 = margin.l + aLine.x2Norm * scaleX
+      y2 = margin.t + aLine.y2Norm * scaleY
+    } else {
+      x1 = margin.l + (aLine.x1Norm / 100) * plotW
+      y1 = margin.t + (aLine.y1Norm / 100) * plotH
+      x2 = margin.l + (aLine.x2Norm / 100) * plotW
+      y2 = margin.t + (aLine.y2Norm / 100) * plotH
+    }
 
     const isSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
@@ -1203,6 +1233,29 @@ export function drawPlot(
         // Not yet selected — don't stopPropagation, let MarqueeSelect handle.
         return
       }
+
+      const now = Date.now()
+      const clickKey = `annot-${aIdx}`
+      if (lastAnnotationClickKey === clickKey && now - lastAnnotationClickTime < 450) {
+        lastAnnotationClickTime = 0
+        lastAnnotationClickKey = ''
+        e.stopPropagation()
+        e.preventDefault()
+        setSelectedPlotSvg(svg)
+        selectedAnnotationIndex = aIdx
+        selectedLegendIndex = -1
+        updatePlotVisual(svg)
+        if (isRect) {
+          const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+          if (rectOverlayEl) showRectangleDialog(rectOverlayEl, aIdx, svg)
+        } else {
+          const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+          if (arrowOverlayEl) showArrowDialog(arrowOverlayEl, aIdx, svg)
+        }
+        return
+      }
+      lastAnnotationClickTime = now
+      lastAnnotationClickKey = clickKey
 
       // Object was already selected — stopPropagation and start group drag
       e.stopPropagation()
@@ -1252,23 +1305,69 @@ export function drawPlot(
       const rw = Math.max(1, Math.abs(x2 - x1))
       const rh = Math.max(1, Math.abs(y2 - y1))
 
+      const shadeDepth = aLine.shadeDepth ?? 0
+      if (shadeDepth > 0) {
+        const shadePx = useMm ? shadeDepth * scaleX : (shadeDepth / 100) * plotW
+        const shadowElem = createSVGElement('rect')
+        shadowElem.setAttribute('x', String(rx1 + shadePx))
+        shadowElem.setAttribute('y', String(ry1 + shadePx))
+        shadowElem.setAttribute('width', String(rw))
+        shadowElem.setAttribute('height', String(rh))
+        if (aLine.roundX) {
+          const rxPx = useMm ? aLine.roundX * scaleX : (aLine.roundX / 100) * plotW
+          shadowElem.setAttribute('rx', String(rxPx))
+        }
+        if (aLine.roundY) {
+          const ryPx = useMm ? aLine.roundY * scaleY : (aLine.roundY / 100) * plotH
+          shadowElem.setAttribute('ry', String(ryPx))
+        }
+        shadowElem.setAttribute('fill', aLine.shadeColor || '#000000')
+        shadowElem.setAttribute('stroke', 'none')
+        shadowElem.setAttribute('pointer-events', 'all')
+        shadowElem.style.cursor = 'pointer'
+        shadowElem.addEventListener('mousedown', handleMouseDown('line'))
+        shadowElem.addEventListener('dblclick', (e: MouseEvent) => {
+          e.stopPropagation()
+          e.preventDefault()
+          setSelectedPlotSvg(svg)
+          selectedAnnotationIndex = aIdx
+          selectedLegendIndex = -1
+          updatePlotVisual(svg)
+          const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+          if (rectOverlayEl) {
+            showRectangleDialog(rectOverlayEl, aIdx, svg)
+          }
+        })
+        svg.appendChild(shadowElem)
+      }
+
       const rectElem = createSVGElement('rect')
       rectElem.setAttribute('x', String(rx1))
       rectElem.setAttribute('y', String(ry1))
       rectElem.setAttribute('width', String(rw))
       rectElem.setAttribute('height', String(rh))
-      if (aLine.roundX) rectElem.setAttribute('rx', String(aLine.roundX))
-      if (aLine.roundY) rectElem.setAttribute('ry', String(aLine.roundY))
-      rectElem.setAttribute('fill', aLine.faceColor || 'none')
-      rectElem.setAttribute('stroke', aLine.color || '#000000')
+      if (aLine.roundX) {
+        const rxPx = useMm ? aLine.roundX * scaleX : (aLine.roundX / 100) * plotW
+        rectElem.setAttribute('rx', String(rxPx))
+      }
+      if (aLine.roundY) {
+        const ryPx = useMm ? aLine.roundY * scaleY : (aLine.roundY / 100) * plotH
+        rectElem.setAttribute('ry', String(ryPx))
+      }
+      rectElem.setAttribute('fill', aLine.faceColor && aLine.faceColor !== 'none' ? aLine.faceColor : 'transparent')
+      rectElem.setAttribute('stroke', aLine.shadeColor || aLine.color || '#000000')
       rectElem.setAttribute('stroke-width', String(aLine.thickness || aLine.width || 0.4))
+      rectElem.setAttribute('pointer-events', 'all')
       if (aLine.style === 'dashed') {
         rectElem.setAttribute('stroke-dasharray', '4 4')
+      } else if (aLine.style === 'dotted') {
+        rectElem.setAttribute('stroke-dasharray', '2 2')
       }
       rectElem.style.cursor = 'pointer'
       rectElem.addEventListener('mousedown', handleMouseDown('line'))
       rectElem.addEventListener('dblclick', (e: MouseEvent) => {
         e.stopPropagation()
+        e.preventDefault()
         setSelectedPlotSvg(svg)
         selectedAnnotationIndex = aIdx
         selectedLegendIndex = -1
@@ -1927,6 +2026,7 @@ export async function loadSmpProject(
     for (const ds of doc.datasets) {
       addDatasetToPlot(svg, ds)
     }
+    updatePlotVisual(svg)
   }
 
   const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
@@ -2047,12 +2147,20 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
       x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
       y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
     }))
-    const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => ({
-      x1Px: (aLine.x1Norm / 100) * startPlotW,
-      y1Px: (aLine.y1Norm / 100) * startPlotH,
-      x2Px: (aLine.x2Norm / 100) * startPlotW,
-      y2Px: (aLine.y2Norm / 100) * startPlotH,
-    }))
+    const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => {
+      const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
+      return {
+        useMm,
+        x1Norm: aLine.x1Norm,
+        y1Norm: aLine.y1Norm,
+        x2Norm: aLine.x2Norm,
+        y2Norm: aLine.y2Norm,
+        x1Px: useMm ? aLine.x1Norm : (aLine.x1Norm / 100) * startPlotW,
+        y1Px: useMm ? aLine.y1Norm : (aLine.y1Norm / 100) * startPlotH,
+        x2Px: useMm ? aLine.x2Norm : (aLine.x2Norm / 100) * startPlotW,
+        y2Px: useMm ? aLine.y2Norm : (aLine.y2Norm / 100) * startPlotH,
+      }
+    })
 
     activeDrag = {
       svg,
@@ -2153,8 +2261,14 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           const heightPx = parseFloat(item.svg.style.height) || 350
           const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
           const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
-          const dxNorm = (dx / plotW) * 100
-          const dyNorm = (dy / plotH) * 100
+          const docWidthMm = (smpDoc.width || 14000) / 100
+          const docHeightMm = (smpDoc.height || 10000) / 100
+          const scaleX = plotW / (docWidthMm || 140)
+          const scaleY = plotH / (docHeightMm || 100)
+
+          const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
+          const dxNorm = useMm ? dx / scaleX : (dx / plotW) * 100
+          const dyNorm = useMm ? dy / scaleY : (dy / plotH) * 100
 
           if (item.targetType === 'start') {
             const rawX1 = item.startX1Norm! + dxNorm
@@ -2326,10 +2440,17 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
         smpDoc.annotationLines.forEach((aLine, idx) => {
           const initPos = currentDrag.initialAnnotationPositions?.[idx]
           if (initPos) {
-            aLine.x1Norm = (initPos.x1Px / newPlotW) * 100
-            aLine.y1Norm = (initPos.y1Px / newPlotH) * 100
-            aLine.x2Norm = (initPos.x2Px / newPlotW) * 100
-            aLine.y2Norm = (initPos.y2Px / newPlotH) * 100
+            if (initPos.useMm && initPos.x1Norm !== undefined && initPos.y1Norm !== undefined && initPos.x2Norm !== undefined && initPos.y2Norm !== undefined) {
+              aLine.x1Norm = initPos.x1Norm
+              aLine.y1Norm = initPos.y1Norm
+              aLine.x2Norm = initPos.x2Norm
+              aLine.y2Norm = initPos.y2Norm
+            } else {
+              aLine.x1Norm = (initPos.x1Px / newPlotW) * 100
+              aLine.y1Norm = (initPos.y1Px / newPlotH) * 100
+              aLine.x2Norm = (initPos.x2Px / newPlotW) * 100
+              aLine.y2Norm = (initPos.y2Px / newPlotH) * 100
+            }
           }
         })
       }

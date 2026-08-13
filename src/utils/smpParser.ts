@@ -386,6 +386,95 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 0
           }
           continue
+        } else if (line === '3') {
+          i++
+          if (i < docLines.length) {
+            const rawLineStr = docLines[i].trim()
+            const parts = rawLineStr.split(/\s+/)
+            if (parts.length >= 4) {
+              const x1Norm = parseFloat(parts[0])
+              const y1Norm = parseFloat(parts[1])
+              const x2Norm = parseFloat(parts[2])
+              const y2Norm = parseFloat(parts[3])
+
+              let shadeDepth = 0
+              let shadeColor = '#000000'
+              let thickness = 0.4
+              let faceColor = '#ffffff'
+              let roundX = 0
+              let roundY = 0
+              let style = 'solid'
+              let color = '#000000'
+
+              if (parts.length >= 8) {
+                const shadeVal = parseFloat(parts[7])
+                if (!isNaN(shadeVal)) shadeDepth = shadeVal / 100
+              }
+              if (parts.length >= 9) {
+                const sColorInt = parseInt(parts[8], 10)
+                if (!isNaN(sColorInt) && sColorInt >= 0) {
+                  const hex = bgrToHex(sColorInt)
+                  shadeColor = hex
+                  if (shadeDepth === 0) color = hex
+                }
+              }
+              if (parts.length >= 11) {
+                const tVal = parseFloat(parts[10])
+                if (!isNaN(tVal) && tVal > 0) thickness = tVal / 100
+              }
+              if (parts.length >= 13) {
+                const fColorInt = parseInt(parts[12], 10)
+                if (!isNaN(fColorInt) && fColorInt >= 0) faceColor = bgrToHex(fColorInt)
+              }
+              if (parts.length >= 14) {
+                const rxVal = parseFloat(parts[13])
+                if (!isNaN(rxVal)) roundX = rxVal / 100
+              }
+              if (parts.length >= 15) {
+                const ryVal = parseFloat(parts[14])
+                if (!isNaN(ryVal)) roundY = ryVal / 100
+              }
+              if (parts.length >= 16) {
+                style = parts[15] === '2' ? 'dashed' : parts[15] === '3' ? 'dotted' : 'solid'
+              }
+
+              if (!isNaN(x1Norm) && !isNaN(y1Norm) && !isNaN(x2Norm) && !isNaN(y2Norm)) {
+                const rectAnnotation: SmpLineAnnotation = {
+                  x1Norm,
+                  y1Norm,
+                  x2Norm,
+                  y2Norm,
+                  style,
+                  width: thickness,
+                  thickness,
+                  color,
+                  faceColor,
+                  shadeDepth,
+                  shadeColor,
+                  roundX,
+                  roundY,
+                  shape: 'rectangle',
+                }
+                annotationLines.push(rectAnnotation)
+                legendItems.push({
+                  type: 'annotation',
+                  text: '',
+                  rawLine: rawLineStr,
+                  xNorm: x1Norm,
+                  yNorm: y1Norm,
+                  x2Norm,
+                  y2Norm,
+                  rotation: 0,
+                  fontFamily: '',
+                  fontSize: 0,
+                  fontWeight: 0,
+                })
+              }
+            }
+            i++
+            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 3
+          }
+          continue
         }
         i++
         continue

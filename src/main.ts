@@ -217,6 +217,7 @@ graphAreaEl.addEventListener('mousedown', (e) => {
 // Double click on plot area axis or labels to open Axis dialog
 graphAreaEl.addEventListener('dblclick', (e) => {
   const target = e.target as HTMLElement
+  if (target.closest('rect, line, path, text, .plot-overlay, .ov-box-multi')) return
   const svg = target.closest('.plot-svg') as SVGSVGElement | null
   if (svg && axisOverlayEl) {
     setSelectedPlotSvg(svg)

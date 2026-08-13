@@ -1,6 +1,8 @@
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
-import { clearObjectSelection, getSelectableObjects, hitsRectBorder, isObjectSelected, setObjectSelection } from './Plot.ts'
+import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, setObjectSelection } from './Plot.ts'
 import type { SelectableObject } from './Plot.ts'
+import { showRectangleDialog } from './RectangleDialog.ts'
+import { showArrowDialog } from './ArrowDialog.ts'
 
 // Check whether the click point (in graph-area local coords) hits an already-selected object.
 function hitsSelectedObject(gx: number, gy: number): boolean {
@@ -42,6 +44,9 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
   let startGraphY = 0
   let marqueeBox: HTMLElement | null = null
 
+  let lastClickTime = 0
+  let lastHitObj: SelectableObject | null = null
+
   const workspaceEl = graphAreaEl.closest<HTMLElement>('.workspace') || document.body
 
   workspaceEl.addEventListener('mousedown', (e: MouseEvent) => {
@@ -74,32 +79,34 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
 
   window.addEventListener('mousemove', (e: MouseEvent) => {
     if (!isSelecting) return
-    window.getSelection()?.removeAllRanges()
-    const dist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY)
-    if (dist <= 4) return
-    hasMoved = true
-    e.preventDefault()
+    const dx = e.clientX - startClientX
+    const dy = e.clientY - startClientY
+    if (!hasMoved && Math.hypot(dx, dy) < 4) return
 
-    const rect = graphAreaEl.getBoundingClientRect()
-    const zoom = getCanvasZoom()
-    const curGraphX = (e.clientX - rect.left) / zoom
-    const curGraphY = (e.clientY - rect.top) / zoom
-
-    const mLeft = Math.min(startGraphX, curGraphX)
-    const mTop = Math.min(startGraphY, curGraphY)
-    const mWidth = Math.abs(curGraphX - startGraphX)
-    const mHeight = Math.abs(curGraphY - startGraphY)
-
-    if (!marqueeBox) {
+    if (!hasMoved) {
+      hasMoved = true
       marqueeBox = document.createElement('div')
       marqueeBox.className = 'marquee-selection-box'
       graphAreaEl.appendChild(marqueeBox)
     }
-    marqueeBox.style.left = `${mLeft}px`
-    marqueeBox.style.top = `${mTop}px`
-    marqueeBox.style.width = `${mWidth}px`
-    marqueeBox.style.height = `${mHeight}px`
-    marqueeBox.style.display = 'block'
+
+    const rect = graphAreaEl.getBoundingClientRect()
+    const zoom = getCanvasZoom()
+    const currentGraphX = (e.clientX - rect.left) / zoom
+    const currentGraphY = (e.clientY - rect.top) / zoom
+
+    const mLeft = Math.min(startGraphX, currentGraphX)
+    const mTop = Math.min(startGraphY, currentGraphY)
+    const mWidth = Math.abs(currentGraphX - startGraphX)
+    const mHeight = Math.abs(currentGraphY - startGraphY)
+
+    if (marqueeBox) {
+      marqueeBox.style.left = `${mLeft}px`
+      marqueeBox.style.top = `${mTop}px`
+      marqueeBox.style.width = `${mWidth}px`
+      marqueeBox.style.height = `${mHeight}px`
+      marqueeBox.style.display = 'block'
+    }
 
     const mRight = mLeft + mWidth
     const mBottom = mTop + mHeight
@@ -123,9 +130,45 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
       // Single click without drag: select whatever object is at the click point,
       // or clear selection if clicking on empty space.
       const hit = hitTestPoint(startGraphX, startGraphY)
+      const now = Date.now()
+
+      if (
+        hit &&
+        lastHitObj &&
+        hit.kind === 'annotation' &&
+        lastHitObj.kind === 'annotation' &&
+        hit.svg === lastHitObj.svg &&
+        hit.annotationIdx !== undefined &&
+        hit.annotationIdx === lastHitObj.annotationIdx &&
+        now - lastClickTime < 450
+      ) {
+        const aIdx = hit.annotationIdx
+        lastClickTime = 0
+        lastHitObj = null
+        const smpDoc = getPlotSmpDoc(hit.svg)
+        const aLine = smpDoc?.annotationLines?.[aIdx]
+        if (aLine && (aLine.shape === 'rectangle' || aLine.shape === 'rect')) {
+          const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+          if (rectOverlayEl) {
+            showRectangleDialog(rectOverlayEl, aIdx, hit.svg)
+            return
+          }
+        } else if (aLine) {
+          const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+          if (arrowOverlayEl) {
+            showArrowDialog(arrowOverlayEl, aIdx, hit.svg)
+            return
+          }
+        }
+      }
+
       if (hit) {
+        lastClickTime = now
+        lastHitObj = hit
         setObjectSelection([hit])
       } else {
+        lastClickTime = 0
+        lastHitObj = null
         clearObjectSelection()
       }
     }

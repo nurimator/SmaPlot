@@ -1,4 +1,4 @@
-import type { SmpAxisSpec, SmpLegendItem, SmpPlotDoc } from '../types.ts'
+import type { SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 
 export function hexToBgr(hex: string): number {
@@ -172,10 +172,65 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
   }
 
   lines.push('[LEGEND]')
-  lines.push(`${legendItems.length}`)
+
+  // Gather all legend items and annotation lines for export
+  const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation }[] = []
 
   legendItems.forEach((item) => {
-    if (item.type === 'annotation' || item.x2Norm !== undefined) {
+    if (item.rawLine && item.rawLine.startsWith('3')) {
+      // Raw rectangle line
+      exportList.push({ isRect: true, rawLine: item.rawLine, item })
+    } else if (item.type === 'annotation' || item.x2Norm !== undefined) {
+      exportList.push({ isLine: true, item })
+    } else {
+      exportList.push({ isText: true, item })
+    }
+  })
+
+  // Add any annotationLines that are rectangles and not yet in exportList
+  const annotationLines = doc.annotationLines || []
+  annotationLines.forEach((aLine) => {
+    if (aLine.shape === 'rectangle' || aLine.shape === 'rect') {
+      const alreadyExported = exportList.some(
+        (e) => e.isRect && e.item && e.item.xNorm === aLine.x1Norm && e.item.yNorm === aLine.y1Norm
+      )
+      if (!alreadyExported) {
+        exportList.push({ isRect: true, aLine })
+      }
+    }
+  })
+
+  lines.push(`${exportList.length}`)
+
+  exportList.forEach((entry) => {
+    if (entry.isRect) {
+      lines.push('3')
+      if (entry.rawLine) {
+        lines.push(entry.rawLine)
+      } else if (entry.aLine) {
+        const aLine = entry.aLine
+        const x1Str = formatFloatSci(aLine.x1Norm)
+        const y1Str = formatFloatSci(aLine.y1Norm)
+        const x2Str = formatFloatSci(aLine.x2Norm)
+        const y2Str = formatFloatSci(aLine.y2Norm)
+        const thickVal = Math.round((aLine.thickness ?? aLine.width ?? 0.4) * 100)
+        const shadeVal = Math.round((aLine.shadeDepth ?? 0) * 100)
+        const shadeBgr = hexToBgr(aLine.shadeColor || aLine.color || '#000000')
+        const faceBgr = hexToBgr(aLine.faceColor || '#ffffff')
+        const roundXVal = Math.round((aLine.roundX ?? 0) * 100)
+        const roundYVal = Math.round((aLine.roundY ?? 0) * 100)
+        const styleNum = aLine.style === 'dashed' ? 2 : aLine.style === 'dotted' ? 3 : 1
+        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 ${shadeVal} ${shadeBgr} 3 ${thickVal} 1 ${faceBgr} ${roundXVal} ${roundYVal} ${styleNum} 30 100 0`)
+      } else if (entry.item) {
+        const x1Str = formatFloatSci(entry.item.xNorm)
+        const y1Str = formatFloatSci(entry.item.yNorm)
+        const x2Str = formatFloatSci(entry.item.x2Norm ?? 0)
+        const y2Str = formatFloatSci(entry.item.y2Norm ?? 0)
+        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 16777215 0 0 1 30 100 0`)
+      }
+      lines.push('')
+    } else if (entry.isLine && entry.item) {
+      const item = entry.item
       lines.push('0')
       if (item.rawLine) {
         lines.push(item.rawLine)
@@ -187,7 +242,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false): string {
         lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 50 0 0 300 2 16777215 0 0 1 30 100 0`)
       }
       lines.push('')
-    } else {
+    } else if (entry.item) {
+      const item = entry.item
       lines.push('8')
       lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} 0 1 0 0`)
       lines.push(unicodeToSmp(item.rawText || item.text).replace(/\n/g, '\\n'))
