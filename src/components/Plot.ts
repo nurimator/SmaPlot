@@ -1109,11 +1109,61 @@ export function recalculateBaseScale(
 
 export function clearPlotScale(target: 'all' | 'x' | 'y' = 'all'): void {
   for (const svg of activeSvgs) {
-    recalculateBaseScale(svg, target)
-    const ds = svgDataMap.get(svg) || []
-    const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
-    const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
-    drawPlot(svg, ds, w, h)
+    const datasets = svgDataMap.get(svg) || []
+    const processed = datasets.map((ds) => getProcessedDataset(ds))
+
+    let xMin = Infinity,
+      xMax = -Infinity
+    let yMin = Infinity,
+      yMax = -Infinity
+
+    for (const ds of processed) {
+      for (let i = 0; i < ds.x.length; i++) {
+        if (ds.x[i] < xMin) xMin = ds.x[i]
+        if (ds.x[i] > xMax) xMax = ds.x[i]
+        if (ds.y[i] < yMin) yMin = ds.y[i]
+        if (ds.y[i] > yMax) yMax = ds.y[i]
+      }
+    }
+
+    if (xMin === Infinity || xMax === -Infinity) {
+      xMin = 0
+      xMax = 10
+    }
+    if (yMin === Infinity || yMax === -Infinity) {
+      yMin = 0
+      yMax = 10
+    }
+    if (yMin > 0) yMin = 0
+
+    const doc = svgSmpDocMap.get(svg)
+    if (doc) {
+      if (target === 'all' || target === 'x') {
+        const reversed = doc.axisX.min > doc.axisX.max
+        doc.axisX.min = reversed ? xMax : xMin
+        doc.axisX.max = reversed ? xMin : xMax
+        doc.axisX.autoStep = true
+        doc.axisX.step = computeAutoStep(xMin, xMax)
+      }
+      if (target === 'all' || target === 'y') {
+        const reversed = doc.axisY.min > doc.axisY.max
+        doc.axisY.min = reversed ? yMax : yMin
+        doc.axisY.max = reversed ? yMin : yMax
+        doc.axisY.autoStep = true
+        doc.axisY.step = computeAutoStep(yMin, yMax)
+      }
+    }
+
+    const existing = svgBaseScaleMap.get(svg) || { xMin, xMax, yMin, yMax }
+    if (target === 'all') {
+      svgBaseScaleMap.set(svg, { xMin, xMax, yMin, yMax })
+    } else if (target === 'x') {
+      svgBaseScaleMap.set(svg, { ...existing, xMin, xMax })
+    } else if (target === 'y') {
+      svgBaseScaleMap.set(svg, { ...existing, yMin, yMax })
+    }
+
+    updatePlotVisual(svg)
   }
 }
 
