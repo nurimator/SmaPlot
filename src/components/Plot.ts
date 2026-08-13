@@ -209,6 +209,11 @@ const svgBaseScaleMap = new WeakMap<
   SVGSVGElement,
   { xMin: number; xMax: number; yMin: number; yMax: number }
 >()
+
+// Plots whose axis scale should auto-fit to the first dataset loaded (fresh
+// "New" plots). Cleared as soon as a real SmpPlotDoc replaces the default one
+// (e.g. when an .SMP project is loaded) so loaded scales are never overwritten.
+const autoScaleSvgs = new WeakSet<SVGSVGElement>()
 const svgOverlayMap = new WeakMap<SVGSVGElement, HTMLDivElement>()
 const svgCrossbarMap = new WeakMap<SVGSVGElement, { xVal: number; yVal: number }>()
 
@@ -487,6 +492,7 @@ export function setPlotSmpMeta(svg: SVGSVGElement, meta: SmpMetadata): void {
 
 export function setPlotSmpDoc(svg: SVGSVGElement, doc: SmpPlotDoc): void {
   svgSmpDocMap.set(svg, doc)
+  autoScaleSvgs.delete(svg)
 }
 
 export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
@@ -2307,6 +2313,22 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
   const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
   drawPlot(svg, currentDatasets, w, h)
+
+  // Fresh "New" plots auto-fit their axis to the first dataset loaded. Once a
+  // real SmpPlotDoc replaces the default (e.g. an .SMP project load), this flag
+  // is already cleared, so loaded scales are never overwritten here.
+  if (autoScaleSvgs.has(svg)) {
+    const baseScale = svgBaseScaleMap.get(svg)
+    const doc = svgSmpDocMap.get(svg)
+    if (baseScale && doc) {
+      doc.axisX.min = baseScale.xMin
+      doc.axisX.max = baseScale.xMax
+      doc.axisY.min = baseScale.yMin
+      doc.axisY.max = baseScale.yMax
+      updatePlotVisual(svg)
+    }
+    autoScaleSvgs.delete(svg)
+  }
 }
 
 function datasetIdentifier(ds: Dataset): string {
@@ -2389,6 +2411,11 @@ export async function loadSmpProject(
   const statusDotEl = document.querySelector<HTMLElement>('.status-dot')
   if (statusDotEl) {
     statusDotEl.classList.remove('status-dot-idle')
+  }
+
+  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
+  if (appTitleEl) {
+    appTitleEl.textContent = `SmaPlot - ${fileName}`
   }
 
   return true
@@ -2554,10 +2581,56 @@ export async function createPlot(
   setObjectSelection([{ kind: 'plot', svg }])
 
   svgDataMap.set(svg, initialDatasets)
+  setPlotSmpDoc(svg, makeDefaultPlotDoc(svg))
+  autoScaleSvgs.add(svg)
   wirePlotInteractions(svg)
   drawPlot(svg, initialDatasets, width, height)
 
   return svg
+}
+
+function makeDefaultPlotDoc(svg: SVGSVGElement): SmpPlotDoc {
+  const leftPx = parseFloat(svg.style.left) || 40
+  const topPx = parseFloat(svg.style.top) || 40
+  const widthPx = parseFloat(svg.style.width) || 500
+  const heightPx = parseFloat(svg.style.height) || 350
+
+  const frameLeft = leftPx + PLOT_MARGIN.l
+  const frameTop = topPx + PLOT_MARGIN.t
+  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+  const left = Math.round(frameLeft / SMP_SCALE)
+  const top = Math.round(frameTop / SMP_SCALE)
+  const width = Math.round(frameWidth / SMP_SCALE)
+  const height = Math.round(frameHeight / SMP_SCALE)
+
+  const defaultAxis = (): SmpAxisSpec => ({
+    min: 0,
+    max: 10,
+    step: 2,
+    subDivs: 5,
+    autoStep: true,
+    showTicks: true,
+    showSubTicks: true,
+    showLabels: true,
+    insideTicks: true,
+    fontFamily: 'Times New Roman',
+    fontWeight: 400,
+  })
+
+  return {
+    name: 'PLOT.SMP',
+    left,
+    top,
+    width,
+    height,
+    datasets: [],
+    axisX: defaultAxis(),
+    axisY: defaultAxis(),
+    legendItems: [],
+    annotationLines: [],
+  }
 }
 
 export function getBoxCount(): number {

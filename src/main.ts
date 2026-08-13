@@ -8,13 +8,13 @@ import { initMarqueeSelect } from './components/MarqueeSelect.ts'
 import { initTrimMode } from './components/TrimMode.ts'
 import {
   addDatasetToPlot,
+  clearAllPlots,
   clearPlotScale,
   createPlot,
   deleteSelectedObjects,
   exportPlotToSmpDoc,
   getActiveDrag,
   getAllPlotSvgs,
-  getBoxCount,
   getPlotDatasets,
   getSelectedPlotSvg,
   hitTestGraph,
@@ -29,6 +29,7 @@ import {
 } from './components/Plot.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
+import { initConfirmDialog, showConfirmDialog } from './components/ConfirmDialog.ts'
 import {
   globalDataManager,
   initDataManagerDialog,
@@ -83,6 +84,36 @@ function handleSaveProject(): void {
   const firstDocName = docs[0]?.name
   const fileName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
   downloadFile(content, fileName)
+
+  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
+  if (appTitleEl) {
+    appTitleEl.textContent = `SmaPlot - ${fileName}`
+  }
+}
+
+async function handleNewProject(): Promise<void> {
+  const hasContent = getAllPlotSvgs(graphAreaEl).length > 0
+  if (hasContent) {
+    const choice = await showConfirmDialog(
+      'The current project has unsaved changes. Do you want to save it before creating a new project?'
+    )
+    if (choice === 'cancel') return
+    if (choice === 'save') handleSaveProject()
+  }
+
+  clearAllPlots(graphAreaEl)
+  await createPlot(graphAreaEl, 40, 40, [])
+
+  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
+  if (appTitleEl) {
+    appTitleEl.textContent = 'SmaPlot - Untitled'
+  }
+
+  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+  if (statusFileEl) {
+    statusFileEl.textContent = 'Untitled'
+  }
+  pushUndoState()
 }
 
 if (menubarEl) {
@@ -111,10 +142,7 @@ if (menubarEl) {
     } else if (action === 'text' || action === 'title') {
       showTitleDialog(titleOverlayEl)
     } else if (action === 'new') {
-      const boxCount = getBoxCount()
-      const offset = (boxCount % 6) * 28
-      await createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
-      pushUndoState()
+      await handleNewProject()
     } else if (['graph', 'property', 'option', 'analyze', 'edit'].includes(action)) {
       showPropertyDialog(propOverlayEl)
     }
@@ -152,10 +180,7 @@ if (toolbarEl) {
     } else if (action === 'delete') {
       if (deleteSelectedObjects()) pushUndoState()
     } else if (action === 'new') {
-      const boxCount = getBoxCount()
-      const offset = (boxCount % 6) * 28
-      await createPlot(graphAreaEl, 40 + offset, 40 + offset, [])
-      pushUndoState()
+      await handleNewProject()
     } else if (action === 'open' || title === 'Open') {
       if (globalFileInput) globalFileInput.click()
     } else if (action === 'save' || title === 'Save') {
@@ -336,9 +361,11 @@ if (marqueeCtxMenuEl) {
   initMarqueeExport(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
 }
 
-// Initialize Property, Data Manager & Axis Dialogs
+// Initialize Property, Data Manager, Axis & Confirm Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
 if (axisOverlayEl) initAxisDialog(axisOverlayEl)
+const confirmOverlayEl = document.querySelector<HTMLElement>('#confirmOverlay')
+if (confirmOverlayEl) initConfirmDialog(confirmOverlayEl)
 
 // Data Manager callback: when a file is selected, transition to Property modal
 if (dmOverlayEl) {

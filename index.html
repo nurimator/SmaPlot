@@ -994,6 +994,22 @@
       </div>
     </div>
 
+    <!-- Confirm New Project Modal -->
+    <div class="modal-overlay" id="confirmOverlay" style="display: none;">
+      <div class="confirm-dialog" id="confirmDialog">
+        <div class="dialog-header">
+          <span class="dialog-title">SmaPlot</span>
+          <button class="dialog-close-btn" id="closeConfirmBtn" title="Close"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="confirm-body" id="confirmMessage"></div>
+        <div class="confirm-footer">
+          <button class="btn btn-primary" id="confirmSaveBtn">Save</button>
+          <button class="btn btn-secondary" id="confirmDontSaveBtn">Don't Save</button>
+          <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
