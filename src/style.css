@@ -1809,6 +1809,7 @@ body {
 
 .smp-latex-item {
   display: inline-block;
+  vertical-align: top;
   line-height: 1.2;
   white-space: pre-line;
 }

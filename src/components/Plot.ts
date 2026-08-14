@@ -2453,10 +2453,9 @@ export function drawPlot(
           // ^...@ superscripts, _...@ subscripts, %I/%K styles and symbol codes render)
           const legStr = renderSmpTextToHtml(labelText)
           const legFontSz = 10
-          const legCorrection = Math.max(1, Math.round(legFontSz * 0.15))
           const legFo = createSVGElement('foreignObject')
           legFo.setAttribute('x', String(renderPx + 22))
-          legFo.setAttribute('y', String(legY + 3.5 - legFontSz - legCorrection))
+          legFo.setAttribute('y', String(legY - 6))
           legFo.setAttribute('width', '600')
           legFo.setAttribute('height', '400')
           legFo.style.overflow = 'visible'
@@ -2469,6 +2468,7 @@ export function drawPlot(
           legContainer.style.fontWeight = String(item.fontWeight)
           legContainer.style.color = '#000000'
           legContainer.style.display = 'inline-block'
+          legContainer.style.verticalAlign = 'top'
           legContainer.style.userSelect = 'none'
           legContainer.style.cursor = isSelected ? 'move' : 'pointer'
           legContainer.innerHTML = legStr
@@ -2483,14 +2483,10 @@ export function drawPlot(
         const rawStr = item.rawText || item.text
         const htmlStr = renderSmpTextToHtml(rawStr)
         const fontSz = Math.max(6, Math.round((item.fontSize || 12) * 0.72))
-        // The HTML line box adds a small amount of leading above the glyphs.
-        // Keep the SMP anchor and selection box unchanged, but lift the
-        // foreignObject so the rendered text sits inside that box correctly.
-        const textVerticalCorrection = Math.max(1, Math.round(fontSz * 0.15))
 
         const fo = createSVGElement('foreignObject')
         fo.setAttribute('x', String(renderPx))
-        fo.setAttribute('y', String(py - fontSz - textVerticalCorrection))
+        fo.setAttribute('y', String(py - fontSz - 2))
         fo.setAttribute('width', '600')
         fo.setAttribute('height', '400')
         fo.style.overflow = 'visible'
@@ -2507,12 +2503,19 @@ export function drawPlot(
         container.style.fontWeight = String(item.fontWeight || 400)
         container.style.color = '#000000'
         container.style.display = 'inline-block'
+        container.style.verticalAlign = 'top'
         container.style.userSelect = 'none'
         container.style.cursor = isSelected ? 'move' : 'pointer'
 
-        if (item.align === 'center') container.style.textAlign = 'center'
-        else if (item.align === 'right') container.style.textAlign = 'right'
-        else container.style.textAlign = 'left'
+        if (item.align === 'center') {
+          container.style.textAlign = 'center'
+          container.style.transform = 'translateX(-50%)'
+        } else if (item.align === 'right') {
+          container.style.textAlign = 'right'
+          container.style.transform = 'translateX(-100%)'
+        } else {
+          container.style.textAlign = 'left'
+        }
 
         container.innerHTML = htmlStr
         container.addEventListener('mousedown', handleLegendMouseDown)
@@ -2527,7 +2530,7 @@ export function drawPlot(
           let boxW = Math.max(30, measuredW + 6)
           let boxH = Math.max(10, measuredH + 2)
           let boxX = renderPx - 3
-          let boxY = py - fontSz - 2
+          let boxY = py - fontSz - 3
 
           const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : 'start'
           if (anchor === 'middle') {
