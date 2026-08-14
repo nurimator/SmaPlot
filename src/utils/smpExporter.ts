@@ -98,20 +98,19 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     lines.push(`${minStr} ${maxStr} ${stepStr} 0 0 10000 -1 -1 0 1 0 0 1 5 5 1.000000e+00 1`)
 
     const showTicks = axis?.showTicks !== false ? 1 : 0
-    const insideTicks = axis?.insideTicks !== false ? 1 : 0
     const showLabels = axis?.showLabels !== false ? 1 : 0
     const shiftR = Math.round((axis?.shiftRight || 0) * 100)
     const shiftD = Math.round((axis?.shiftDown || 0) * 100)
 
     const autoSt = axis?.autoStep ? 1 : 0
     if (idx === 0) {
-      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 300 100 0`)
+      lines.push(`${subDivs} 0 1 ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 300 100 0`)
     } else if (idx === 1) {
-      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 1200 100 0`)
+      lines.push(`${subDivs} 0 1 ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 1200 100 0`)
     } else if (idx === 2) {
-      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 900 100 0`)
+      lines.push(`${subDivs} 0 1 ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 900 100 0`)
     } else {
-      lines.push(`${subDivs} 0 ${autoSt} ${showTicks} ${insideTicks} ${showLabels} ${shiftR} ${shiftD} 0 0 100 0`)
+      lines.push(`${subDivs} 0 1 ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 0 100 0`)
     }
 
     const weight = (axis?.fontWeight || 400) >= 600 ? 700 : 400
@@ -124,26 +123,52 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 
     const majIn = axis?.majorIn !== false ? 1 : 0
     const majOut = axis?.majorOut ? 1 : 0
-    const majLen = Math.round((axis?.majorLength ?? 6) * 100)
-    const majWidth = Math.round((axis?.majorWidth ?? 1) * 100)
+    const majLen = Math.round((axis?.majorLength ?? 6) / 0.02)
+    const majWidth = Math.round((axis?.majorWidth ?? 0.4) * 100)
     const majColorBgr = hexToBgr(axis?.majorColor || '#000000')
     const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
     lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
 
     const minIn = axis?.minorIn !== false ? 1 : 0
     const minOut = axis?.minorOut ? 1 : 0
-    const minLen = Math.round((axis?.minorLength ?? 3) * 100)
-    const minWidth = Math.round((axis?.minorWidth ?? 1) * 100)
+    const minLen = Math.round((axis?.minorLength ?? 3) / 0.02)
+    const minWidth = Math.round((axis?.minorWidth ?? 0.4) * 100)
     const minColorBgr = hexToBgr(axis?.minorColor || '#000000')
     const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
     lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
     lines.push('')
   }
 
+  const uIsCommon = doc.commonWithU !== false && doc.axisX.isCommon !== false
+  const axisTopExport: SmpAxisSpec = uIsCommon
+    ? {
+        ...(doc.axisTop || doc.axisX),
+        min: doc.axisX.min,
+        max: doc.axisX.max,
+        step: doc.axisX.step,
+        subDivs: doc.axisX.subDivs,
+        autoStep: doc.axisX.autoStep,
+        showLabels: false,
+      }
+    : (doc.axisTop || doc.axisX)
+
+  const rIsCommon = doc.commonWithR !== false && doc.axisY.isCommon !== false
+  const axisRightExport: SmpAxisSpec = rIsCommon
+    ? {
+        ...(doc.axisRight || doc.axisY),
+        min: doc.axisY.min,
+        max: doc.axisY.max,
+        step: doc.axisY.step,
+        subDivs: doc.axisY.subDivs,
+        autoStep: doc.axisY.autoStep,
+        showLabels: false,
+      }
+    : (doc.axisRight || doc.axisY)
+
   formatAxis(0, doc.axisX, 0, 100, 20)
   formatAxis(1, doc.axisY, 0, 100, 20)
-  formatAxis(2, doc.axisTop, 0, 100, 20)
-  formatAxis(3, doc.axisRight, 0, 100, 20)
+  formatAxis(2, axisTopExport, 0, 100, 20)
+  formatAxis(3, axisRightExport, 0, 100, 20)
 
   // LEGEND Section
   const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])]

@@ -29,6 +29,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisTo = overlayEl.querySelector<HTMLInputElement>('#axisTo')
   const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
   const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
+  const axisCommon = overlayEl.querySelector<HTMLInputElement>('#axisCommon')
 
   // Tick Tab Elements
   const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
@@ -60,8 +61,24 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     const smpDoc = getPlotSmpDoc(svg)
     if (!smpDoc) return
 
-    let targetSpec: SmpAxisSpec = currentAxisTarget === 'y' || currentAxisTarget === 'r' ? smpDoc.axisY : smpDoc.axisX
+    let targetSpec: SmpAxisSpec
+    if (currentAxisTarget === 'x') {
+      targetSpec = smpDoc.axisX
+    } else if (currentAxisTarget === 'y') {
+      targetSpec = smpDoc.axisY
+    } else if (currentAxisTarget === 'u') {
+      if (!smpDoc.axisTop) {
+        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isCommon: smpDoc.commonWithU !== false }
+      }
+      targetSpec = smpDoc.axisTop
+    } else {
+      if (!smpDoc.axisRight) {
+        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isCommon: smpDoc.commonWithR !== false }
+      }
+      targetSpec = smpDoc.axisRight
+    }
 
+    if (axisDraw) targetSpec.showTicks = axisDraw.checked
     if (axisFrom && axisFrom.value !== '') targetSpec.min = parseFloat(axisFrom.value)
     if (axisTo && axisTo.value !== '') targetSpec.max = parseFloat(axisTo.value)
 
@@ -86,25 +103,83 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisMajorIn) targetSpec.majorIn = axisMajorIn.checked
     if (axisMajorOut) targetSpec.majorOut = axisMajorOut.checked
     if (axisMajorColor) targetSpec.majorColor = axisMajorColor.value
-    if (axisMajorWidth && axisMajorWidth.value !== '') targetSpec.majorWidth = parseFloat(axisMajorWidth.value) || 1
+    if (axisMajorWidth && axisMajorWidth.value !== '') targetSpec.majorWidth = parseFloat(axisMajorWidth.value) || 0.4
     if (axisMajorStyle) targetSpec.majorStyle = axisMajorStyle.value
-    if (axisMajorLength && axisMajorLength.value !== '') targetSpec.majorLength = parseFloat(axisMajorLength.value) || 5
+    if (axisMajorLength && axisMajorLength.value !== '') targetSpec.majorLength = parseFloat(axisMajorLength.value) || 6
 
     if (axisMinorIn) targetSpec.minorIn = axisMinorIn.checked
     if (axisMinorOut) targetSpec.minorOut = axisMinorOut.checked
     if (axisMinorColor) targetSpec.minorColor = axisMinorColor.value
-    if (axisMinorWidth && axisMinorWidth.value !== '') targetSpec.minorWidth = parseFloat(axisMinorWidth.value) || 1
+    if (axisMinorWidth && axisMinorWidth.value !== '') targetSpec.minorWidth = parseFloat(axisMinorWidth.value) || 0.4
     if (axisMinorStyle) targetSpec.minorStyle = axisMinorStyle.value
-    if (axisMinorLength && axisMinorLength.value !== '') targetSpec.minorLength = parseFloat(axisMinorLength.value) || 2
+    if (axisMinorLength && axisMinorLength.value !== '') targetSpec.minorLength = parseFloat(axisMinorLength.value) || 3
 
     // Label specs
     if (axisDrawLabels) targetSpec.showLabels = axisDrawLabels.checked
     if (axisFontFamily) targetSpec.fontFamily = axisFontFamily.value
     if (axisLabelColor) targetSpec.labelColor = axisLabelColor.value
-    if (axisFontStyle) targetSpec.fontStyle = axisFontStyle.value
+    if (axisFontStyle) {
+      targetSpec.fontStyle = axisFontStyle.value
+      targetSpec.fontWeight = axisFontStyle.value === 'bold' ? 700 : 400
+    }
     if (axisFontSize && axisFontSize.value !== '') targetSpec.fontSize = parseInt(axisFontSize.value, 10) || 24
     if (axisShiftRight && axisShiftRight.value !== '') targetSpec.shiftRight = parseFloat(axisShiftRight.value) || 0
     if (axisShiftDown && axisShiftDown.value !== '') targetSpec.shiftDown = parseFloat(axisShiftDown.value) || 0
+
+    // Common linking logic:
+    if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
+      const isCommon = axisCommon ? axisCommon.checked : true
+      smpDoc.commonWithU = isCommon
+      smpDoc.axisX.isCommon = isCommon
+      if (!smpDoc.axisTop) {
+        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !isCommon, isCommon }
+      }
+      smpDoc.axisTop.isCommon = isCommon
+
+      if (isCommon) {
+        if (currentAxisTarget === 'x') {
+          smpDoc.axisTop.min = smpDoc.axisX.min
+          smpDoc.axisTop.max = smpDoc.axisX.max
+          smpDoc.axisTop.step = smpDoc.axisX.step
+          smpDoc.axisTop.subDivs = smpDoc.axisX.subDivs
+          smpDoc.axisTop.autoStep = smpDoc.axisX.autoStep
+          smpDoc.axisTop.showLabels = false
+        } else {
+          smpDoc.axisX.min = smpDoc.axisTop.min
+          smpDoc.axisX.max = smpDoc.axisTop.max
+          smpDoc.axisX.step = smpDoc.axisTop.step
+          smpDoc.axisX.subDivs = smpDoc.axisTop.subDivs
+          smpDoc.axisX.autoStep = smpDoc.axisTop.autoStep
+          smpDoc.axisTop.showLabels = false
+        }
+      }
+    } else if (currentAxisTarget === 'y' || currentAxisTarget === 'r') {
+      const isCommon = axisCommon ? axisCommon.checked : true
+      smpDoc.commonWithR = isCommon
+      smpDoc.axisY.isCommon = isCommon
+      if (!smpDoc.axisRight) {
+        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !isCommon, isCommon }
+      }
+      smpDoc.axisRight.isCommon = isCommon
+
+      if (isCommon) {
+        if (currentAxisTarget === 'y') {
+          smpDoc.axisRight.min = smpDoc.axisY.min
+          smpDoc.axisRight.max = smpDoc.axisY.max
+          smpDoc.axisRight.step = smpDoc.axisY.step
+          smpDoc.axisRight.subDivs = smpDoc.axisY.subDivs
+          smpDoc.axisRight.autoStep = smpDoc.axisY.autoStep
+          smpDoc.axisRight.showLabels = false
+        } else {
+          smpDoc.axisY.min = smpDoc.axisRight.min
+          smpDoc.axisY.max = smpDoc.axisRight.max
+          smpDoc.axisY.step = smpDoc.axisRight.step
+          smpDoc.axisY.subDivs = smpDoc.axisRight.subDivs
+          smpDoc.axisY.autoStep = smpDoc.axisRight.autoStep
+          smpDoc.axisRight.showLabels = false
+        }
+      }
+    }
 
     updatePlotVisual(svg)
     pushUndoState()
@@ -121,7 +196,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
   // Real-time update listeners for all controls
   const allControls = [
-    axisDraw, axisFrom, axisTo, axisDivision,
+    axisDraw, axisFrom, axisTo, axisDivision, axisCommon,
     axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
     axisMinorIn, axisMinorOut, axisMinorColor, axisMinorWidth, axisMinorStyle, axisMinorLength,
     axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown
@@ -186,7 +261,10 @@ export function showAxisDialog(
   }
   const commonLabelEl = overlayEl.querySelector<HTMLElement>('#axisCommonLabel')
   if (commonLabelEl) {
-    commonLabelEl.textContent = axisType === 'x' || axisType === 'u' ? 'Common with U-axis' : 'Common with R-axis'
+    if (axisType === 'x') commonLabelEl.textContent = 'Common with U-axis'
+    else if (axisType === 'u') commonLabelEl.textContent = 'Common with X-axis'
+    else if (axisType === 'y') commonLabelEl.textContent = 'Common with R-axis'
+    else commonLabelEl.textContent = 'Common with Y-axis'
   }
 
   // Populate values from active plot's SmpDoc
@@ -194,8 +272,31 @@ export function showAxisDialog(
   if (svg) {
     const smpDoc = getPlotSmpDoc(svg)
     if (smpDoc) {
-      const spec = axisType === 'y' || axisType === 'r' ? smpDoc.axisY : smpDoc.axisX
+      let spec: SmpAxisSpec
+      let isCommon: boolean
 
+      if (axisType === 'x') {
+        spec = smpDoc.axisX
+        isCommon = smpDoc.commonWithU !== false && smpDoc.axisX.isCommon !== false
+      } else if (axisType === 'y') {
+        spec = smpDoc.axisY
+        isCommon = smpDoc.commonWithR !== false && smpDoc.axisY.isCommon !== false
+      } else if (axisType === 'u') {
+        if (!smpDoc.axisTop) {
+          smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isCommon: smpDoc.commonWithU !== false }
+        }
+        spec = smpDoc.axisTop
+        isCommon = smpDoc.commonWithU !== false && smpDoc.axisTop.isCommon !== false
+      } else {
+        if (!smpDoc.axisRight) {
+          smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isCommon: smpDoc.commonWithR !== false }
+        }
+        spec = smpDoc.axisRight
+        isCommon = smpDoc.commonWithR !== false && smpDoc.axisRight.isCommon !== false
+      }
+
+      const axisDraw = overlayEl.querySelector<HTMLInputElement>('#axisDraw')
+      const axisCommon = overlayEl.querySelector<HTMLInputElement>('#axisCommon')
       const axisFrom = overlayEl.querySelector<HTMLInputElement>('#axisFrom')
       const axisTo = overlayEl.querySelector<HTMLInputElement>('#axisTo')
       const axisAutoStep = overlayEl.querySelector<HTMLInputElement>('#axisAutoStep')
@@ -224,6 +325,8 @@ export function showAxisDialog(
       const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
       const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
 
+      if (axisCommon) axisCommon.checked = isCommon
+      if (axisDraw) axisDraw.checked = spec.showTicks !== false
       if (axisFrom) axisFrom.value = String(spec.min)
       if (axisTo) axisTo.value = String(spec.max)
       if (axisAutoStep) axisAutoStep.checked = spec.autoStep ?? false
@@ -236,16 +339,16 @@ export function showAxisDialog(
       if (axisMajorIn) axisMajorIn.checked = spec.majorIn ?? (spec.insideTicks !== false)
       if (axisMajorOut) axisMajorOut.checked = spec.majorOut ?? false
       if (axisMajorColor) axisMajorColor.value = spec.majorColor || '#000000'
-      if (axisMajorWidth) axisMajorWidth.value = String(spec.majorWidth ?? 1)
+      if (axisMajorWidth) axisMajorWidth.value = String(spec.majorWidth ?? 0.4)
       if (axisMajorStyle) axisMajorStyle.value = spec.majorStyle || 'solid'
-      if (axisMajorLength) axisMajorLength.value = String(spec.majorLength ?? 5)
+      if (axisMajorLength) axisMajorLength.value = String(spec.majorLength ?? 6)
 
       if (axisMinorIn) axisMinorIn.checked = spec.minorIn ?? (spec.insideTicks !== false)
       if (axisMinorOut) axisMinorOut.checked = spec.minorOut ?? false
       if (axisMinorColor) axisMinorColor.value = spec.minorColor || '#000000'
-      if (axisMinorWidth) axisMinorWidth.value = String(spec.minorWidth ?? 1)
+      if (axisMinorWidth) axisMinorWidth.value = String(spec.minorWidth ?? 0.4)
       if (axisMinorStyle) axisMinorStyle.value = spec.minorStyle || 'solid'
-      if (axisMinorLength) axisMinorLength.value = String(spec.minorLength ?? 2)
+      if (axisMinorLength) axisMinorLength.value = String(spec.minorLength ?? 3)
 
       if (axisDrawLabels) axisDrawLabels.checked = spec.showLabels !== false
       if (axisFontFamily) axisFontFamily.value = spec.fontFamily || 'Times New Roman'

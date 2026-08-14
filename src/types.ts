@@ -69,6 +69,9 @@ export interface SmpAxisSpec {
   labelColor?: string
   shiftRight?: number
   shiftDown?: number
+
+  // Common with opposite axis
+  isCommon?: boolean
 }
 
 export interface SmpLineAnnotation {
@@ -105,6 +108,8 @@ export interface SmpPlotDoc {
   axisY: SmpAxisSpec
   axisTop?: SmpAxisSpec
   axisRight?: SmpAxisSpec
+  commonWithU?: boolean
+  commonWithR?: boolean
   legendItems: SmpLegendItem[]
   annotationLines?: SmpLineAnnotation[]
   xLabel?: string

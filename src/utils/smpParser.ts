@@ -43,13 +43,13 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
     majorIn: true,
     majorOut: false,
     majorLength: 6,
-    majorWidth: 1,
+    majorWidth: 0.4,
     majorColor: '#000000',
     majorStyle: 'solid',
     minorIn: true,
     minorOut: false,
     minorLength: 3,
-    minorWidth: 1,
+    minorWidth: 0.4,
     minorColor: '#000000',
     minorStyle: 'solid',
     fontFamily: 'Times New Roman, Inter, sans-serif',
@@ -329,10 +329,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             if (!isNaN(divs) && divs > 0) axisSpec.subDivs = divs
           }
           if (parts2.length >= 6) {
+            axisSpec.autoStep = parts2[3] === '1'
+            axisSpec.showTicks = parts2[4] === '1'
+            axisSpec.showLabels = parts2[5] === '1'
+          } else if (parts2.length >= 4) {
             axisSpec.autoStep = parts2[2] === '1'
             axisSpec.showTicks = parts2[3] === '1'
-            axisSpec.insideTicks = parts2[4] === '1'
-            axisSpec.showLabels = parts2[5] === '1'
           }
           if (parts2.length >= 8) {
             const sr = parseFloat(parts2[6])
@@ -379,8 +381,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts5.length >= 5) {
             axisSpec.majorIn = parts5[0] === '1'
             axisSpec.majorOut = parts5[1] === '1'
-            axisSpec.majorLength = parseFloat(parts5[2]) / 100 || 5
-            axisSpec.majorWidth = parseFloat(parts5[3]) / 100 || 1
+            if (axisSpec.majorIn) axisSpec.insideTicks = true
+            axisSpec.majorLength = Math.max(1, (parseFloat(parts5[2]) * 0.02) || 6)
+            axisSpec.majorWidth = (parseFloat(parts5[3]) / 100) || 0.4
             const cInt = parseInt(parts5[4], 10)
             if (!isNaN(cInt)) axisSpec.majorColor = bgrToHex(cInt)
             if (parts5.length >= 7) {
@@ -395,8 +398,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts6.length >= 5) {
             axisSpec.minorIn = parts6[0] === '1'
             axisSpec.minorOut = parts6[1] === '1'
-            axisSpec.minorLength = parseFloat(parts6[2]) / 100 || 2
-            axisSpec.minorWidth = parseFloat(parts6[3]) / 100 || 1
+            axisSpec.minorLength = Math.max(1, (parseFloat(parts6[2]) * 0.02) || 3)
+            axisSpec.minorWidth = (parseFloat(parts6[3]) / 100) || 0.4
             const cInt = parseInt(parts6[4], 10)
             if (!isNaN(cInt)) axisSpec.minorColor = bgrToHex(cInt)
             if (parts6.length >= 7) {
@@ -669,6 +672,33 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       allDatasets.push(ds)
     })
 
+    const isUCommon = !axisTop || (
+      axisTop.min === axisX.min &&
+      axisTop.max === axisX.max &&
+      axisTop.step === axisX.step &&
+      axisTop.showLabels === false
+    )
+    const isRCommon = !axisRight || (
+      axisRight.min === axisY.min &&
+      axisRight.max === axisY.max &&
+      axisRight.step === axisY.step &&
+      axisRight.showLabels === false
+    )
+
+    if (!axisTop) {
+      axisTop = { ...axisX, showLabels: false, isCommon: true }
+    } else {
+      axisTop.isCommon = isUCommon
+    }
+    axisX.isCommon = isUCommon
+
+    if (!axisRight) {
+      axisRight = { ...axisY, showLabels: false, isCommon: true }
+    } else {
+      axisRight.isCommon = isRCommon
+    }
+    axisY.isCommon = isRCommon
+
     docs.push({
       name: docBlock.name,
       left: docLeft,
@@ -680,6 +710,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       axisY,
       axisTop,
       axisRight,
+      commonWithU: isUCommon,
+      commonWithR: isRCommon,
       legendItems,
       annotationLines,
       xLabel,

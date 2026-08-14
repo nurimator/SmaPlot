@@ -159,6 +159,15 @@ export function initTrimMode(graphAreaEl: HTMLElement, onCommit: () => void, onF
     ay.min = newYMin
     ay.max = newYMax
 
+    if (doc.commonWithU !== false && doc.axisTop) {
+      doc.axisTop.min = newXMin
+      doc.axisTop.max = newXMax
+    }
+    if (doc.commonWithR !== false && doc.axisRight) {
+      doc.axisRight.min = newYMin
+      doc.axisRight.max = newYMax
+    }
+
     setSelectedPlotSvg(f.svg)
     updatePlotVisual(f.svg)
     onCommit()
