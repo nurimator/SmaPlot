@@ -13,6 +13,11 @@ export interface Dataset {
   // "1 SG.txt". These are distinct from the display name used by the UI.
   smpSeriesName?: string
   smpDataName?: string
+  smpDataHeaderRest?: string
+  smpSeriesStylePrefix?: number
+  smpSeriesZerosLine?: string
+  smpSeriesFixed5?: string
+  smpExprFlag?: string
   options?: PlotVisualOptions
 }
 
@@ -26,6 +31,12 @@ export interface SmpLegendItem {
   yNorm: number
   rotation: number
   fontFamily: string
+  optionFontFamily?: string
+  symbolFontFamily?: string
+  font1Spec?: string
+  font2Spec?: string
+  font3Spec?: string
+  posTail?: string
   fontSize: number
   fontWeight: number
   align?: 'left' | 'center' | 'right'
@@ -72,6 +83,17 @@ export interface SmpAxisSpec {
 
   // Common with opposite axis
   isCommon?: boolean
+
+  // Native Sma4Win metadata preservation
+  rawFixedTail?: string
+  rawFormatSci?: boolean
+  rawLine2?: string
+  rawLine2Tail?: string
+  rawFontExtra?: string
+  charset?: number
+  labelColorCode?: string
+  rawMajLine?: string
+  rawMinLine?: string
 }
 
 export interface SmpLineAnnotation {
@@ -112,6 +134,8 @@ export interface SmpPlotDoc {
   commonWithR?: boolean
   legendItems: SmpLegendItem[]
   annotationLines?: SmpLineAnnotation[]
+  othersZerosLine?: string
+  othersSymbolLine?: string
   xLabel?: string
   yLabel?: string
 }

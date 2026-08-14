@@ -21,6 +21,10 @@ interface SmpSeriesSpec {
   xExpr: string
   yExpr: string
   filePath?: string
+  stylePrefix?: number
+  zerosLine?: string
+  fixed5?: string
+  exprFlag?: string
 }
 
 export interface ParseSmpResult {
@@ -62,8 +66,8 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
   }
 }
 
-function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: number[]; rawLines: string[][] }> {
-  const datasetsMap: Record<string, { x: number[]; y: number[]; rawLines: string[][] }> = {}
+function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: number[]; rawLines: string[][]; headerRest?: string }> {
+  const datasetsMap: Record<string, { x: number[]; y: number[]; rawLines: string[][]; headerRest?: string }> = {}
   let activeDataHeader = ''
   let inDataBlock = false
 
@@ -98,14 +102,18 @@ function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: 
     }
 
     if (line.startsWith('[') && line.includes(']')) {
-      const headerName = line.split(']')[0].slice(1).trim()
+      const closeBracketIdx = line.indexOf(']')
+      const headerName = line.slice(1, closeBracketIdx).trim()
+      const headerRest = line.slice(closeBracketIdx + 1).trim()
       if (headerName.toLowerCase().includes('end of data')) {
         activeDataHeader = ''
         continue
       }
       activeDataHeader = headerName
       if (!datasetsMap[activeDataHeader]) {
-        datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [] }
+        datasetsMap[activeDataHeader] = { x: [], y: [], rawLines: [], headerRest }
+      } else if (headerRest && !datasetsMap[activeDataHeader].headerRest) {
+        datasetsMap[activeDataHeader].headerRest = headerRest
       }
       continue
     }
@@ -182,6 +190,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
     const legendItems: SmpLegendItem[] = []
     const annotationLines: SmpLineAnnotation[] = []
+    let othersZerosLine = ''
+    let othersSymbolLine = ''
     let xLabel: string | undefined
     let yLabel: string | undefined
 
@@ -220,8 +230,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length) i++ // config 1
         let color = '#000000'
         let width = 1
+        let stylePrefix = 60
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
+          if (parts.length >= 1) {
+            const p0 = parseInt(parts[0], 10)
+            if (!isNaN(p0)) stylePrefix = p0
+          }
           if (parts.length >= 2) {
             const colorInt = parseInt(parts[1], 10)
             if (!isNaN(colorInt) && colorInt >= 0) {
@@ -265,8 +280,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           }
           i++
         }
-        if (i < docLines.length) i++ // config 4
-        if (i < docLines.length) i++ // config 5
+        if (i < docLines.length) i++ // config 3
+        let exprFlag = '0 0 0'
+        if (i < docLines.length) {
+          exprFlag = docLines[i].trim() || '0 0 0'
+          i++ // config 4
+        }
         let xExpr = 'x'
         if (i < docLines.length) {
           xExpr = docLines[i].trim() || 'x'
@@ -276,6 +295,16 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length) {
           yExpr = docLines[i].trim() || 'y'
           i++
+        }
+        let zerosLine = ''
+        if (i < docLines.length) {
+          zerosLine = docLines[i].trim()
+          i++ // config 5
+        }
+        let fixed5 = ''
+        if (i < docLines.length) {
+          fixed5 = docLines[i].trim()
+          i++ // config 6
         }
 
         seriesSpecs[specHeader] = {
@@ -290,6 +319,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           xExpr,
           yExpr,
           filePath,
+          stylePrefix,
+          exprFlag,
+          zerosLine,
+          fixed5,
         }
         currentSection = ''
         continue
@@ -316,6 +349,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           axisSpec.min = parseFloat(parts1[0])
           axisSpec.max = parseFloat(parts1[1])
           axisSpec.step = parseFloat(parts1[2])
+          axisSpec.rawFormatSci = parts1[0].includes('e') || parts1[0].includes('E')
+          axisSpec.rawFixedTail = parts1.slice(3).join(' ')
           if (parts1.length >= 15) {
             axisSpec.subDivs = parseInt(parts1[14], 10) || 5
           }
@@ -323,12 +358,14 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
         i++
         if (i < docLines.length) {
+          axisSpec.rawLine2 = docLines[i].trim()
           const parts2 = docLines[i].trim().split(/\s+/)
           if (parts2.length >= 1) {
             const divs = parseInt(parts2[0], 10)
             if (!isNaN(divs) && divs > 0) axisSpec.subDivs = divs
           }
           if (parts2.length >= 6) {
+            axisSpec.insideTicks = parts2[2] === '1'
             axisSpec.autoStep = parts2[3] === '1'
             axisSpec.showTicks = parts2[4] === '1'
             axisSpec.showLabels = parts2[5] === '1'
@@ -343,11 +380,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             if (!isNaN(sd)) axisSpec.shiftDown = Math.round(sd / 100)
           }
           if (parts2.length >= 10) {
+            axisSpec.labelColorCode = parts2[9]
             const fsVal = parseFloat(parts2[9])
             if (!isNaN(fsVal) && fsVal > 0) {
               axisSpec.fontSize = Math.round(fsVal / 50)
             }
           }
+          axisSpec.rawLine2Tail = parts2.length >= 12 ? '100 0' : '100'
           i++
         }
 
@@ -367,6 +406,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             } else {
               axisSpec.fontStyle = 'regular'
             }
+            if (parts3.length >= 9) {
+              axisSpec.charset = parseInt(parts3[8], 10) || 0
+              axisSpec.rawFontExtra = parts3.slice(8).join(' ')
+            }
           }
           i++
         }
@@ -377,6 +420,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
 
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          axisSpec.rawMajLine = docLines[i].trim()
           const parts5 = docLines[i].trim().split(/\s+/)
           if (parts5.length >= 5) {
             axisSpec.majorIn = parts5[0] === '1'
@@ -394,6 +438,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
 
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          axisSpec.rawMinLine = docLines[i].trim()
           const parts6 = docLines[i].trim().split(/\s+/)
           if (parts6.length >= 5) {
             axisSpec.minorIn = parts6[0] === '1'
@@ -426,6 +471,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             const posParts = docLines[i].trim().split(/\s+/)
             const xNorm = parseFloat(posParts[0])
             const yNorm = parseFloat(posParts[1])
+            const posTail = posParts.slice(2).join(' ')
             i++
             if (i < docLines.length) {
               const rawTxt = docLines[i].trim()
@@ -434,8 +480,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               let rotation = 0
               let fontWeight = 400
               let fontSize = 12
+              let font1Spec = ''
               if (i < docLines.length) {
-                const styleParts = docLines[i].trim().split(/\s+/)
+                font1Spec = docLines[i].trim()
+                const styleParts = font1Spec.split(/\s+/)
                 if (styleParts.length >= 5) {
                   const rotVal = parseInt(styleParts[2], 10)
                   if (rotVal !== 0) rotation = rotVal / 10 // e.g. -900 -> -90 deg
@@ -452,11 +500,26 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 fontFamily = docLines[i].trim().replace(/\s+[A-Z]{2,4}$/, '') || 'Times New Roman'
                 i++
               }
-              // Skip remaining font spec 2 & 3 lines for text items (4 lines total: spec2, name2, spec3, name3)
-              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
-              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
-              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
-              if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
+              let font2Spec = ''
+              let optionFontFamily = ''
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+                font2Spec = docLines[i].trim()
+                i++
+              }
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+                optionFontFamily = docLines[i].trim()
+                i++
+              }
+              let font3Spec = ''
+              let symbolFontFamily = ''
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+                font3Spec = docLines[i].trim()
+                i++
+              }
+              if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+                symbolFontFamily = docLines[i].trim()
+                i++
+              }
               if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item
 
               // Native legend item types: 4=X-axis title, 5=Y-axis title.
@@ -475,8 +538,14 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 rawText: rawTxt,
                 xNorm,
                 yNorm,
+                posTail,
                 rotation,
                 fontFamily,
+                optionFontFamily,
+                symbolFontFamily,
+                font1Spec,
+                font2Spec,
+                font3Spec,
                 fontSize,
                 fontWeight,
               })
@@ -608,6 +677,24 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         continue
       }
 
+      if (currentSection === 'OTHERS') {
+        if (line === '2') {
+          i++
+          if (i < docLines.length) {
+            othersZerosLine = docLines[i].trim()
+            i++
+          }
+          if (i < docLines.length) {
+            othersSymbolLine = docLines[i].trim()
+            i++
+          }
+          if (i < docLines.length) i++ // Symbol font name
+          if (i < docLines.length && !docLines[i].trim()) i++
+        }
+        currentSection = ''
+        continue
+      }
+
       i++
     }
 
@@ -652,6 +739,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         filePath: spec.filePath || `${docBlock.name} > ${spec.name}`,
         smpSeriesName: spec.name,
         smpDataName: rawDataKey,
+        smpDataHeaderRest: data.headerRest,
+        smpSeriesStylePrefix: spec.stylePrefix,
+        smpSeriesZerosLine: spec.zerosLine,
+        smpSeriesFixed5: spec.fixed5,
+        smpExprFlag: spec.exprFlag,
         options: {
           show: true,
           lineColor: spec.color,
@@ -714,6 +806,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       commonWithR: isRCommon,
       legendItems,
       annotationLines,
+      othersZerosLine,
+      othersSymbolLine,
       xLabel,
       yLabel,
     })

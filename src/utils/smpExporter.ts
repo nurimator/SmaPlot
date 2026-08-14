@@ -52,7 +52,7 @@ const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
 
 // --- Series spec record lines ---------------------------------------------
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
-const SERIES_STYLE_LINE = (color: number): string => `60 ${color} 300 0 0 0 0`
+const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
 const SERIES_SYMBOL_LINE = (sym: number, size: number, color: number): string => `1 ${sym} ${size} ${color}`
 const SERIES_FIXED_LINE_3 = '0 0 1 0 0 0 16777215 5'
 const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 : 0} 0`
@@ -110,18 +110,22 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const xExpr = ds.options?.xExpr || 'x'
   const yExpr = ds.options?.yExpr || 'y'
   const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
+  const stylePrefix = ds.smpSeriesStylePrefix || 60
+  const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
+  const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
+  const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
   return [
     `[${ds.smpSeriesName || `${cleanName}.txt`}]`,
     ds.filePath || `${SMP_FALLBACK_DIR}${cleanName}.txt`,
     SERIES_COUNT_LINE(pointCount),
-    SERIES_STYLE_LINE(bgrColor),
+    SERIES_STYLE_LINE(stylePrefix, bgrColor),
     SERIES_SYMBOL_LINE(symCode, sizeVal, dotColorBgr),
     SERIES_FIXED_LINE_3,
-    SERIES_EXPR_LINE(hasTransform),
+    exprFlag,
     xExpr,
     yExpr,
-    SERIES_ZEROS_LINE,
-    SERIES_FIXED_LINE_5,
+    zerosLine,
+    fixed5,
     '',
     '',
   ]
@@ -161,44 +165,78 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   // AXIS Sections
   const formatAxis = (idx: number, axis?: SmpAxisSpec) => {
     lines.push(`[AXIS-${idx}]`)
-    const minStr = formatFloatSci(axis?.min ?? DEFAULT_AXIS_RANGE.min)
-    const maxStr = formatFloatSci(axis?.max ?? DEFAULT_AXIS_RANGE.max)
-    const stepStr = formatFloatSci(axis?.step ?? DEFAULT_AXIS_RANGE.step)
-    const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
-    lines.push(`${minStr} ${maxStr} ${stepStr} ${AXIS_FIXED_TAIL}`)
+    let minStr: string
+    let maxStr: string
+    let stepStr: string
+    if (axis?.rawFormatSci) {
+      minStr = formatFloatSci(axis.min)
+      maxStr = formatFloatSci(axis.max)
+      stepStr = formatFloatSci(axis.step)
+    } else if (axis?.rawFixedTail) {
+      minStr = String(axis.min ?? DEFAULT_AXIS_RANGE.min)
+      maxStr = String(axis.max ?? DEFAULT_AXIS_RANGE.max)
+      stepStr = String(axis.step ?? DEFAULT_AXIS_RANGE.step)
+    } else {
+      minStr = formatFloatSci(axis?.min ?? DEFAULT_AXIS_RANGE.min)
+      maxStr = formatFloatSci(axis?.max ?? DEFAULT_AXIS_RANGE.max)
+      stepStr = formatFloatSci(axis?.step ?? DEFAULT_AXIS_RANGE.step)
+    }
+    const fixedTail = axis?.rawFixedTail || AXIS_FIXED_TAIL
+    lines.push(`${minStr} ${maxStr} ${stepStr} ${fixedTail}`)
 
-    const showTicks = axis?.showTicks !== false ? 1 : 0
-    const showLabels = axis?.showLabels !== false ? 1 : 0
-    const shiftR = Math.round((axis?.shiftRight || 0) * MM_TO_SMP)
-    const shiftD = Math.round((axis?.shiftDown || 0) * MM_TO_SMP)
+    if (axis?.rawLine2) {
+      lines.push(axis.rawLine2)
+    } else {
+      const showTicks = axis?.showTicks !== false ? 1 : 0
+      const showLabels = axis?.showLabels !== false ? 1 : 0
+      const shiftR = Math.round((axis?.shiftRight || 0) * MM_TO_SMP)
+      const shiftD = Math.round((axis?.shiftDown || 0) * MM_TO_SMP)
+      const autoSt = axis?.autoStep ? 1 : 0
+      const labelColor = axis?.labelColorCode || (AXIS_LABEL_COLOR[idx] ?? '300')
+      const l2Tail = axis?.rawLine2Tail || (idx === 0 || idx === 1 ? '100 0' : '100 0')
+      const insideTk = axis?.insideTicks ? 1 : 0
+      const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
+      lines.push(`${subDivs} 0 ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
+    }
 
-    const autoSt = axis?.autoStep ? 1 : 0
-    const labelColor = AXIS_LABEL_COLOR[idx] ?? 0
-    lines.push(`${subDivs} 0 1 ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} 100 0`)
-
-    const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
-    const fontSz = Math.round((axis?.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
-    const startVal = `-${fontSz}`
-    const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
-    const extraVal = (idx === 0 || idx === 1) ? AXIS_FONT_EXTRA[0] : AXIS_FONT_EXTRA[1]
-    lines.push(`${startVal} 0 0 0 ${weight} ${isItalic} 0 0 ${extraVal}`)
+    if (axis?.rawFontExtra) {
+      const fontSz = Math.round((axis?.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
+      const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
+      const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
+      lines.push(`-${fontSz} 0 0 0 ${weight} ${isItalic} 0 0 ${axis.rawFontExtra}`)
+    } else {
+      const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
+      const fontSz = Math.round((axis?.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
+      const startVal = `-${fontSz}`
+      const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
+      const extraVal = (idx === 0 || idx === 1) ? AXIS_FONT_EXTRA[0] : AXIS_FONT_EXTRA[1]
+      lines.push(`${startVal} 0 0 0 ${weight} ${isItalic} 0 0 ${extraVal}`)
+    }
     lines.push(axis?.fontFamily || DEFAULT_AXIS.fontFamily)
 
-    const majIn = axis?.majorIn !== false ? 1 : 0
-    const majOut = axis?.majorOut ? 1 : 0
-    const majLen = Math.round((axis?.majorLength ?? DEFAULT_AXIS.majorLength) / SMP_TICK_UNIT_MM)
-    const majWidth = Math.round((axis?.majorWidth ?? DEFAULT_AXIS.majorWidth) * MM_TO_SMP)
-    const majColorBgr = hexToBgr(axis?.majorColor || COLOR_BLACK_HEX)
-    const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
-    lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
+    if (axis?.rawMajLine) {
+      lines.push(axis.rawMajLine)
+    } else {
+      const majIn = axis?.majorIn !== false ? 1 : 0
+      const majOut = axis?.majorOut ? 1 : 0
+      const majLen = Math.round((axis?.majorLength ?? DEFAULT_AXIS.majorLength) / SMP_TICK_UNIT_MM)
+      const majWidth = Math.round((axis?.majorWidth ?? DEFAULT_AXIS.majorWidth) * MM_TO_SMP)
+      const majColorBgr = hexToBgr(axis?.majorColor || COLOR_BLACK_HEX)
+      const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
+      lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
+    }
 
-    const minIn = axis?.minorIn !== false ? 1 : 0
-    const minOut = axis?.minorOut ? 1 : 0
-    const minLen = Math.round((axis?.minorLength ?? DEFAULT_AXIS.minorLength) / SMP_TICK_UNIT_MM)
-    const minWidth = Math.round((axis?.minorWidth ?? DEFAULT_AXIS.minorWidth) * MM_TO_SMP)
-    const minColorBgr = hexToBgr(axis?.minorColor || COLOR_BLACK_HEX)
-    const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
-    lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
+    if (axis?.rawMinLine) {
+      lines.push(axis.rawMinLine)
+    } else {
+      const minIn = axis?.minorIn !== false ? 1 : 0
+      const minOut = axis?.minorOut ? 1 : 0
+      const minLen = Math.round((axis?.minorLength ?? DEFAULT_AXIS.minorLength) / SMP_TICK_UNIT_MM)
+      const minWidth = Math.round((axis?.minorWidth ?? DEFAULT_AXIS.minorWidth) * MM_TO_SMP)
+      const minColorBgr = hexToBgr(axis?.minorColor || COLOR_BLACK_HEX)
+      const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
+      lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
+    }
     lines.push('')
   }
 
@@ -340,7 +378,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     } else if (entry.item) {
       const item = entry.item
       lines.push(String(item.legendType ?? DEFAULT_LEGEND_TYPE))
-      lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} ${LEGEND_POS_TAIL}`)
+      const posTail = item.posTail || LEGEND_POS_TAIL
+      lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} ${posTail}`)
       // `text` is the canonical Unicode form. `rawText` is kept for rendering
       // parsed files and may already contain the SMP-encoded representation;
       // converting it again would corrupt the 2-byte symbol sequences.
@@ -348,15 +387,15 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       const rot = Math.round(item.rotation * DEG_TO_SMP)
       const weight = item.fontWeight >= DEFAULT_AXIS.boldWeight ? 700 : 400
       const szVal = Math.round((item.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
-      lines.push(FONT_SPEC_TIMES(szVal, rot, weight))
+      lines.push(item.font1Spec || FONT_SPEC_TIMES(szVal, rot, weight))
       lines.push(item.fontFamily || DEFAULT_AXIS.fontFamily)
       // Native Sma4Win stores the Arphic option-font record with its own
       // charset/face parameters. Keeping these values is required for the
       // original application to import the text item correctly.
-      lines.push(FONT_SPEC_ARCHIC(szVal, rot, weight))
-      lines.push(FONT_NAME_ARCHIC)
-      lines.push(FONT_SPEC_SYMBOL(szVal, rot, weight))
-      lines.push(FONT_NAME_SYMBOL)
+      lines.push(item.font2Spec || FONT_SPEC_ARCHIC(szVal, rot, weight))
+      lines.push(item.optionFontFamily || item.fontFamily || FONT_NAME_ARCHIC)
+      lines.push(item.font3Spec || FONT_SPEC_SYMBOL(szVal, rot, weight))
+      lines.push(item.symbolFontFamily || FONT_NAME_SYMBOL)
       lines.push('')
     }
   })
@@ -364,8 +403,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   // OTHERS & MASKS Section
   lines.push('[OTHERS]')
   lines.push(OTHERS_HEADER)
-  lines.push(OTHERS_ZEROS)
-  lines.push(OTHERS_SYMBOL_LINE)
+  lines.push(doc.othersZerosLine || OTHERS_ZEROS)
+  lines.push(doc.othersSymbolLine || OTHERS_SYMBOL_LINE)
   lines.push(FONT_NAME_SYMBOL)
   lines.push('')
   lines.push('[MASKS]')
@@ -394,7 +433,8 @@ function dataSectionLines(datasets: Dataset[]): string[] {
     first = false
 
     const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-    lines.push(`[${ds.smpDataName || `${cleanName}.txt`}] ${nowStamp}`)
+    const headerInfo = ds.smpDataHeaderRest || nowStamp
+    lines.push(`[${ds.smpDataName || `${cleanName}.txt`}] ${headerInfo}`)
 
     const rows: string[][] =
       ds.rawLines && ds.rawLines.length > 0
