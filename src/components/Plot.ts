@@ -326,6 +326,7 @@ function renderPlotCrossbar(svg: SVGSVGElement, xVal: number, yVal: number): voi
 
 let activeDrag: ActiveDrag | null = null
 let selectedPlotSvg: SVGSVGElement | null = null
+let lastSelectedPlotSvg: SVGSVGElement | null = null
 let rafId: number | null = null
 let boxCount = 0
 
@@ -672,6 +673,9 @@ export function getActiveDrag(): ActiveDrag | null {
 }
 
 export function setSelectedPlotSvg(svg: SVGSVGElement | null): void {
+  if (svg) {
+    lastSelectedPlotSvg = svg
+  }
   if (svg === selectedPlotSvg) return
   const prev = selectedPlotSvg
   selectedPlotSvg = svg
@@ -685,11 +689,37 @@ export function setSelectedPlotSvg(svg: SVGSVGElement | null): void {
   }
 }
 
+export function getLastSelectedPlotSvg(): SVGSVGElement | null {
+  if (lastSelectedPlotSvg && document.body.contains(lastSelectedPlotSvg)) {
+    return lastSelectedPlotSvg
+  }
+  return null
+}
+
 export function getSelectedPlotSvg(): SVGSVGElement | null {
   if (selectedPlotSvg && document.body.contains(selectedPlotSvg)) {
     return selectedPlotSvg
   }
-  return activeSvgs[0] || null
+  if (lastSelectedPlotSvg && document.body.contains(lastSelectedPlotSvg)) {
+    return lastSelectedPlotSvg
+  }
+  return activeSvgs[activeSvgs.length - 1] || activeSvgs[0] || null
+}
+
+export function getPlotSvgFromElement(el: Element | null): SVGSVGElement | null {
+  if (!el) return null
+  const plotSvg = el.closest('.plot-svg') as SVGSVGElement | null
+  if (plotSvg) return plotSvg
+  const overlay = el.closest('.plot-overlay') as HTMLDivElement | null
+  if (overlay) {
+    for (const svg of activeSvgs) {
+      if (svgOverlayMap.get(svg) === overlay) return svg
+    }
+    if (overlay.previousElementSibling?.classList.contains('plot-svg')) {
+      return overlay.previousElementSibling as SVGSVGElement
+    }
+  }
+  return null
 }
 
 export function getMultiSelectedSvgs(): SVGSVGElement[] {
@@ -859,6 +889,10 @@ export function deleteSelectedObjects(): boolean {
         deletedAny = true
       }
     }
+  }
+
+  if (lastSelectedPlotSvg && !document.body.contains(lastSelectedPlotSvg)) {
+    lastSelectedPlotSvg = activeSvgs[activeSvgs.length - 1] || null
   }
 
   return deletedAny
@@ -1137,8 +1171,54 @@ export function recalculateBaseScale(
   }
 }
 
-export function clearPlotScale(target: 'all' | 'x' | 'y' = 'all'): void {
-  for (const svg of activeSvgs) {
+export function getTargetPlotSvgs(specificSvg?: SVGSVGElement | null): SVGSVGElement[] {
+  if (specificSvg && document.body.contains(specificSvg)) {
+    return [specificSvg]
+  }
+  const multiSelected = getMultiSelectedSvgs()
+  if (multiSelected.length > 0) {
+    return multiSelected
+  }
+  if (selectedPlotSvg && document.body.contains(selectedPlotSvg)) {
+    return [selectedPlotSvg]
+  }
+  const fallbackSvg = getSelectedPlotSvg()
+  if (fallbackSvg) {
+    return [fallbackSvg]
+  }
+  return []
+}
+
+export function hasIndependentUAxis(svg: SVGSVGElement): boolean {
+  const doc = svgSmpDocMap.get(svg)
+  if (!doc) return false
+  const common = doc.commonWithU !== false && doc.axisX.isCommon !== false && (!doc.axisTop || doc.axisTop.isCommon !== false)
+  return !common
+}
+
+export function hasIndependentRAxis(svg: SVGSVGElement): boolean {
+  const doc = svgSmpDocMap.get(svg)
+  if (!doc) return false
+  const common = doc.commonWithR !== false && doc.axisY.isCommon !== false && (!doc.axisRight || doc.axisRight.isCommon !== false)
+  return !common
+}
+
+export function canClearAxis(kind: 'u' | 'r', specificSvg?: SVGSVGElement | null): boolean {
+  const targets = getTargetPlotSvgs(specificSvg)
+  if (targets.length === 0) return false
+  const hasIndependent = kind === 'u' ? hasIndependentUAxis : hasIndependentRAxis
+  return targets.some((svg) => hasIndependent(svg))
+}
+
+export function clearPlotScale(
+  target: 'all' | 'x' | 'y' | 'u' | 'r' = 'all',
+  specificSvg?: SVGSVGElement | null
+): void {
+  const targetSvgs = getTargetPlotSvgs(specificSvg)
+
+  for (const svg of targetSvgs) {
+    const independentU = hasIndependentUAxis(svg)
+    const independentR = hasIndependentRAxis(svg)
     const datasets = svgDataMap.get(svg) || []
     const processed = datasets.map((ds) => getProcessedDataset(ds))
 
@@ -1200,14 +1280,32 @@ export function clearPlotScale(target: 'all' | 'x' | 'y' = 'all'): void {
           doc.axisRight.autoStep = true
         }
       }
+      if (target === 'u' && doc.axisTop && independentU) {
+        const reversed = doc.axisTop.min > doc.axisTop.max
+        doc.axisTop.min = reversed ? xMax : xMin
+        doc.axisTop.max = reversed ? xMin : xMax
+        doc.axisTop.autoStep = true
+        const autoU = computeAutoStep(xMin, xMax)
+        doc.axisTop.step = autoU.increment
+        doc.axisTop.subDivs = autoU.division
+      }
+      if (target === 'r' && doc.axisRight && independentR) {
+        const reversed = doc.axisRight.min > doc.axisRight.max
+        doc.axisRight.min = reversed ? yMax : yMin
+        doc.axisRight.max = reversed ? yMin : yMax
+        doc.axisRight.autoStep = true
+        const autoR = computeAutoStep(yMin, yMax)
+        doc.axisRight.step = autoR.increment
+        doc.axisRight.subDivs = autoR.division
+      }
     }
 
     const existing = svgBaseScaleMap.get(svg) || { xMin, xMax, yMin, yMax }
     if (target === 'all') {
       svgBaseScaleMap.set(svg, { xMin, xMax, yMin, yMax })
-    } else if (target === 'x') {
+    } else if (target === 'x' || (target === 'u' && independentU)) {
       svgBaseScaleMap.set(svg, { ...existing, xMin, xMax })
-    } else if (target === 'y') {
+    } else if (target === 'y' || (target === 'r' && independentR)) {
       svgBaseScaleMap.set(svg, { ...existing, yMin, yMax })
     }
 
@@ -2822,6 +2920,7 @@ export function clearAllPlots(graphArea: HTMLElement): void {
   globalDataManager.clearDatasets()
   setObjectSelection([])
   setSelectedPlotSvg(null)
+  lastSelectedPlotSvg = null
   selectedLegendIndex = -1
   selectedAnnotationIndex = -1
   boxCount = 0
@@ -2914,6 +3013,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   setupPlotFileDrop(svg)
 
   svg.addEventListener('click', (e: MouseEvent) => {
+    lastSelectedPlotSvg = svg
     if (e.target === svg || ((e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir'))) {
       if (selectedLegendIndex !== -1 || selectedAnnotationIndex !== -1) {
         selectedLegendIndex = -1
@@ -2924,6 +3024,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
+    lastSelectedPlotSvg = svg
     if (isTrimmingMode()) return
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')

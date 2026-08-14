@@ -16,6 +16,7 @@ import {
   getActiveDrag,
   getAllPlotSvgs,
   getPlotDatasets,
+  getPlotSvgFromElement,
   getSelectedPlotSvg,
   hitTestGraph,
   hitTestAxisArea,
@@ -258,6 +259,12 @@ if (menubarEl) {
       pushUndoState()
     } else if (action === 'clear_scale_y') {
       clearPlotScale('y')
+      pushUndoState()
+    } else if (action === 'clear_scale_u') {
+      clearPlotScale('u')
+      pushUndoState()
+    } else if (action === 'clear_scale_r') {
+      clearPlotScale('r')
       pushUndoState()
     } else if (action === 'open' || action === 'load' || action === 'open_data_file') {
       if (globalFileInput) globalFileInput.click()
@@ -601,7 +608,7 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
     return
   }
   const target = e.target as HTMLElement
-  const svg = target.closest('.plot-svg, .plot-overlay') as SVGSVGElement | null
+  const svg = getPlotSvgFromElement(target)
   if (!svg) return
   setObjectSelection([{ kind: 'plot', svg }])
   e.preventDefault()
