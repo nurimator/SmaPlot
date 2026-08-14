@@ -17,7 +17,24 @@ export function generateMarqueeSvg(
   masterSvg.setAttribute('viewBox', `${mLeft} ${mTop} ${mWidth} ${mHeight}`)
   masterSvg.setAttribute('width', `${Math.round(mWidth)}`)
   masterSvg.setAttribute('height', `${Math.round(mHeight)}`)
+  masterSvg.setAttribute('shape-rendering', 'crispEdges')
 
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+  styleEl.textContent = 'path, line, polyline, polygon, rect, circle, ellipse { shape-rendering: crispEdges; }'
+  defs.appendChild(styleEl)
+  masterSvg.appendChild(defs)
+
+  // Full-area transparent hit-test layer for Word, PowerPoint, and vector editors
+  const masterBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  masterBg.setAttribute('x', `${mLeft}`)
+  masterBg.setAttribute('y', `${mTop}`)
+  masterBg.setAttribute('width', `${Math.round(mWidth)}`)
+  masterBg.setAttribute('height', `${Math.round(mHeight)}`)
+  masterBg.setAttribute('fill', '#ffffff')
+  masterBg.setAttribute('fill-opacity', '0')
+  masterBg.setAttribute('pointer-events', 'all')
+  masterSvg.appendChild(masterBg)
 
   const plots = Array.from(graphAreaEl.querySelectorAll<SVGSVGElement>('.plot-svg'))
   plots.forEach((svg) => {
@@ -38,8 +55,28 @@ export function generateMarqueeSvg(
       clone.setAttribute('width', `${widthPx}`)
       clone.setAttribute('height', `${heightPx}`)
       clone.setAttribute('overflow', 'visible')
+      clone.setAttribute('shape-rendering', 'crispEdges')
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
+
+      // Transparent hit layer specifically covering the inside boxplot area
+      const margin = { l: 65, r: 25, t: 25, b: 55 }
+      const plotW = Math.max(10, widthPx - margin.l - margin.r)
+      const plotH = Math.max(10, heightPx - margin.t - margin.b)
+      const innerBoxBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      innerBoxBg.setAttribute('x', `${margin.l}`)
+      innerBoxBg.setAttribute('y', `${margin.t}`)
+      innerBoxBg.setAttribute('width', `${plotW}`)
+      innerBoxBg.setAttribute('height', `${plotH}`)
+      innerBoxBg.setAttribute('fill', '#ffffff')
+      innerBoxBg.setAttribute('fill-opacity', '0')
+      innerBoxBg.setAttribute('pointer-events', 'all')
+      clone.insertBefore(innerBoxBg, clone.firstChild)
+
+      const allShapes = clone.querySelectorAll('path, line, polyline, polygon, rect, circle, ellipse, g')
+      allShapes.forEach((s) => {
+        s.setAttribute('shape-rendering', 'crispEdges')
+      })
 
       const handles = clone.querySelectorAll('.handle, [data-dir]')
       handles.forEach((h) => h.remove())
