@@ -37,24 +37,54 @@
             File
             <div class="menu-dropdown">
               <div class="dropdown-item" data-action="new">New</div>
-              <div class="dropdown-item" data-action="open">Open...</div>
+              <div class="dropdown-item" data-action="delete">Delete</div>
+              <div class="dropdown-item" data-action="delete_all">Delete all<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="load">Load</div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="save">Save</div>
-              <div class="dropdown-item" data-action="save_as">Save As...</div>
-              <div class="dropdown-item" data-action="export_smp">Export SMP...</div>
+              <div class="dropdown-item" data-action="save_as">Save as..</div>
+              <div class="dropdown-item" data-action="save_all_graph">Save all graph as ...<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="save_as_default">Save as default<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="template">Template<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="print">Print<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="printer_setup">Printer setup<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="page_setup">Page setup<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="preview">Preview(V)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="export">Export<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div id="recentFilesSection" style="display: none;">
+                <div class="dropdown-separator"></div>
+                <div id="recentFilesList"></div>
+              </div>
             </div>
           </div>
           <div class="menu-item" data-menu="data">
             Data
             <div class="menu-dropdown">
-              <div class="dropdown-item" data-action="data_manager">Data Manager...</div>
+              <div class="dropdown-item" data-action="open_data_file">Open data file</div>
+              <div class="dropdown-item" data-action="close_data_file">Close data file<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="create_new_data">Create new data<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="update">Update<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="view_switch">View switch(D)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="edit_data_file">Edit data file<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="save_data">Save Data<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="read_value">Read Value</div>
+              <div class="dropdown-item" data-action="data_mask">Data Mask<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
             </div>
           </div>
           <div class="menu-item" data-menu="edit">
             Edit
             <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="copy_graph">Copy graph<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="paste_data">Paste data<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="undo">Undo</div>
               <div class="dropdown-item" data-action="redo">Redo</div>
+              <div class="dropdown-item" data-action="cut">Cut<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="copy">Copy<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="paste">Paste<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="delete">Delete</div>
             </div>
@@ -62,28 +92,84 @@
           <div class="menu-item" data-menu="graph">
             Graph
             <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="x_axis">X-Axis</div>
+              <div class="dropdown-item" data-action="y_axis">Y-Axis</div>
+              <div class="dropdown-item" data-action="u_axis">U-Axis</div>
+              <div class="dropdown-item" data-action="r_axis">R-Axis</div>
+              <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="clear_all_scale">Clear All Scale</div>
-              <div class="dropdown-item has-submenu" data-action="clear_scale">
+              <div class="dropdown-item has-submenu">
                 <span>Clear Scale</span>
-                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
                 <div class="menu-submenu">
-                  <div class="dropdown-item" data-action="clear_scale_x">X axis</div>
-                  <div class="dropdown-item" data-action="clear_scale_y">Y axis</div>
+                  <div class="dropdown-item" data-action="clear_scale_all">All</div>
+                  <div class="dropdown-item" data-action="clear_scale_x">X-axis</div>
+                  <div class="dropdown-item" data-action="clear_scale_y">Y-axis</div>
+                  <div class="dropdown-item" data-action="clear_scale_u">U-axis<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+                  <div class="dropdown-item" data-action="clear_scale_r">R-axis<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
                 </div>
               </div>
               <div class="dropdown-separator"></div>
-              <div class="dropdown-item" data-action="property">Property...</div>
+              <div class="dropdown-item" data-action="trimming">Trimming</div>
+              <div class="dropdown-item" data-action="frame">Frame</div>
+              <div class="dropdown-item" data-action="zoom_rate">Zoom rate<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="display_all">Display All<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="display_one">Display One<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
             </div>
           </div>
           <div class="menu-item" data-menu="insert">
             Insert
             <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="x_axis_title">X-axis title</div>
+              <div class="dropdown-item" data-action="y_axis_title">Y-axis title</div>
+              <div class="dropdown-item" data-action="u_axis_title">U-axis title</div>
+              <div class="dropdown-item" data-action="r_axis_title">R-axis title</div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="strings">Strings</div>
+              <div class="dropdown-item" data-action="paste_clipboard">Paste from clipboard<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="insert_legend">Insert Legend...</div>
+              <div class="dropdown-item" data-action="justification">Justification<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="arrow">Arrow</div>
+              <div class="dropdown-item" data-action="dot">Dot<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="rectangle">Rectangle</div>
+              <div class="dropdown-item" data-action="figure">Figure<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="order">Order<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
             </div>
           </div>
-          <div class="menu-item" data-menu="analyze">Analyze</div>
-          <div class="menu-item" data-menu="option">Option</div>
-          <div class="menu-item" data-menu="help">Help</div>
+          <div class="menu-item" data-menu="analyze">
+            Analyze
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="ls">LS<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="least_square_fit">Least square fit<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="spline">Spline<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="extension">Extension<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="one_more">One more...<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="analyze_clear">Clear<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="function_a">Function(A)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="setup_constants">Setup constant values(P)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-separator"></div>
+              <div class="dropdown-item" data-action="copy_clipboard">Copy to Clipboard<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+            </div>
+          </div>
+          <div class="menu-item" data-menu="option">
+            Option
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="setup">Setup</div>
+              <div class="dropdown-item" data-action="arithmetic">Arithmetic operation<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="macro">Macro<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="registration">Registration<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+            </div>
+          </div>
+          <div class="menu-item" data-menu="help">
+            Help
+            <div class="menu-dropdown">
+              <div class="dropdown-item" data-action="help">Help<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="about">About Sma4Win<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+            </div>
+          </div>
         </nav>
 
         <!-- Toolbar -->

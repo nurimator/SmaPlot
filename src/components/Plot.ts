@@ -1867,6 +1867,7 @@ export function drawPlot(
     if (xLbl) {
       smpDoc.legendItems.push({
         type: 'text',
+        legendType: 4,
         text: xLbl,
         rawText: xLbl,
         xNorm: 2400,
@@ -1880,6 +1881,7 @@ export function drawPlot(
     if (yLbl) {
       smpDoc.legendItems.push({
         type: 'text',
+        legendType: 5,
         text: yLbl,
         rawText: yLbl,
         xNorm: -400,
@@ -2056,19 +2058,33 @@ export function drawPlot(
             }
           }
 
-          // Draw legend text next to icon
-          const legTxt = createSVGElement('text')
-          legTxt.setAttribute('x', String(renderPx + 22))
-          legTxt.setAttribute('y', String(legY + 3.5))
-          legTxt.setAttribute('font-size', '10')
-          legTxt.setAttribute('font-family', item.fontFamily || 'Times New Roman, serif')
-          legTxt.setAttribute('font-weight', String(item.fontWeight))
-          legTxt.setAttribute('fill', '#000000')
-          legTxt.textContent = labelText
-          legTxt.style.cursor = isSelected ? 'move' : 'pointer'
-          legTxt.addEventListener('mousedown', handleLegendMouseDown)
-          legTxt.addEventListener('dblclick', openTitleModal)
-          svg.appendChild(legTxt)
+          // Draw legend text next to icon (foreignObject + renderSmpTextToHtml so
+          // ^...@ superscripts, _...@ subscripts, %I/%K styles and symbol codes render)
+          const legStr = renderSmpTextToHtml(labelText)
+          const legFontSz = 10
+          const legCorrection = Math.max(1, Math.round(legFontSz * 0.15))
+          const legFo = createSVGElement('foreignObject')
+          legFo.setAttribute('x', String(renderPx + 22))
+          legFo.setAttribute('y', String(legY + 3.5 - legFontSz - legCorrection))
+          legFo.setAttribute('width', '600')
+          legFo.setAttribute('height', '400')
+          legFo.style.overflow = 'visible'
+          legFo.style.cursor = isSelected ? 'move' : 'pointer'
+
+          const legContainer = document.createElement('div')
+          legContainer.className = 'smp-latex-item'
+          legContainer.style.fontSize = `${legFontSz}px`
+          legContainer.style.fontFamily = item.fontFamily || 'Times New Roman, serif'
+          legContainer.style.fontWeight = String(item.fontWeight)
+          legContainer.style.color = '#000000'
+          legContainer.style.display = 'inline-block'
+          legContainer.style.userSelect = 'none'
+          legContainer.style.cursor = isSelected ? 'move' : 'pointer'
+          legContainer.innerHTML = legStr
+          legContainer.addEventListener('mousedown', handleLegendMouseDown)
+          legContainer.addEventListener('dblclick', openTitleModal)
+          legFo.appendChild(legContainer)
+          svg.appendChild(legFo)
 
           legY += 11
         })

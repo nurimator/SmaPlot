@@ -6,6 +6,21 @@ import { pushUndoState } from '../utils/undoManager.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentItemIndex: number = -1
+let currentPreset: TitlePreset | null = null
+
+/** Predefined position/rotation/font for a newly inserted legend text item (e.g. axis titles). */
+export interface TitlePreset {
+  /** Sma4Win legend item type: 4=X-axis title, 5=Y-axis title, 6=U-axis title, 7=R-axis title */
+  legendType?: number
+  /** Stored rotation in degrees (-90 for vertical axis titles) */
+  rotation: number
+  /** Horizontal position in mm (xNorm = posX * 100) */
+  posX: number
+  /** Vertical position in mm (yNorm = posY * 100) */
+  posY: number
+  fontSize: number
+  fontFamily?: string
+}
 
 const autoGrowTextarea = (el: HTMLTextAreaElement | null) => {
   if (!el) return
@@ -75,6 +90,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     } else {
       const newItem: SmpLegendItem = {
         type: 'text',
+        legendType: currentPreset?.legendType,
         text,
         rawText,
         rotation,
@@ -244,10 +260,12 @@ export function showTitleDialog(
   overlayEl: HTMLElement,
   itemIndex: number = -1,
   targetSvg?: SVGSVGElement | null,
-  initialText?: string
+  initialText?: string,
+  preset?: TitlePreset
 ): void {
   currentTargetSvg = targetSvg || getSelectedPlotSvg()
   currentItemIndex = itemIndex
+  currentPreset = preset || null
 
   const svg = currentTargetSvg
   if (svg) {
@@ -313,11 +331,37 @@ export function showTitleDialog(
       const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"][value="left"]')
 
       if (strEl) strEl.value = initialText || ''
-      if (rotEl) rotEl.value = '0'
-      if (posXEl) posXEl.value = '24'
-      if (posYEl) posYEl.value = '-5'
-      if (sizeEl) sizeEl.value = '16'
-      if (fontEl) fontEl.value = 'Times New Roman'
+      if (rotEl) {
+        const rotVal = preset ? (preset.rotation === -90 || preset.rotation === 270 ? '90' : String(preset.rotation)) : '0'
+        rotEl.value = rotVal
+      }
+      if (posXEl) posXEl.value = String(preset ? preset.posX : 24)
+      if (posYEl) posYEl.value = String(preset ? preset.posY : -5)
+
+      const presetSize = preset ? String(preset.fontSize) : '16'
+      if (sizeEl) {
+        const hasOption = Array.from(sizeEl.options).some((o) => o.value === presetSize)
+        if (!hasOption) {
+          const opt = document.createElement('option')
+          opt.value = presetSize
+          opt.textContent = presetSize
+          sizeEl.appendChild(opt)
+        }
+        sizeEl.value = presetSize
+      }
+
+      const presetFont = preset?.fontFamily || 'Times New Roman'
+      if (fontEl) {
+        const hasOption = Array.from(fontEl.options).some((o) => o.value === presetFont)
+        if (!hasOption) {
+          const opt = document.createElement('option')
+          opt.value = presetFont
+          opt.textContent = presetFont
+          fontEl.appendChild(opt)
+        }
+        fontEl.value = presetFont
+      }
+
       if (styleEl) styleEl.value = 'Regular'
       if (alignRadio) alignRadio.checked = true
     }
@@ -341,6 +385,7 @@ export function showTitleDialog(
 }
 
 export function hideTitleDialog(overlayEl: HTMLElement): void {
+  currentPreset = null
   const symbolPanel = overlayEl.querySelector<HTMLElement>('#titleSymbolPanel')
   if (symbolPanel) symbolPanel.style.display = 'none'
   overlayEl.style.display = 'none'

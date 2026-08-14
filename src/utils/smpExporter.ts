@@ -151,6 +151,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     if (doc.xLabel) {
       legendItems.push({
         type: 'text',
+        legendType: 4,
         text: doc.xLabel,
         rawText: doc.xLabel,
         xNorm: 2400,
@@ -164,6 +165,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     if (doc.yLabel) {
       legendItems.push({
         type: 'text',
+        legendType: 5,
         text: doc.yLabel,
         rawText: doc.yLabel,
         xNorm: -400,
@@ -249,7 +251,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       lines.push('')
     } else if (entry.item) {
       const item = entry.item
-      lines.push('8')
+      lines.push(String(item.legendType ?? 8))
       lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} 0 1 0 0`)
       // `text` is the canonical Unicode form. `rawText` is kept for rendering
       // parsed files and may already contain the SMP-encoded representation;

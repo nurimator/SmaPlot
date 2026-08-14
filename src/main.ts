@@ -38,12 +38,14 @@ import {
 } from './components/DataManager.ts'
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
+import type { TitlePreset } from './components/TitleDialog.ts'
 import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initReadValueDialog, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
+import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')!
 const menubarEl = document.querySelector<HTMLElement>('.menubar')!
@@ -145,39 +147,23 @@ async function handleInsertLegend(): Promise<void> {
   })
 }
 
-if (menubarEl) {
-  initMenubar(menubarEl, async (action) => {
-    if (action === 'undo') {
-      undo(graphAreaEl)
-    } else if (action === 'redo') {
-      redo(graphAreaEl)
-    } else if (action === 'delete') {
-      if (deleteSelectedObjects()) pushUndoState()
-    } else if (action === 'data' || action === 'data_manager') {
-      showDataManagerDialog(dmOverlayEl)
-    } else if (action === 'clear_all_scale') {
-      clearPlotScale('all')
-      pushUndoState()
-    } else if (action === 'clear_scale_x') {
-      clearPlotScale('x')
-      pushUndoState()
-    } else if (action === 'clear_scale_y') {
-      clearPlotScale('y')
-      pushUndoState()
-    } else if (action === 'open') {
-      if (globalFileInput) globalFileInput.click()
-    } else if (['save', 'save_as', 'export_smp'].includes(action)) {
-      handleSaveProject()
-    } else if (action === 'text' || action === 'title') {
-      showTitleDialog(titleOverlayEl)
-    } else if (action === 'new') {
-      await handleNewProject()
-    } else if (action === 'insert_legend') {
-      await handleInsertLegend()
-    } else if (['graph', 'property', 'option', 'analyze', 'edit'].includes(action)) {
-      showPropertyDialog(propOverlayEl)
-    }
-  })
+// Insert > X/Y/U/R-axis title: identical to Insert > Strings — a plain legend
+// text item. The only difference is the predetermined initial state (position,
+// rotation, size, legendType). Afterwards it is a fully editable title: the
+// user can move it, change its properties, and reorient it freely.
+function openAxisTitleDialog(axis: 'x' | 'y' | 'u' | 'r'): void {
+  const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
+  if (!svg) {
+    alert('No plot available in workspace.')
+    return
+  }
+  const presets: Record<'x' | 'y' | 'u' | 'r', TitlePreset> = {
+    x: { legendType: 4, rotation: 0, posX: 0, posY: 115, fontSize: 24 },
+    y: { legendType: 5, rotation: -90, posX: -12, posY: 100, fontSize: 24 },
+    u: { legendType: 6, rotation: 0, posX: 0, posY: -15, fontSize: 24 },
+    r: { legendType: 7, rotation: -90, posX: 115, posY: 100, fontSize: 24 },
+  }
+  showTitleDialog(titleOverlayEl, -1, svg, '', presets[axis])
 }
 
 let trimmingActive = false
@@ -191,13 +177,144 @@ const exitTrimMode = () => {
   graphAreaEl.classList.remove('trimming-mode')
 }
 
+const toggleTrimMode = () => {
+  trimmingActive = !trimmingActive
+  setTrimmingMode(trimmingActive)
+  trimBtn?.classList.toggle('active', trimmingActive)
+  graphAreaEl.classList.toggle('trimming-mode', trimmingActive)
+}
+
+function updateRecentFilesMenu(): void {
+  const section = document.querySelector<HTMLElement>('#recentFilesSection')
+  const list = document.querySelector<HTMLElement>('#recentFilesList')
+  if (!section || !list) return
+  list.replaceChildren()
+  const recents = getRecentFiles()
+  if (recents.length === 0) {
+    section.style.display = 'none'
+    return
+  }
+  section.style.display = ''
+  recents.slice(0, 5).forEach((recent, i) => {
+    const item = document.createElement('div')
+    item.className = 'dropdown-item'
+    item.dataset.action = `recent_${i}`
+    item.textContent = `${i + 1}:${recent.name}`
+    list.appendChild(item)
+  })
+}
+
+function handleReadValue(): void {
+  const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
+  if (!svg) {
+    alert('No plot available in workspace.')
+    return
+  }
+  const datasets = getPlotDatasets(svg)
+  if (datasets.length === 1) {
+    showReadValueDialog(readValueOverlayEl, svg, datasets[0])
+  } else if (datasets.length > 1) {
+    showDataManagerDialog(dmOverlayEl, (fileName) => {
+      const chosen =
+        datasets.find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName) ||
+        datasets[0]
+      showReadValueDialog(readValueOverlayEl, svg, chosen)
+    })
+  } else {
+    if (globalDataManager.getDatasets().length > 0) {
+      showDataManagerDialog(dmOverlayEl, (fileName) => {
+        const globalDs = globalDataManager
+          .getDatasets()
+          .find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName)
+        if (globalDs) {
+          addDatasetToPlot(svg, globalDs)
+          showReadValueDialog(readValueOverlayEl, svg, globalDs)
+        }
+      })
+    } else {
+      alert('No data loaded in selected plot.')
+    }
+  }
+}
+
+if (menubarEl) {
+  initMenubar(menubarEl, async (action) => {
+    if (action === 'undo') {
+      undo(graphAreaEl)
+    } else if (action === 'redo') {
+      redo(graphAreaEl)
+    } else if (action === 'delete') {
+      if (deleteSelectedObjects()) pushUndoState()
+    } else if (action === 'delete_all') {
+      clearAllPlots(graphAreaEl)
+      pushUndoState()
+    } else if (action === 'data' || action === 'data_manager') {
+      showDataManagerDialog(dmOverlayEl)
+    } else if (action === 'clear_all_scale' || action === 'clear_scale_all') {
+      clearPlotScale('all')
+      pushUndoState()
+    } else if (action === 'clear_scale_x') {
+      clearPlotScale('x')
+      pushUndoState()
+    } else if (action === 'clear_scale_y') {
+      clearPlotScale('y')
+      pushUndoState()
+    } else if (action === 'open' || action === 'load' || action === 'open_data_file') {
+      if (globalFileInput) globalFileInput.click()
+    } else if (['save', 'save_as', 'export_smp'].includes(action)) {
+      handleSaveProject()
+    } else if (action === 'x_axis_title') {
+      openAxisTitleDialog('x')
+    } else if (action === 'y_axis_title') {
+      openAxisTitleDialog('y')
+    } else if (action === 'u_axis_title') {
+      openAxisTitleDialog('u')
+    } else if (action === 'r_axis_title') {
+      openAxisTitleDialog('r')
+    } else if (action === 'strings') {
+      showTitleDialog(titleOverlayEl)
+    } else if (action === 'new') {
+      await handleNewProject()
+    } else if (action === 'insert_legend') {
+      await handleInsertLegend()
+    } else if (action === 'x_axis') {
+      showAxisDialog(axisOverlayEl, 'x')
+    } else if (action === 'y_axis') {
+      showAxisDialog(axisOverlayEl, 'y')
+    } else if (action === 'u_axis') {
+      showAxisDialog(axisOverlayEl, 'u')
+    } else if (action === 'r_axis') {
+      showAxisDialog(axisOverlayEl, 'r')
+    } else if (action === 'trimming') {
+      toggleTrimMode()
+    } else if (action === 'arrow') {
+      showArrowDialog(arrowOverlayEl)
+    } else if (action === 'rectangle') {
+      showRectangleDialog(rectOverlayEl)
+    } else if (action === 'read_value') {
+      handleReadValue()
+    } else if (action.startsWith('recent_')) {
+      const index = Number(action.slice('recent_'.length))
+      const recent = getRecentFiles()[index]
+      if (!recent) return
+      if (!recent.content) {
+        alert(`The local copy of "${recent.name}" is not available.`)
+        return
+      }
+      await loadSmpProject(graphAreaEl, recent.content, recent.name)
+      addRecentFile(recent.name, recent.content)
+      updateRecentFilesMenu()
+      pushUndoState()
+    } else if (action === 'property' || action === 'setup' || action === 'frame') {
+      showPropertyDialog(propOverlayEl)
+    }
+  })
+}
+
 if (toolbarEl) {
   initToolbar(toolbarEl, async (action, title) => {
     if (action === 'trimming') {
-      trimmingActive = !trimmingActive
-      setTrimmingMode(trimmingActive)
-      trimBtn?.classList.toggle('active', trimmingActive)
-      graphAreaEl.classList.toggle('trimming-mode', trimmingActive)
+      toggleTrimMode()
       return
     }
 
@@ -225,36 +342,7 @@ if (toolbarEl) {
     } else if (action === 'chart' || title === 'Chart') {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
-      const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
-      if (!svg) {
-        alert('No plot available in workspace.')
-        return
-      }
-      const datasets = getPlotDatasets(svg)
-      if (datasets.length === 1) {
-        showReadValueDialog(readValueOverlayEl, svg, datasets[0])
-      } else if (datasets.length > 1) {
-        showDataManagerDialog(dmOverlayEl, (fileName) => {
-          const chosen =
-            datasets.find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName) ||
-            datasets[0]
-          showReadValueDialog(readValueOverlayEl, svg, chosen)
-        })
-      } else {
-        if (globalDataManager.getDatasets().length > 0) {
-          showDataManagerDialog(dmOverlayEl, (fileName) => {
-            const globalDs = globalDataManager
-              .getDatasets()
-              .find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName)
-            if (globalDs) {
-              addDatasetToPlot(svg, globalDs)
-              showReadValueDialog(readValueOverlayEl, svg, globalDs)
-            }
-          })
-        } else {
-          alert('No data loaded in selected plot.')
-        }
-      }
+      handleReadValue()
     }
   })
 }
@@ -275,6 +363,8 @@ if (globalFileInput) {
           const content = evt.target?.result as string
           if (content) {
             await loadSmpProject(graphAreaEl, content, file.name)
+            addRecentFile(file.name, content)
+            updateRecentFilesMenu()
             pushUndoState()
           }
         }
@@ -442,6 +532,7 @@ async function initApp() {
       const buffer = await res.arrayBuffer()
       const text = new TextDecoder('windows-1252').decode(buffer)
       await loadSmpProject(graphAreaEl, text, 'FTIR.SMP')
+      addRecentFile('FTIR.SMP', text)
     } else {
       await createPlot(graphAreaEl, 40, 40, [])
     }
@@ -449,6 +540,7 @@ async function initApp() {
     console.error('Could not load default FTIR.SMP project:', err)
     await createPlot(graphAreaEl, 40, 40, [])
   }
+  updateRecentFilesMenu()
   pushUndoState()
 }
 
@@ -477,6 +569,8 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
         const content = evt.target?.result as string
         if (content) {
           await loadSmpProject(graphAreaEl, content, file.name)
+          addRecentFile(file.name, content)
+          updateRecentFilesMenu()
           pushUndoState()
         }
       }

@@ -228,6 +228,51 @@ body {
   margin: 3px 0;
 }
 
+/* "coming soon" marker for menu items without an implemented feature */
+.dropdown-item:has(.menu-soon-icon) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-soon-icon {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+  flex-shrink: 0;
+  cursor: help;
+  color: var(--amber-500, #f59e0b);
+}
+
+.menu-soon-icon .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.menu-soon-icon::after {
+  content: "coming soon";
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 300;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.menu-soon-icon:hover::after {
+  opacity: 1;
+}
+
 /* ===== Toolbar ===== */
 .toolbar {
   display: flex;

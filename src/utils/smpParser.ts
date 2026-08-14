@@ -200,6 +200,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       if (line.startsWith('[') && line.endsWith(']')) {
         currentSection = line.slice(1, -1).trim()
         i++
+        // The first line after [LEGEND] is the item count (may collide with a
+        // legend item type line, e.g. count "4" vs type 4 = X-axis title).
+        if (currentSection === 'LEGEND' && i < docLines.length && /^\d+$/.test(docLines[i].trim())) {
+          i++
+        }
         continue
       }
 
@@ -411,7 +416,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       }
 
       if (currentSection === 'LEGEND') {
-        if (line === '8') {
+        if (line === '4' || line === '5' || line === '6' || line === '7' || line === '8') {
+          const legendType = parseInt(line, 10)
           i++
           if (i < docLines.length) {
             const posParts = docLines[i].trim().split(/\s+/)
@@ -439,24 +445,29 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               }
               let fontFamily = 'Times New Roman'
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-                fontFamily = docLines[i].trim() || 'Times New Roman'
+                // Strip Sma4Win style suffix (e.g. "Times New Roman TUR" -> "Times New Roman")
+                fontFamily = docLines[i].trim().replace(/\s+[A-Z]{2,4}$/, '') || 'Times New Roman'
                 i++
               }
-              // Skip remaining font spec 2 & 3 lines for item 8 (4 lines total: spec2, name2, spec3, name3)
+              // Skip remaining font spec 2 & 3 lines for text items (4 lines total: spec2, name2, spec3, name3)
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) i++
-              if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 8
+              if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item
 
-              if (txt.toLowerCase().includes('wavenumber') || txt.toLowerCase().includes('2 theta') || txt.toLowerCase().includes('wavelength')) {
-                xLabel = txt.replace('cm^-1', 'cm⁻¹')
-              } else if (txt.toLowerCase().includes('transmitance') || txt.toLowerCase().includes('transmittance') || txt.toLowerCase().includes('intensity') || txt.toLowerCase().includes('absorbance')) {
+              // Native legend item types: 4=X-axis title, 5=Y-axis title.
+              // Superscripts/subscripts (^...@ / _...@) are NOT converted here;
+              // they render via renderSmpTextToHtml in the plot layer.
+              if (legendType === 4) {
+                xLabel = txt
+              } else if (legendType === 5) {
                 yLabel = txt
               }
 
               legendItems.push({
                 type: 'text',
+                legendType,
                 text: txt,
                 rawText: rawTxt,
                 xNorm,

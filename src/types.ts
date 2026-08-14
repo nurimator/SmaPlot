@@ -18,6 +18,8 @@ export interface Dataset {
 
 export interface SmpLegendItem {
   type?: 'text' | 'annotation'
+  /** Sma4Win legend item type: 4=X-axis title, 5=Y-axis title, 6=U-axis title, 7=R-axis title, 8=string */
+  legendType?: number
   text: string
   rawText?: string
   xNorm: number
