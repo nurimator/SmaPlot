@@ -494,6 +494,42 @@ export function downloadFile(content: string, fileName: string, mimeType = 'text
   URL.revokeObjectURL(url)
 }
 
+export async function saveFileWithPicker(
+  content: string,
+  suggestedName: string
+): Promise<string | null | undefined> {
+  if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as unknown as {
+        showSaveFilePicker: (options: unknown) => Promise<FileSystemFileHandle>
+      }).showSaveFilePicker({
+        suggestedName,
+        types: [
+          {
+            description: 'Sma4Win Project (*.SMP)',
+            accept: {
+              'application/octet-stream': ['.smp', '.SMP'],
+              'text/plain': ['.smp', '.SMP'],
+            },
+          },
+        ],
+      })
+      const writable = await handle.createWritable()
+      const data = encodeWindows1252(content)
+      await writable.write(data)
+      await writable.close()
+      return handle.name || suggestedName
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // User cancelled the native save dialog
+        return null
+      }
+      console.warn('Native showSaveFilePicker failed:', err)
+    }
+  }
+  return undefined
+}
+
 // SMP files use Windows-1252 bytes. The symbol mapper returns a JavaScript
 // string whose characters represent those decoded bytes, so it must be
 // encoded explicitly before passing it to Blob (which otherwise uses UTF-8).

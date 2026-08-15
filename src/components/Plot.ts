@@ -2974,6 +2974,7 @@ export async function loadSmpProject(
   if (appTitleEl) {
     appTitleEl.textContent = `SmaPlot - ${fileName}`
   }
+  document.title = `SmaPlot - ${fileName}`
 
   return true
 }

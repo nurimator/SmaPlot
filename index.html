@@ -14,25 +14,19 @@
   </head>
   <body>
     <input type="file" id="globalFileInput" accept=".txt,.smp,.SMP" multiple style="display: none;" />
-    <div id="app">
-      <div class="app">
-        <!-- Title Bar -->
-        <header class="titlebar">
-          <div class="titlebar-left">
-              <div class="app-icon">
-                <span class="icon icon-chart-dots"></span>
-              </div>
-            <span class="app-title">SmaPlot - Untitled</span>
+    <div id="app" class="app">
+      <!-- Title Bar -->
+      <header class="titlebar">
+        <div class="titlebar-left">
+          <div class="app-icon">
+            <span class="icon icon-chart-dots"></span>
           </div>
-          <div class="window-controls">
-              <button class="window-btn" title="Minimize"><span class="icon icon-minus" style="width:14px;height:14px"></span></button>
-              <button class="window-btn" title="Maximize"><span class="icon icon-square" style="width:12px;height:12px"></span></button>
-              <button class="window-btn close" title="Close"><span class="icon icon-x" style="width:14px;height:14px"></span></button>
-          </div>
-        </header>
+          <span class="app-title">SmaPlot - Untitled</span>
+        </div>
+      </header>
 
-        <!-- Menu Bar -->
-        <nav class="menubar">
+      <!-- Menu Bar -->
+      <nav class="menubar">
           <div class="menu-item" data-menu="file">
             File
             <div class="menu-dropdown">
@@ -111,7 +105,7 @@
               </div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="trimming">Trimming</div>
-              <div class="dropdown-item" data-action="frame">Frame</div>
+              <div class="dropdown-item" data-action="frame">Frame<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="zoom_rate">Zoom rate<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="display_all">Display All<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
@@ -157,7 +151,7 @@
           <div class="menu-item" data-menu="option">
             Option
             <div class="menu-dropdown">
-              <div class="dropdown-item" data-action="setup">Setup</div>
+              <div class="dropdown-item" data-action="setup">Setup<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="arithmetic">Arithmetic operation<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="macro">Macro<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="registration">Registration<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
@@ -167,7 +161,7 @@
             Help
             <div class="menu-dropdown">
               <div class="dropdown-item" data-action="help">Help<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="about">About Sma4Win<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="about">About<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
             </div>
           </div>
         </nav>
@@ -1097,6 +1091,33 @@
           <button class="btn btn-primary" id="confirmSaveBtn">Save</button>
           <button class="btn btn-secondary" id="confirmDontSaveBtn">Don't Save</button>
           <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save As Project Modal -->
+    <div class="modal-overlay" id="saveAsOverlay" style="display: none;">
+      <div class="confirm-dialog" id="saveAsDialog" style="width: 400px;">
+        <div class="dialog-header">
+          <span class="dialog-title">Save As</span>
+          <button class="dialog-close-btn" id="closeSaveAsBtn" title="Close"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="confirm-body" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px;">
+          <div style="font-size: 12px; color: var(--slate-600); font-weight: 500;">File name:</div>
+          <input
+            type="text"
+            id="saveAsFileNameInput"
+            style="width: 100%; font-size: 13px; padding: 6px 10px; border: 1px solid var(--slate-300); border-radius: 4px; outline: none; font-family: var(--font-sans);"
+            placeholder="Project.SMP"
+          />
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--slate-500);">
+            <span>Save as type:</span>
+            <span style="font-weight: 500; color: var(--slate-700);">Sma4Win Project (*.SMP)</span>
+          </div>
+        </div>
+        <div class="confirm-footer" style="padding: 10px 18px; display: flex; justify-content: flex-end; gap: 8px; background: var(--slate-50); border-top: 1px solid var(--slate-200);">
+          <button class="btn btn-primary" id="saveAsConfirmBtn">Save</button>
+          <button class="btn btn-secondary" id="saveAsCancelBtn">Cancel</button>
         </div>
       </div>
     </div>

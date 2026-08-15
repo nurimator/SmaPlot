@@ -32,6 +32,7 @@ import {
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
 import { initConfirmDialog, showConfirmDialog } from './components/ConfirmDialog.ts'
+import { initSaveAsDialog, showSaveAsDialog } from './components/SaveAsDialog.ts'
 import {
   globalDataManager,
   initDataManagerDialog,
@@ -45,11 +46,11 @@ import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
-import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
+import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 
-const titlebarEl = document.querySelector<HTMLElement>('.titlebar')!
+const titlebarEl = document.querySelector<HTMLElement>('.titlebar')
 const menubarEl = document.querySelector<HTMLElement>('.menubar')!
 const toolbarEl = document.querySelector<HTMLElement>('.toolbar')!
 const graphAreaEl = document.querySelector<HTMLElement>('.graph-area')!
@@ -64,6 +65,9 @@ const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
+const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
+
+let currentProjectFileName = 'FTIR.SMP'
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
 if (workspaceEl && graphAreaEl) {
@@ -76,24 +80,81 @@ if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
+if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
 
-function handleSaveProject(): void {
+function handleSaveProject(customFileName?: string): void {
   const svgs = getAllPlotSvgs(graphAreaEl)
   if (svgs.length === 0) {
     alert('No plots available in workspace to export.')
     return
   }
 
+  const firstDocName = exportPlotToSmpDoc(svgs[0], 'PLOT1.SMP').name
+  const fallbackName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
+  const fileName = customFileName || currentProjectFileName || fallbackName
+
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
-  const firstDocName = docs[0]?.name
-  const fileName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
   downloadFile(content, fileName)
+
+  currentProjectFileName = fileName
+  addRecentFile(fileName, content)
+  updateRecentFilesMenu()
 
   const appTitleEl = document.querySelector<HTMLElement>('.app-title')
   if (appTitleEl) {
     appTitleEl.textContent = `SmaPlot - ${fileName}`
   }
+  document.title = `SmaPlot - ${fileName}`
+
+  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+  if (statusFileEl) {
+    statusFileEl.textContent = `1:${fileName}`
+  }
+}
+
+async function handleSaveAsProject(): Promise<void> {
+  const svgs = getAllPlotSvgs(graphAreaEl)
+  if (svgs.length === 0) {
+    alert('No plots available in workspace to export.')
+    return
+  }
+
+  const defaultName = currentProjectFileName || 'Project.SMP'
+  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
+  const content = serializeSmpProject(docs)
+
+  // Open native OS File Explorer save dialog (File System Access API)
+  const pickerResult = await saveFileWithPicker(content, defaultName)
+
+  if (pickerResult !== undefined) {
+    if (pickerResult === null) {
+      // User cancelled native explorer dialog
+      return
+    }
+    const fileName = pickerResult
+    currentProjectFileName = fileName
+    addRecentFile(fileName, content)
+    updateRecentFilesMenu()
+
+    const appTitleEl = document.querySelector<HTMLElement>('.app-title')
+    if (appTitleEl) {
+      appTitleEl.textContent = `SmaPlot - ${fileName}`
+    }
+    document.title = `SmaPlot - ${fileName}`
+
+    const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+    if (statusFileEl) {
+      statusFileEl.textContent = `1:${fileName}`
+    }
+    return
+  }
+
+  // Fallback for browsers that do not support File System Access API
+  const customName = await showSaveAsDialog(defaultName)
+  if (!customName) return
+
+  handleSaveProject(customName)
 }
 
 async function handleNewProject(): Promise<void> {
@@ -106,6 +167,7 @@ async function handleNewProject(): Promise<void> {
     if (choice === 'save') handleSaveProject()
   }
 
+  currentProjectFileName = 'Project.SMP'
   clearAllPlots(graphAreaEl)
   await createPlot(graphAreaEl, 40, 40, [])
 
@@ -113,6 +175,7 @@ async function handleNewProject(): Promise<void> {
   if (appTitleEl) {
     appTitleEl.textContent = 'SmaPlot - Untitled'
   }
+  document.title = 'SmaPlot - Untitled'
 
   const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
   if (statusFileEl) {
@@ -269,8 +332,10 @@ if (menubarEl) {
       pushUndoState()
     } else if (action === 'open' || action === 'load' || action === 'open_data_file') {
       if (globalFileInput) globalFileInput.click()
-    } else if (['save', 'save_as', 'export_smp'].includes(action)) {
+    } else if (action === 'save') {
       handleSaveProject()
+    } else if (action === 'save_as' || action === 'export_smp') {
+      await handleSaveAsProject()
     } else if (action === 'x_axis_title') {
       openAxisTitleDialog('x')
     } else if (action === 'y_axis_title') {
@@ -314,10 +379,11 @@ if (menubarEl) {
         return
       }
       await loadSmpProject(graphAreaEl, recent.content, recent.name)
+      currentProjectFileName = recent.name
       addRecentFile(recent.name, recent.content)
       updateRecentFilesMenu()
       pushUndoState()
-    } else if (action === 'property' || action === 'setup' || action === 'frame') {
+    } else if (action === 'property') {
       showPropertyDialog(propOverlayEl)
     }
   })
@@ -379,6 +445,7 @@ if (globalFileInput) {
           const content = evt.target?.result as string
           if (content) {
             await loadSmpProject(graphAreaEl, content, file.name)
+            currentProjectFileName = file.name
             addRecentFile(file.name, content)
             updateRecentFilesMenu()
             pushUndoState()
@@ -587,6 +654,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
         const content = evt.target?.result as string
         if (content) {
           await loadSmpProject(graphAreaEl, content, file.name)
+          currentProjectFileName = file.name
           addRecentFile(file.name, content)
           updateRecentFilesMenu()
           pushUndoState()
@@ -659,7 +727,11 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     redo(graphAreaEl)
   } else if (isCtrlOrCmd && key === 's') {
     e.preventDefault()
-    handleSaveProject()
+    if (e.shiftKey) {
+      handleSaveAsProject()
+    } else {
+      handleSaveProject()
+    }
   } else if (isCtrlOrCmd && key === 'o') {
     e.preventDefault()
     if (globalFileInput) globalFileInput.click()

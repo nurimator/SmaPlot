@@ -1,4 +1,5 @@
-export function initTitlebar(container: HTMLElement): void {
+export function initTitlebar(container?: HTMLElement | null): void {
+  if (!container) return
   const minimizeBtn = container.querySelector<HTMLButtonElement>('[title="Minimize"]')
   const maximizeBtn = container.querySelector<HTMLButtonElement>('[title="Maximize"]')
   const closeBtn = container.querySelector<HTMLButtonElement>('[title="Close"]')
