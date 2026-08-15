@@ -110,7 +110,8 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const xExpr = ds.options?.xExpr || 'x'
   const yExpr = ds.options?.yExpr || 'y'
   const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
-  const stylePrefix = ds.smpSeriesStylePrefix || 60
+  const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
+  const stylePrefix = Math.round(widthMm * 100)
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
@@ -158,8 +159,17 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const width = Math.round(doc.width || DEFAULT_PLOT_GEOM.width)
   const height = Math.round(doc.height || DEFAULT_PLOT_GEOM.height)
   lines.push(`${left} ${top} ${width} ${height}`)
-  lines.push(GRAPH_FIXED_1)
-  lines.push(GRAPH_FIXED_2)
+  lines.push(doc.graphFixed1 || GRAPH_FIXED_1)
+  if (doc.graphFixed2 && !doc.frameWidth && !doc.frameColor) {
+    lines.push(doc.graphFixed2)
+  } else if (doc.frameWidth === undefined && doc.frameColor === undefined && doc.frameBgColor === undefined) {
+    lines.push(GRAPH_FIXED_2)
+  } else {
+    const fw = Math.round((doc.frameWidth ?? 0.4) * 100)
+    const fc = hexToBgr(doc.frameColor || COLOR_BLACK_HEX)
+    const bg = hexToBgr(doc.frameBgColor || COLOR_FACE_HEX)
+    lines.push(`${fw} ${fc} 300 ${bg}`)
+  }
   lines.push('')
 
   // AXIS Sections
@@ -320,15 +330,20 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     }
   })
 
-  // Add any annotationLines that are rectangles and not yet in exportList
+  // Add any annotationLines that are not yet in exportList
   const annotationLines = doc.annotationLines || []
   annotationLines.forEach((aLine) => {
-    if (aLine.shape === 'rectangle' || aLine.shape === 'rect') {
-      const alreadyExported = exportList.some(
-        (e) => e.isRect && e.item && e.item.xNorm === aLine.x1Norm && e.item.yNorm === aLine.y1Norm
-      )
-      if (!alreadyExported) {
+    const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
+    const alreadyExported = exportList.some(
+      (e) => (e.isRect === isRect || e.isLine === !isRect) &&
+        ((e.item && e.item.xNorm === aLine.x1Norm && e.item.yNorm === aLine.y1Norm) ||
+         (e.aLine && e.aLine.x1Norm === aLine.x1Norm && e.aLine.y1Norm === aLine.y1Norm))
+    )
+    if (!alreadyExported) {
+      if (isRect) {
         exportList.push({ isRect: true, aLine })
+      } else {
+        exportList.push({ isLine: true, aLine })
       }
     }
   })
@@ -362,17 +377,37 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
       }
       lines.push('')
-    } else if (entry.isLine && entry.item) {
+    } else if (entry.isLine) {
+      const aLine = entry.aLine
       const item = entry.item
-      lines.push('0')
-      if (item.rawLine) {
+      const itemType = aLine?.rawType || (aLine?.shape === 'dimension' ? '2' : '0')
+      lines.push(itemType)
+      if (aLine?.rawLineStr) {
+        lines.push(aLine.rawLineStr)
+      } else if (item?.rawLine) {
         lines.push(item.rawLine)
-      } else {
+      } else if (aLine) {
+        const x1Str = formatFloatSci(aLine.x1Norm)
+        const y1Str = formatFloatSci(aLine.y1Norm)
+        const x2Str = formatFloatSci(aLine.x2Norm)
+        const y2Str = formatFloatSci(aLine.y2Norm)
+        const unitXCode = aLine.unitX === 'xa' ? 1 : aLine.unitX === 'ua' ? 2 : 0
+        const unitYCode = aLine.unitY === 'ya' ? 1 : aLine.unitY === 'ra' ? 2 : (aLine.shape === 'dimension' || aLine.rawType === '2' ? 2 : 0)
+        const widthCode = Math.round((aLine.width ?? 0.4) * 100)
+        const headCode = Math.round((aLine.arrowhead ?? 5.0) * 100)
+        const colorCode = hexToBgr(aLine.color || '#000000')
+        const styleCode = aLine.style === 'dashed' ? 2 : aLine.style === 'dotted' ? 3 : 1
+        const faceCode = hexToBgr(aLine.faceColor || '#ffffff')
+        const modeCode = aLine.arrowMode !== undefined ? aLine.arrowMode : (aLine.shape === 'arrow_start' ? 2 : aLine.shape === 'arrow_both' ? 3 : aLine.shape === 'line' || aLine.shape === 'dimension' ? 0 : 1)
+        const spreadCode = Math.round(aLine.spread ?? 30)
+        const shutCode = Math.round(aLine.shut ?? 100)
+        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} 0 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`)
+      } else if (item) {
         const x1Str = formatFloatSci(item.xNorm)
         const y1Str = formatFloatSci(item.yNorm)
         const x2Str = formatFloatSci(item.x2Norm ?? 0)
         const y2Str = formatFloatSci(item.y2Norm ?? 0)
-        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 50 0 0 300 2 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
+        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 500 0 0 300 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
       }
       lines.push('')
     } else if (entry.item) {

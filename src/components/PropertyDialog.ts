@@ -57,7 +57,7 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
       paintColor: paintColor?.value,
       lineColor: lineColor?.value,
       size: parseInt(sizeInput?.value || '3', 10),
-      width: parseInt(widthInput?.value || '1', 10),
+      width: parseFloat(widthInput?.value || '1'),
       pitch: parseInt(pitchInput?.value || '1', 10),
       brush: brushSelect?.value,
       xTransCheck: xTransCheck?.checked,
@@ -154,7 +154,7 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     const currentLineType = lineType?.value || 'solid'
 
     sampleLine.style.backgroundColor = color
-    sampleLine.style.height = `${Math.max(1, parseInt(width, 10))}px`
+    sampleLine.style.height = `${Math.max(1, Math.round((parseFloat(width) || 1) * 2))}px`
 
     if (currentLineType === 'no_line') {
       sampleLine.style.display = 'none'
@@ -335,7 +335,7 @@ export function showPropertyDialog(
       lineColor.value = existingOpts.lineColor || dataset?.color || '#10b981'
     }
     if (sizeInput) sizeInput.value = String(existingOpts.size || 3)
-    if (widthInput) widthInput.value = String(existingOpts.width || 1)
+    if (widthInput) widthInput.value = String(existingOpts.width ?? (dataset?.smpSeriesStylePrefix ? dataset.smpSeriesStylePrefix / 100 : 0.6))
     if (pitchInput) pitchInput.value = String(existingOpts.pitch || 1)
     if (brushSelect) brushSelect.value = existingOpts.brush || 'filled'
 

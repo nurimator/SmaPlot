@@ -1041,23 +1041,15 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
     })
 
     smpDoc.annotationLines?.forEach((aLine, annotationIdx) => {
-      const docWidthMm = (smpDoc?.width || 14000) / 100
+      const docWidthMm = (smpDoc?.width || 10000) / 100
       const docHeightMm = (smpDoc?.height || 10000) / 100
-      const scaleX = plotW / (docWidthMm || 140)
+      const scaleX = plotW / (docWidthMm || 100)
       const scaleY = plotH / (docHeightMm || 100)
 
-      let x1: number, y1: number, x2: number, y2: number
-      if (aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect') {
-        x1 = left + PLOT_MARGIN.l + aLine.x1Norm * scaleX
-        y1 = top + PLOT_MARGIN.t + aLine.y1Norm * scaleY
-        x2 = left + PLOT_MARGIN.l + aLine.x2Norm * scaleX
-        y2 = top + PLOT_MARGIN.t + aLine.y2Norm * scaleY
-      } else {
-        x1 = left + PLOT_MARGIN.l + (aLine.x1Norm / 100) * plotW
-        y1 = top + PLOT_MARGIN.t + (aLine.y1Norm / 100) * plotH
-        x2 = left + PLOT_MARGIN.l + (aLine.x2Norm / 100) * plotW
-        y2 = top + PLOT_MARGIN.t + (aLine.y2Norm / 100) * plotH
-      }
+      const x1 = left + PLOT_MARGIN.l + aLine.x1Norm * scaleX
+      const x2 = left + PLOT_MARGIN.l + aLine.x2Norm * scaleX
+      const y1 = top + PLOT_MARGIN.t + aLine.y1Norm * scaleY
+      const y2 = top + PLOT_MARGIN.t + aLine.y2Norm * scaleY
       const minX = Math.min(x1, x2) - 4
       const minY = Math.min(y1, y2) - 4
       result.push({
@@ -1440,15 +1432,23 @@ export function drawPlot(
   const sx = (v: number) => margin.l + ((v - xMin) / (xMax - xMin)) * plotW
   const sy = (v: number) => margin.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH
 
+  const docWidthMm = (smpDoc?.width || 10000) / 100
+  const docHeightMm = (smpDoc?.height || 10000) / 100
+  const scaleX = plotW / (docWidthMm || 100)
+  const scaleY = plotH / (docHeightMm || 100)
+
   // Outer plot frame
+  const frameWidthMm = smpDoc?.frameWidth ?? 0.4
+  const frameStrokeWidth = Math.max(0.4, Number((frameWidthMm * scaleX).toFixed(2)))
+  const frameColor = smpDoc?.frameColor || '#000000'
   const frame = createSVGElement('rect')
   frame.setAttribute('x', String(margin.l))
   frame.setAttribute('y', String(margin.t))
   frame.setAttribute('width', String(plotW))
   frame.setAttribute('height', String(plotH))
   frame.setAttribute('fill', 'none')
-  frame.setAttribute('stroke', '#000000')
-  frame.setAttribute('stroke-width', '1')
+  frame.setAttribute('stroke', frameColor)
+  frame.setAttribute('stroke-width', String(frameStrokeWidth))
   svg.appendChild(frame)
 
   // ----------------------------------------------------
@@ -1536,14 +1536,14 @@ export function drawPlot(
   const xMajIn = smpDoc?.axisX.majorIn ?? (smpDoc?.axisX.insideTicks !== false)
   const xMajOut = smpDoc?.axisX.majorOut ?? false
   const xMajLen = smpDoc?.axisX.majorLength ?? 6
-  const xMajW = Math.max(1, (smpDoc?.axisX.majorWidth ?? 0.4) * 2.5)
+  const xMajW = Math.max(0.4, Number(((smpDoc?.axisX.majorWidth ?? 0.4) * scaleX).toFixed(2)))
   const xMajColor = smpDoc?.axisX.majorColor || '#000000'
   const xMajStyle = smpDoc?.axisX.majorStyle || 'solid'
 
   const xMinIn = smpDoc?.axisX.minorIn ?? (smpDoc?.axisX.insideTicks !== false)
   const xMinOut = smpDoc?.axisX.minorOut ?? false
   const xMinLen = smpDoc?.axisX.minorLength ?? 3
-  const xMinW = Math.max(1, (smpDoc?.axisX.minorWidth ?? 0.4) * 2.5)
+  const xMinW = Math.max(0.4, Number(((smpDoc?.axisX.minorWidth ?? 0.4) * scaleX).toFixed(2)))
   const xMinColor = smpDoc?.axisX.minorColor || '#000000'
   const xMinStyle = smpDoc?.axisX.minorStyle || 'solid'
 
@@ -1663,14 +1663,14 @@ export function drawPlot(
   const uMajIn = uSpec?.majorIn ?? (uSpec?.insideTicks !== false)
   const uMajOut = uSpec?.majorOut ?? false
   const uMajLen = uSpec?.majorLength ?? 6
-  const uMajW = Math.max(1, (uSpec?.majorWidth ?? 0.4) * 2.5)
+  const uMajW = Math.max(0.4, Number(((uSpec?.majorWidth ?? 0.4) * scaleX).toFixed(2)))
   const uMajColor = uSpec?.majorColor || '#000000'
   const uMajStyle = uSpec?.majorStyle || 'solid'
 
   const uMinIn = uSpec?.minorIn ?? (uSpec?.insideTicks !== false)
   const uMinOut = uSpec?.minorOut ?? false
   const uMinLen = uSpec?.minorLength ?? 3
-  const uMinW = Math.max(1, (uSpec?.minorWidth ?? 0.4) * 2.5)
+  const uMinW = Math.max(0.4, Number(((uSpec?.minorWidth ?? 0.4) * scaleX).toFixed(2)))
   const uMinColor = uSpec?.minorColor || '#000000'
   const uMinStyle = uSpec?.minorStyle || 'solid'
 
@@ -1765,14 +1765,14 @@ export function drawPlot(
   const yMajIn = smpDoc?.axisY.majorIn ?? (smpDoc?.axisY.insideTicks !== false)
   const yMajOut = smpDoc?.axisY.majorOut ?? false
   const yMajLen = smpDoc?.axisY.majorLength ?? 6
-  const yMajW = Math.max(1, (smpDoc?.axisY.majorWidth ?? 0.4) * 2.5)
+  const yMajW = Math.max(0.4, Number(((smpDoc?.axisY.majorWidth ?? 0.4) * scaleX).toFixed(2)))
   const yMajColor = smpDoc?.axisY.majorColor || '#000000'
   const yMajStyle = smpDoc?.axisY.majorStyle || 'solid'
 
   const yMinIn = smpDoc?.axisY.minorIn ?? (smpDoc?.axisY.insideTicks !== false)
   const yMinOut = smpDoc?.axisY.minorOut ?? false
   const yMinLen = smpDoc?.axisY.minorLength ?? 3
-  const yMinW = Math.max(1, (smpDoc?.axisY.minorWidth ?? 0.4) * 2.5)
+  const yMinW = Math.max(0.4, Number(((smpDoc?.axisY.minorWidth ?? 0.4) * scaleX).toFixed(2)))
   const yMinColor = smpDoc?.axisY.minorColor || '#000000'
   const yMinStyle = smpDoc?.axisY.minorStyle || 'solid'
 
@@ -1891,14 +1891,14 @@ export function drawPlot(
   const rMajIn = rSpec?.majorIn ?? (rSpec?.insideTicks !== false)
   const rMajOut = rSpec?.majorOut ?? false
   const rMajLen = rSpec?.majorLength ?? 6
-  const rMajW = Math.max(1, (rSpec?.majorWidth ?? 0.4) * 2.5)
+  const rMajW = Math.max(0.4, Number(((rSpec?.majorWidth ?? 0.4) * scaleX).toFixed(2)))
   const rMajColor = rSpec?.majorColor || '#000000'
   const rMajStyle = rSpec?.majorStyle || 'solid'
 
   const rMinIn = rSpec?.minorIn ?? (rSpec?.insideTicks !== false)
   const rMinOut = rSpec?.minorOut ?? false
   const rMinLen = rSpec?.minorLength ?? 3
-  const rMinW = Math.max(1, (rSpec?.minorWidth ?? 0.4) * 2.5)
+  const rMinW = Math.max(0.4, Number(((rSpec?.minorWidth ?? 0.4) * scaleX).toFixed(2)))
   const rMinColor = rSpec?.minorColor || '#000000'
   const rMinStyle = rSpec?.minorStyle || 'solid'
 
@@ -1976,26 +1976,30 @@ export function drawPlot(
   // ----------------------------------------------------
   // ANNOTATION LINES & RECTANGLES (Page mm Coordinates)
   // ----------------------------------------------------
-  const docWidthMm = (smpDoc?.width || 14000) / 100
-  const docHeightMm = (smpDoc?.height || 10000) / 100
-  const scaleX = plotW / (docWidthMm || 140)
-  const scaleY = plotH / (docHeightMm || 100)
-
   const annotationLines = smpDoc?.annotationLines || []
   annotationLines.forEach((aLine, aIdx) => {
     let x1: number, y1: number, x2: number, y2: number
-    const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
 
-    if (useMm) {
-      x1 = margin.l + aLine.x1Norm * scaleX
-      y1 = margin.t + aLine.y1Norm * scaleY
-      x2 = margin.l + aLine.x2Norm * scaleX
-      y2 = margin.t + aLine.y2Norm * scaleY
+    if (aLine.unitX === 'xa') {
+      x1 = sx(aLine.x1Norm)
+      x2 = sx(aLine.x2Norm)
+    } else if (aLine.unitX === 'ua') {
+      x1 = su(aLine.x1Norm)
+      x2 = su(aLine.x2Norm)
     } else {
-      x1 = margin.l + (aLine.x1Norm / 100) * plotW
-      y1 = margin.t + (aLine.y1Norm / 100) * plotH
-      x2 = margin.l + (aLine.x2Norm / 100) * plotW
-      y2 = margin.t + (aLine.y2Norm / 100) * plotH
+      x1 = margin.l + aLine.x1Norm * scaleX
+      x2 = margin.l + aLine.x2Norm * scaleX
+    }
+
+    if (aLine.unitY === 'ya') {
+      y1 = sy(aLine.y1Norm)
+      y2 = sy(aLine.y2Norm)
+    } else if (aLine.unitY === 'ra') {
+      y1 = sr(aLine.y1Norm)
+      y2 = sr(aLine.y2Norm)
+    } else {
+      y1 = margin.t + aLine.y1Norm * scaleY
+      y2 = margin.t + aLine.y2Norm * scaleY
     }
 
     const isSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
@@ -2073,7 +2077,7 @@ export function drawPlot(
       document.body.style.userSelect = 'none'
     }
 
-    const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect'
+    const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
 
     if (isRect) {
       const rx1 = Math.min(x1, x2)
@@ -2083,18 +2087,18 @@ export function drawPlot(
 
       const shadeDepth = aLine.shadeDepth ?? 0
       if (shadeDepth > 0) {
-        const shadePx = useMm ? shadeDepth * scaleX : (shadeDepth / 100) * plotW
+        const shadePx = shadeDepth * scaleX
         const shadowElem = createSVGElement('rect')
         shadowElem.setAttribute('x', String(rx1 + shadePx))
         shadowElem.setAttribute('y', String(ry1 + shadePx))
         shadowElem.setAttribute('width', String(rw))
         shadowElem.setAttribute('height', String(rh))
         if (aLine.roundX) {
-          const rxPx = useMm ? aLine.roundX * scaleX : (aLine.roundX / 100) * plotW
+          const rxPx = aLine.roundX * scaleX
           shadowElem.setAttribute('rx', String(rxPx))
         }
         if (aLine.roundY) {
-          const ryPx = useMm ? aLine.roundY * scaleY : (aLine.roundY / 100) * plotH
+          const ryPx = aLine.roundY * scaleY
           shadowElem.setAttribute('ry', String(ryPx))
         }
         shadowElem.setAttribute('fill', aLine.shadeColor || '#000000')
@@ -2123,16 +2127,17 @@ export function drawPlot(
       rectElem.setAttribute('width', String(rw))
       rectElem.setAttribute('height', String(rh))
       if (aLine.roundX) {
-        const rxPx = useMm ? aLine.roundX * scaleX : (aLine.roundX / 100) * plotW
+        const rxPx = aLine.roundX * scaleX
         rectElem.setAttribute('rx', String(rxPx))
       }
       if (aLine.roundY) {
-        const ryPx = useMm ? aLine.roundY * scaleY : (aLine.roundY / 100) * plotH
+        const ryPx = aLine.roundY * scaleY
         rectElem.setAttribute('ry', String(ryPx))
       }
       rectElem.setAttribute('fill', aLine.faceColor && aLine.faceColor !== 'none' ? aLine.faceColor : 'transparent')
       rectElem.setAttribute('stroke', aLine.shadeColor || aLine.color || '#000000')
-      rectElem.setAttribute('stroke-width', String(aLine.thickness || aLine.width || 0.4))
+      const aWidthMm = aLine.thickness || aLine.width || 0.4
+      rectElem.setAttribute('stroke-width', String(Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))))
       rectElem.setAttribute('pointer-events', 'all')
       if (aLine.style === 'dashed') {
         rectElem.setAttribute('stroke-dasharray', '4 4')
@@ -2155,19 +2160,32 @@ export function drawPlot(
       })
       svg.appendChild(rectElem)
     } else {
-      const l = createSVGElement('line')
-      l.setAttribute('x1', String(x1))
-      l.setAttribute('y1', String(y1))
-      l.setAttribute('x2', String(x2))
-      l.setAttribute('y2', String(y2))
-      l.setAttribute('stroke', aLine.color || '#000000')
-      l.setAttribute('stroke-width', String(aLine.width || 1))
-      if (aLine.style === 'dashed') {
-        l.setAttribute('stroke-dasharray', '4 4')
+      const dx = x2 - x1
+      const dy = y2 - y1
+      const len = Math.hypot(dx, dy)
+      const aColor = aLine.color || '#000000'
+      const aWidthMm = aLine.width ?? 0.4
+      const aStrokeW = Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))
+      const aLineStyle = aLine.style || 'solid'
+
+      let dashArray = 'none'
+      if (aLineStyle === 'dashed') {
+        dashArray = `${Math.max(2, Number((1.5 * scaleX).toFixed(1)))} ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))}`
+      } else if (aLineStyle === 'dotted') {
+        dashArray = `0.1 ${Math.max(4, Number((4.5 * scaleX).toFixed(1)))}`
+      } else if (aLineStyle === 'dash_dot') {
+        dashArray = `${Math.max(3, Number((3.0 * scaleX).toFixed(1)))} ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))} 0.1 ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))}`
       }
-      l.style.cursor = 'pointer'
-      l.addEventListener('mousedown', handleMouseDown('line'))
-      l.addEventListener('dblclick', (e: MouseEvent) => {
+
+      const isDimension = aLine.shape === 'dimension' || aLine.rawType === '2'
+      const mode = aLine.arrowMode !== undefined ? aLine.arrowMode : (
+        aLine.shape === 'arrow_start' ? 2 :
+        aLine.shape === 'arrow_both' ? 3 :
+        aLine.shape === 'line' || isDimension ? 0 :
+        (aLine.shape === 'arrow' || aLine.arrowhead ? 1 : 0)
+      )
+
+      const handleArrowDblClick = (e: MouseEvent) => {
         e.stopPropagation()
         setSelectedPlotSvg(svg)
         selectedAnnotationIndex = aIdx
@@ -2177,8 +2195,144 @@ export function drawPlot(
         if (arrowOverlayEl) {
           showArrowDialog(arrowOverlayEl, aIdx, svg)
         }
-      })
-      svg.appendChild(l)
+      }
+
+      if (isDimension && len > 1e-4) {
+        const ux = dx / len
+        const uy = dy / len
+        const px = -uy
+        const py = ux
+        const capLen = ((aLine.arrowhead ?? 5.0) * scaleX)
+
+        const cap1_x1 = x1 - (capLen / 2) * px
+        const cap1_y1 = y1 - (capLen / 2) * py
+        const cap1_x2 = x1 + (capLen / 2) * px
+        const cap1_y2 = y1 + (capLen / 2) * py
+
+        const cap2_x1 = x2 - (capLen / 2) * px
+        const cap2_y1 = y2 - (capLen / 2) * py
+        const cap2_x2 = x2 + (capLen / 2) * px
+        const cap2_y2 = y2 + (capLen / 2) * py
+
+        const dimPathD = `M${cap1_x1.toFixed(1)},${cap1_y1.toFixed(1)}L${cap1_x2.toFixed(1)},${cap1_y2.toFixed(1)}M${cap2_x1.toFixed(1)},${cap2_y1.toFixed(1)}L${cap2_x2.toFixed(1)},${cap2_y2.toFixed(1)}M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`
+
+        const dimElem = createSVGElement('path')
+        dimElem.setAttribute('d', dimPathD)
+        dimElem.setAttribute('stroke', aColor)
+        dimElem.setAttribute('stroke-width', String(aStrokeW))
+        dimElem.setAttribute('fill', 'none')
+        dimElem.setAttribute('stroke-linecap', 'round')
+        dimElem.setAttribute('stroke-linejoin', 'round')
+        if (dashArray !== 'none') dimElem.setAttribute('stroke-dasharray', dashArray)
+        dimElem.style.cursor = 'pointer'
+        dimElem.addEventListener('mousedown', handleMouseDown('line'))
+        dimElem.addEventListener('dblclick', handleArrowDblClick)
+        svg.appendChild(dimElem)
+      } else if (len > 1e-4) {
+        const ux = dx / len
+        const uy = dy / len
+        const px = -uy
+        const py = ux
+
+        const rawHeadLen = (aLine.arrowhead ?? 5.0) * scaleX
+        const headLenPx = Math.min(rawHeadLen, len * 0.45)
+        const spreadVal = aLine.spread ?? 30
+        const halfWidthPx = headLenPx * (spreadVal / 150)
+        const shutPct = (aLine.shut !== undefined ? aLine.shut : 100) / 100
+        const notchDist = headLenPx * shutPct
+
+        let startX = x1
+        let startY = y1
+        let endX = x2
+        let endY = y2
+
+        // Arrowhead at End (x2, y2)
+        if (mode === 1 || mode === 3) {
+          const tipX = x2
+          const tipY = y2
+          const baseX = tipX - headLenPx * ux
+          const baseY = tipY - headLenPx * uy
+          const notchX = tipX - notchDist * ux
+          const notchY = tipY - notchDist * uy
+          const c1X = baseX + halfWidthPx * px
+          const c1Y = baseY + halfWidthPx * py
+          const c2X = baseX - halfWidthPx * px
+          const c2Y = baseY - halfWidthPx * py
+
+          const headElem = createSVGElement('path')
+          headElem.setAttribute('d', `M${c1X.toFixed(1)},${c1Y.toFixed(1)}L${tipX.toFixed(1)},${tipY.toFixed(1)}L${c2X.toFixed(1)},${c2Y.toFixed(1)}L${notchX.toFixed(1)},${notchY.toFixed(1)}Z`)
+          headElem.setAttribute('fill', aColor)
+          headElem.setAttribute('stroke', aColor)
+          headElem.setAttribute('stroke-width', '1')
+          headElem.setAttribute('stroke-linejoin', 'miter')
+          headElem.setAttribute('stroke-miterlimit', '10')
+          headElem.setAttribute('stroke-linecap', 'butt')
+          headElem.style.cursor = 'pointer'
+          headElem.addEventListener('mousedown', handleMouseDown('end'))
+          headElem.addEventListener('dblclick', handleArrowDblClick)
+          svg.appendChild(headElem)
+
+          endX = notchX
+          endY = notchY
+        }
+
+        // Arrowhead at Start (x1, y1)
+        if (mode === 2 || mode === 3) {
+          const tipX = x1
+          const tipY = y1
+          const baseX = tipX + headLenPx * ux
+          const baseY = tipY + headLenPx * uy
+          const notchX = tipX + notchDist * ux
+          const notchY = tipY + notchDist * uy
+          const c1X = baseX + halfWidthPx * px
+          const c1Y = baseY + halfWidthPx * py
+          const c2X = baseX - halfWidthPx * px
+          const c2Y = baseY - halfWidthPx * py
+
+          const headElem = createSVGElement('path')
+          headElem.setAttribute('d', `M${c1X.toFixed(1)},${c1Y.toFixed(1)}L${tipX.toFixed(1)},${tipY.toFixed(1)}L${c2X.toFixed(1)},${c2Y.toFixed(1)}L${notchX.toFixed(1)},${notchY.toFixed(1)}Z`)
+          headElem.setAttribute('fill', aColor)
+          headElem.setAttribute('stroke', aColor)
+          headElem.setAttribute('stroke-width', '1')
+          headElem.setAttribute('stroke-linejoin', 'miter')
+          headElem.setAttribute('stroke-miterlimit', '10')
+          headElem.setAttribute('stroke-linecap', 'butt')
+          headElem.style.cursor = 'pointer'
+          headElem.addEventListener('mousedown', handleMouseDown('start'))
+          headElem.addEventListener('dblclick', handleArrowDblClick)
+          svg.appendChild(headElem)
+
+          startX = notchX
+          startY = notchY
+        }
+
+        // Body line
+        const lineElem = createSVGElement('path')
+        lineElem.setAttribute('d', `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`)
+        lineElem.setAttribute('stroke', aColor)
+        lineElem.setAttribute('stroke-width', String(aStrokeW))
+        lineElem.setAttribute('stroke-linecap', 'round')
+        lineElem.setAttribute('stroke-linejoin', 'round')
+        lineElem.setAttribute('fill', 'none')
+        if (dashArray !== 'none') lineElem.setAttribute('stroke-dasharray', dashArray)
+        lineElem.style.cursor = 'pointer'
+        lineElem.addEventListener('mousedown', handleMouseDown('line'))
+        lineElem.addEventListener('dblclick', handleArrowDblClick)
+        svg.appendChild(lineElem)
+      } else {
+        const l = createSVGElement('line')
+        l.setAttribute('x1', String(x1))
+        l.setAttribute('y1', String(y1))
+        l.setAttribute('x2', String(x2))
+        l.setAttribute('y2', String(y2))
+        l.setAttribute('stroke', aColor)
+        l.setAttribute('stroke-width', String(aStrokeW))
+        if (dashArray !== 'none') l.setAttribute('stroke-dasharray', dashArray)
+        l.style.cursor = 'pointer'
+        l.addEventListener('mousedown', handleMouseDown('line'))
+        l.addEventListener('dblclick', handleArrowDblClick)
+        svg.appendChild(l)
+      }
     }
 
     if (isSelected) {
@@ -2375,7 +2529,8 @@ export function drawPlot(
           legLine.setAttribute('x2', String(renderPx + 18))
           legLine.setAttribute('y2', String(legY))
           legLine.setAttribute('stroke', color)
-          legLine.setAttribute('stroke-width', String(ds?.options?.width || 1))
+          const legWidthMm = ds?.options?.width ?? (ds?.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
+          legLine.setAttribute('stroke-width', String(Math.max(0.4, Number((legWidthMm * scaleX).toFixed(2)))))
 
           const brush = ds?.options?.brush || ds?.options?.lineStyle || 'solid'
           const lineType = ds?.options?.lineType || 'solid'
@@ -2459,8 +2614,7 @@ export function drawPlot(
             }
           }
 
-          // Draw legend text next to icon (foreignObject + renderSmpTextToHtml so
-          // ^...@ superscripts, _...@ subscripts, %I/%K styles and symbol codes render)
+          // Draw legend text next to icon (foreignObject + renderSmpTextToHtml)
           const legStr = renderSmpTextToHtml(labelText)
           const legFontSz = 10
           const legFo = createSVGElement('foreignObject')
@@ -2662,7 +2816,8 @@ export function drawPlot(
     const dsSy = opts.axisY === 'r' ? sr : sy
 
     const strokeColor = opts.lineColor || ds.color
-    const strokeWidth = String(opts.width || 1)
+    const seriesWidthMm = opts.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
+    const strokeWidth = String(Math.max(0.4, Number((seriesWidthMm * scaleX).toFixed(2))))
     const dotColor = opts.dotColor || '#000000'
     const paintColor = opts.paintColor || '#ffffff'
     const dotSize = opts.size || 3
@@ -3255,16 +3410,34 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           const scaleX = plotW / (docWidthMm || 140)
           const scaleY = plotH / (docHeightMm || 100)
 
-          const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
-          const dxNorm = useMm ? dx / scaleX : (dx / plotW) * 100
-          const dyNorm = useMm ? dy / scaleY : (dy / plotH) * 100
+          let dxNorm: number
+          if (aLine.unitX === 'xa') {
+            const xRange = (smpDoc.axisX?.max ?? 100) - (smpDoc.axisX?.min ?? 0) || 100
+            dxNorm = (dx / plotW) * xRange
+          } else if (aLine.unitX === 'ua') {
+            const uRange = (smpDoc.axisTop?.max ?? 100) - (smpDoc.axisTop?.min ?? 0) || 100
+            dxNorm = (dx / plotW) * uRange
+          } else {
+            dxNorm = dx / scaleX
+          }
+
+          let dyNorm: number
+          if (aLine.unitY === 'ya') {
+            const yRange = (smpDoc.axisY?.max ?? 100) - (smpDoc.axisY?.min ?? 0) || 100
+            dyNorm = -(dy / plotH) * yRange
+          } else if (aLine.unitY === 'ra') {
+            const rRange = (smpDoc.axisRight?.max ?? 100) - (smpDoc.axisRight?.min ?? 0) || 100
+            dyNorm = -(dy / plotH) * rRange
+          } else {
+            dyNorm = dy / scaleY
+          }
 
           if (item.targetType === 'start') {
             const rawX1 = item.startX1Norm! + dxNorm
             const rawY1 = item.startY1Norm! + dyNorm
             if (shiftKey) {
-              const dxPx = ((rawX1 - item.startX2Norm!) / 100) * plotW
-              const dyPx = ((rawY1 - item.startY2Norm!) / 100) * plotH
+              const dxPx = (rawX1 - item.startX2Norm!) * scaleX
+              const dyPx = (rawY1 - item.startY2Norm!) * scaleY
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
@@ -3282,8 +3455,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
             const rawX2 = item.startX2Norm! + dxNorm
             const rawY2 = item.startY2Norm! + dyNorm
             if (shiftKey) {
-              const dxPx = ((rawX2 - item.startX1Norm!) / 100) * plotW
-              const dyPx = ((rawY2 - item.startY1Norm!) / 100) * plotH
+              const dxPx = (rawX2 - item.startX1Norm!) * scaleX
+              const dyPx = (rawY2 - item.startY1Norm!) * scaleY
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {

@@ -400,7 +400,7 @@
                   </div>
                   <div class="form-field-stacked">
                     <label class="form-field-label">Width</label>
-                    <input type="number" id="propWidthInput" value="1" min="1" max="10" class="form-input-num full-width" />
+                    <input type="number" id="propWidthInput" value="0.6" min="0.1" max="20" step="0.1" class="form-input-num full-width" />
                   </div>
                   <div class="form-field-stacked">
                     <label class="form-field-label">Pitch</label>
@@ -896,15 +896,16 @@
           <div class="arrow-shape-row" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
             <label class="title-field-label">shape</label>
             <select id="arrowShapeSelect" class="form-select width-md">
-              <option value="line" selected>— (Line)</option>
-              <option value="arrow_end">&rarr; (Right Arrow)</option>
+              <option value="line">— (Line)</option>
+              <option value="arrow_end" selected>&rarr; (Right Arrow)</option>
               <option value="arrow_start">&larr; (Left Arrow)</option>
               <option value="arrow_both">&harr; (Double Arrow)</option>
+              <option value="dimension">|—| (Dimension)</option>
             </select>
             <label class="title-field-label">spread</label>
-            <input type="number" id="arrowSpreadInput" value="0.3" step="0.1" class="form-input-num width-sm" />
+            <input type="number" id="arrowSpreadInput" value="30" min="1" max="180" class="form-input-num width-sm" />
             <label class="title-field-label">shut</label>
-            <input type="number" id="arrowShutInput" value="1" class="form-input-num width-sm" />
+            <input type="number" id="arrowShutInput" value="100" min="0" max="100" class="form-input-num width-sm" />
           </div>
 
           <div class="arrow-button-row" style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 4px;">

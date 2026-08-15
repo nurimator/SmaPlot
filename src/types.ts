@@ -117,6 +117,9 @@ export interface SmpLineAnnotation {
   shadeColor?: string
   roundX?: number
   roundY?: number
+  arrowMode?: number
+  rawType?: string
+  rawLineStr?: string
 }
 
 export interface SmpPlotDoc {
@@ -138,6 +141,11 @@ export interface SmpPlotDoc {
   othersSymbolLine?: string
   xLabel?: string
   yLabel?: string
+  frameWidth?: number
+  frameColor?: string
+  frameBgColor?: string
+  graphFixed1?: string
+  graphFixed2?: string
 }
 
 export interface SmpMetadata {

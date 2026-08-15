@@ -182,6 +182,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let docTop = 4000
     let docWidth = 10000
     let docHeight = 10000
+    let frameWidth = 0.4
+    let frameColor = '#000000'
+    let frameBgColor = '#ffffff'
+    let graphFixed1 = ''
+    let graphFixed2 = ''
 
     let axisX = createDefaultAxis(0, 100, 20)
     let axisY = createDefaultAxis(0, 100, 20)
@@ -229,24 +234,21 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
         if (i < docLines.length) i++ // config 1
         let color = '#000000'
-        let width = 1
+        let width = 0.6
         let stylePrefix = 60
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
           if (parts.length >= 1) {
-            const p0 = parseInt(parts[0], 10)
-            if (!isNaN(p0)) stylePrefix = p0
+            const p0 = parseFloat(parts[0])
+            if (!isNaN(p0) && p0 > 0) {
+              stylePrefix = p0
+              width = p0 / 100
+            }
           }
           if (parts.length >= 2) {
             const colorInt = parseInt(parts[1], 10)
             if (!isNaN(colorInt) && colorInt >= 0) {
               color = bgrToHex(colorInt)
-            }
-            if (parts.length >= 3) {
-              const wVal = parseInt(parts[2], 10)
-              if (!isNaN(wVal) && wVal > 0) {
-                width = Math.max(1, Math.round(wVal / 300))
-              }
             }
           }
           i++
@@ -336,8 +338,29 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           docWidth = parseFloat(parts[2]) || 10000
           docHeight = parseFloat(parts[3]) || 10000
         }
-        currentSection = ''
         i++
+        if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          graphFixed1 = docLines[i].trim()
+          i++
+        }
+        if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+          graphFixed2 = docLines[i].trim()
+          const gParts = graphFixed2.split(/\s+/)
+          if (gParts.length >= 1) {
+            const fw = parseFloat(gParts[0])
+            if (!isNaN(fw) && fw > 0) frameWidth = fw / 100
+          }
+          if (gParts.length >= 2) {
+            const fc = parseInt(gParts[1], 10)
+            if (!isNaN(fc) && fc >= 0) frameColor = bgrToHex(fc)
+          }
+          if (gParts.length >= 4) {
+            const bg = parseInt(gParts[3], 10)
+            if (!isNaN(bg) && bg >= 0) frameBgColor = bgrToHex(bg)
+          }
+          i++
+        }
+        currentSection = ''
         continue
       }
 
@@ -430,8 +453,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             axisSpec.majorWidth = (parseFloat(parts5[3]) / 100) || 0.4
             const cInt = parseInt(parts5[4], 10)
             if (!isNaN(cInt)) axisSpec.majorColor = bgrToHex(cInt)
-            if (parts5.length >= 7) {
-              axisSpec.majorStyle = parts5[6] === '2' ? 'dashed' : parts5[6] === '3' ? 'dotted' : 'solid'
+            if (parts5.length >= 7 && parts5[6] !== '2') {
+              axisSpec.majorStyle = parts5[6] === '3' ? 'dotted' : 'solid'
+            } else {
+              axisSpec.majorStyle = 'solid'
             }
           }
           i++
@@ -447,8 +472,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             axisSpec.minorWidth = (parseFloat(parts6[3]) / 100) || 0.4
             const cInt = parseInt(parts6[4], 10)
             if (!isNaN(cInt)) axisSpec.minorColor = bgrToHex(cInt)
-            if (parts6.length >= 7) {
-              axisSpec.minorStyle = parts6[6] === '2' ? 'dashed' : parts6[6] === '3' ? 'dotted' : 'solid'
+            if (parts6.length >= 7 && parts6[6] !== '3') {
+              axisSpec.minorStyle = parts6[6] === '2' ? 'dashed' : 'solid'
+            } else {
+              axisSpec.minorStyle = 'solid'
             }
           }
           i++
@@ -552,35 +579,106 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             }
           }
           continue
-        } else if (line === '0') {
+        } else if (line === '0' || line === '1' || line === '2') {
+          const itemType = line
           i++
           if (i < docLines.length) {
             const rawLineStr = docLines[i].trim()
-            const coords = rawLineStr.split(/\s+/)
-            if (coords.length >= 4) {
-              const x1Norm = parseFloat(coords[0])
-              const y1Norm = parseFloat(coords[1])
-              const x2Norm = parseFloat(coords[2])
-              const y2Norm = parseFloat(coords[3])
+            const parts = rawLineStr.split(/\s+/)
+            if (parts.length >= 4) {
+              const x1Norm = parseFloat(parts[0])
+              const y1Norm = parseFloat(parts[1])
+              const x2Norm = parseFloat(parts[2])
+              const y2Norm = parseFloat(parts[3])
+
+              let unitX: 'mm' | 'xa' | 'ua' = 'mm'
+              let unitY: 'mm' | 'ya' | 'ra' = 'mm'
+              let width = 0.4
+              let arrowhead = 5.0
+              let color = '#000000'
+              let style = 'solid'
+              let faceColor = '#ffffff'
+              let arrowMode = itemType === '2' ? 0 : 1
+              let spread = 30
+              let shut = 100
+              let shape = itemType === '2' ? 'dimension' : 'arrow'
+
+              if (parts.length >= 5) {
+                unitX = parts[4] === '1' ? 'xa' : parts[4] === '2' ? 'ua' : 'mm'
+              }
+              if (parts.length >= 6) {
+                unitY = parts[5] === '1' ? 'ya' : parts[5] === '2' ? 'ra' : 'mm'
+              }
+              if (parts.length >= 7) {
+                const wVal = parseFloat(parts[6])
+                if (!isNaN(wVal) && wVal > 0) width = wVal / 100
+              }
+              if (parts.length >= 8) {
+                const ahVal = parseFloat(parts[7])
+                if (!isNaN(ahVal) && ahVal > 0) arrowhead = ahVal / 100
+              }
+              if (parts.length >= 9) {
+                const cVal = parseInt(parts[8], 10)
+                if (!isNaN(cVal) && cVal >= 0) color = bgrToHex(cVal)
+              }
+              if (parts.length >= 12) {
+                const styleCode = parts[11]
+                style = styleCode === '2' ? 'dashed' : styleCode === '3' ? 'dotted' : 'solid'
+              }
+              if (parts.length >= 13) {
+                const fcVal = parseInt(parts[12], 10)
+                if (!isNaN(fcVal) && fcVal >= 0) faceColor = bgrToHex(fcVal)
+              }
+              if (parts.length >= 16) {
+                const modeVal = parseInt(parts[15], 10)
+                if (!isNaN(modeVal)) {
+                  arrowMode = modeVal
+                  if (itemType === '2') {
+                    shape = 'dimension'
+                  } else if (modeVal === 0) {
+                    shape = 'line'
+                  } else if (modeVal === 2) {
+                    shape = 'arrow_start'
+                  } else if (modeVal === 3) {
+                    shape = 'arrow_both'
+                  } else {
+                    shape = 'arrow'
+                  }
+                }
+              }
+              if (parts.length >= 17) {
+                const spVal = parseFloat(parts[16])
+                if (!isNaN(spVal)) spread = spVal
+              }
+              if (parts.length >= 18) {
+                const shVal = parseFloat(parts[17])
+                if (!isNaN(shVal)) shut = shVal
+              }
+
               if (!isNaN(x1Norm) && !isNaN(y1Norm) && !isNaN(x2Norm) && !isNaN(y2Norm)) {
-                annotationLines.push({ x1Norm, y1Norm, x2Norm, y2Norm, style: 'dashed', width: 1 })
-                legendItems.push({
-                  type: 'annotation',
-                  text: '',
-                  rawLine: rawLineStr,
-                  xNorm: x1Norm,
-                  yNorm: y1Norm,
+                annotationLines.push({
+                  x1Norm,
+                  y1Norm,
                   x2Norm,
                   y2Norm,
-                  rotation: 0,
-                  fontFamily: '',
-                  fontSize: 0,
-                  fontWeight: 0,
+                  unitX,
+                  unitY,
+                  width,
+                  arrowhead,
+                  color,
+                  style,
+                  faceColor,
+                  shape,
+                  arrowMode,
+                  spread,
+                  shut,
+                  rawType: itemType,
+                  rawLineStr,
                 })
               }
             }
             i++
-            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 0
+            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item
           }
           continue
         } else if (line === '3') {
@@ -653,19 +751,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                   shape: 'rectangle',
                 }
                 annotationLines.push(rectAnnotation)
-                legendItems.push({
-                  type: 'annotation',
-                  text: '',
-                  rawLine: rawLineStr,
-                  xNorm: x1Norm,
-                  yNorm: y1Norm,
-                  x2Norm,
-                  y2Norm,
-                  rotation: 0,
-                  fontFamily: '',
-                  fontSize: 0,
-                  fontWeight: 0,
-                })
               }
             }
             i++
@@ -747,7 +832,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         options: {
           show: true,
           lineColor: spec.color,
-          width: spec.width || 1,
+          width: spec.width ?? ((spec.stylePrefix || 60) / 100),
           lineStyle: 'solid',
           plotType: spec.plotType || 'no_dot',
           lineType: spec.lineType || 'solid',
@@ -797,6 +882,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       top: docTop,
       width: docWidth,
       height: docHeight,
+      frameWidth,
+      frameColor,
+      frameBgColor,
+      graphFixed1,
+      graphFixed2,
       datasets: docDatasets,
       axisX,
       axisY,

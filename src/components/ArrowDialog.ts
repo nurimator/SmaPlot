@@ -56,19 +56,23 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       const unitXEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitX"]:checked')
       const unitYEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitY"]:checked')
 
-      const arrowhead = parseFloat(arrowheadEl?.value || '0.5') || 0.5
+      const arrowhead = parseFloat(arrowheadEl?.value || '5.0') || 5.0
       const width = parseFloat(widthEl?.value || '0.4') || 0.4
       const color = colorEl?.value || '#000000'
-      const lineTypeVal = lineTypeEl?.value || 'Dashed'
-      const style = lineTypeVal.toLowerCase().includes('dashed') ? 'dashed' : 'solid'
+      const lineTypeVal = lineTypeEl?.value || 'Solid'
+      const style = lineTypeVal.toLowerCase().includes('dashed') ? 'dashed' : lineTypeVal.toLowerCase().includes('dotted') ? 'dotted' : 'solid'
       const pitch = parseFloat(pitchEl?.value || '3') || 3
       const x1Norm = parseFloat(xStartEl?.value || '0') || 0
       const y1Norm = parseFloat(yStartEl?.value || '0') || 0
       const x2Norm = parseFloat(xEndEl?.value || '0') || 0
       const y2Norm = parseFloat(yEndEl?.value || '0') || 0
-      const shape = shapeEl?.value || 'arrow'
-      const spread = parseFloat(spreadEl?.value || '0.3') || 0.3
-      const shut = parseFloat(shutEl?.value || '1') || 1
+      const shape = shapeEl?.value || 'arrow_end'
+      let arrowMode = 1
+      if (shape === 'arrow_start') arrowMode = 2
+      else if (shape === 'arrow_both') arrowMode = 3
+      else if (shape === 'line' || shape === 'dimension') arrowMode = 0
+      const spread = parseFloat(spreadEl?.value || '30') || 30
+      const shut = parseFloat(shutEl?.value || '100') || 100
       const unitX = (unitXEl?.value as 'mm' | 'xa' | 'ua') || 'mm'
       const unitY = (unitYEl?.value as 'mm' | 'ya' | 'ra') || 'mm'
 
@@ -82,6 +86,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
         arrowhead,
         pitch,
         shape,
+        arrowMode,
         spread,
         shut,
         unitX,
@@ -182,18 +187,24 @@ export function showArrowDialog(
     if (smpDoc && smpDoc.annotationLines && annotationIndex >= 0 && annotationIndex < smpDoc.annotationLines.length) {
       const aLine = smpDoc.annotationLines[annotationIndex]
 
-      if (arrowheadEl) arrowheadEl.value = String(aLine.arrowhead ?? 0.5)
+      if (arrowheadEl) arrowheadEl.value = String(aLine.arrowhead ?? 5.0)
       if (widthEl) widthEl.value = String(aLine.width ?? 0.4)
       if (colorEl) colorEl.value = aLine.color || '#000000'
-      if (lineTypeEl) lineTypeEl.value = aLine.style === 'dashed' ? 'Dashed' : 'Solid'
+      if (lineTypeEl) lineTypeEl.value = aLine.style === 'dashed' ? 'Dashed' : aLine.style === 'dotted' ? 'Dotted' : 'Solid'
       if (pitchEl) pitchEl.value = String(aLine.pitch ?? 3)
       if (xStartEl) xStartEl.value = String(Math.round(aLine.x1Norm))
       if (yStartEl) yStartEl.value = String(Math.round(aLine.y1Norm))
       if (xEndEl) xEndEl.value = String(Math.round(aLine.x2Norm))
       if (yEndEl) yEndEl.value = String(Math.round(aLine.y2Norm))
-      if (shapeEl) shapeEl.value = aLine.shape || 'arrow'
-      if (spreadEl) spreadEl.value = String(aLine.spread ?? 0.3)
-      if (shutEl) shutEl.value = String(aLine.shut ?? 1)
+      if (shapeEl) {
+        shapeEl.value = aLine.shape === 'dimension' ? 'dimension' : (
+          aLine.arrowMode === 2 || aLine.shape === 'arrow_start' ? 'arrow_start' :
+          aLine.arrowMode === 3 || aLine.shape === 'arrow_both' ? 'arrow_both' :
+          aLine.arrowMode === 0 || aLine.shape === 'line' ? 'line' : 'arrow_end'
+        )
+      }
+      if (spreadEl) spreadEl.value = String(aLine.spread ?? 30)
+      if (shutEl) shutEl.value = String(aLine.shut ?? 100)
 
       const unitXRadio = overlayEl.querySelector<HTMLInputElement>(`input[name="arrowUnitX"][value="${aLine.unitX || 'mm'}"]`)
       if (unitXRadio) unitXRadio.checked = true
@@ -201,18 +212,18 @@ export function showArrowDialog(
       const unitYRadio = overlayEl.querySelector<HTMLInputElement>(`input[name="arrowUnitY"][value="${aLine.unitY || 'mm'}"]`)
       if (unitYRadio) unitYRadio.checked = true
     } else {
-      if (arrowheadEl) arrowheadEl.value = '0.5'
+      if (arrowheadEl) arrowheadEl.value = '5.0'
       if (widthEl) widthEl.value = '0.4'
       if (colorEl) colorEl.value = '#000000'
-      if (lineTypeEl) lineTypeEl.value = 'Dashed'
+      if (lineTypeEl) lineTypeEl.value = 'Solid'
       if (pitchEl) pitchEl.value = '3'
       if (xStartEl) xStartEl.value = '18'
       if (yStartEl) yStartEl.value = '92'
       if (xEndEl) xEndEl.value = '18'
       if (yEndEl) yEndEl.value = '20'
-      if (shapeEl) shapeEl.value = 'arrow'
-      if (spreadEl) spreadEl.value = '0.3'
-      if (shutEl) shutEl.value = '1'
+      if (shapeEl) shapeEl.value = 'arrow_end'
+      if (spreadEl) spreadEl.value = '30'
+      if (shutEl) shutEl.value = '100'
 
       const defaultUnitX = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitX"][value="mm"]')
       if (defaultUnitX) defaultUnitX.checked = true
