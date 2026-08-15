@@ -1,5 +1,22 @@
 export function initTitlebar(container?: HTMLElement | null): void {
   if (!container) return
+
+  // Setup Window Controls Overlay geometry listener if supported
+  if ('windowControlsOverlay' in navigator) {
+    const wco = (navigator as unknown as { windowControlsOverlay?: { visible: boolean; addEventListener: (type: string, cb: () => void) => void } }).windowControlsOverlay
+    if (wco) {
+      const updateWco = () => {
+        if (wco.visible) {
+          document.body.classList.add('wco-active')
+        } else {
+          document.body.classList.remove('wco-active')
+        }
+      }
+      wco.addEventListener('geometrychange', updateWco)
+      updateWco()
+    }
+  }
+
   const minimizeBtn = container.querySelector<HTMLButtonElement>('[title="Minimize"]')
   const maximizeBtn = container.querySelector<HTMLButtonElement>('[title="Maximize"]')
   const closeBtn = container.querySelector<HTMLButtonElement>('[title="Close"]')

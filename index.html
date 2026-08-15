@@ -2,19 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <title>SmaPlot - Scientific Data Analysis Software</title>
+    <title>SmaPlot - Untitled</title>
   </head>
   <body>
-    <input type="file" id="globalFileInput" accept=".txt,.smp,.SMP" multiple style="display: none;" />
-    <div id="app" class="app">
+    <input type="file" id="globalFileInput" accept=".txt,.smp,.SMP" multiple style="display: none;" />    <div id="app" class="app">
       <!-- Title Bar -->
       <header class="titlebar">
         <div class="titlebar-left">
@@ -1119,6 +1121,15 @@
           <button class="btn btn-primary" id="saveAsConfirmBtn">Save</button>
           <button class="btn btn-secondary" id="saveAsCancelBtn">Cancel</button>
         </div>
+      </div>
+    </div>
+
+    <!-- PWA Update Toast -->
+    <div class="pwa-update-toast" id="pwaUpdateToast" style="display: none;">
+      <span>A new version of SmaPlot is available.</span>
+      <div class="pwa-update-actions">
+        <button class="btn btn-primary btn-sm" id="pwaUpdateBtn">Update</button>
+        <button class="btn btn-secondary btn-sm" id="pwaDismissBtn">Dismiss</button>
       </div>
     </div>
 

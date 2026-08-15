@@ -49,6 +49,7 @@ import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
+import { registerSW } from 'virtual:pwa-register'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')
 const menubarEl = document.querySelector<HTMLElement>('.menubar')!
@@ -628,6 +629,38 @@ async function initApp() {
 }
 
 initApp()
+
+// Register the PWA service worker and surface update availability.
+// `prompt` mode: never force-reload the user (unsaved plots would be lost).
+const pwaToast = document.querySelector<HTMLElement>('#pwaUpdateToast')
+const pwaUpdateBtn = document.querySelector<HTMLElement>('#pwaUpdateBtn')
+const pwaDismissBtn = document.querySelector<HTMLElement>('#pwaDismissBtn')
+
+const hidePwaToast = () => {
+  if (pwaToast) pwaToast.style.display = 'none'
+}
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    if (pwaToast) pwaToast.style.display = 'flex'
+  },
+  onOfflineReady() {
+    const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+    if (statusFileEl && statusFileEl.textContent === 'No data') {
+      statusFileEl.textContent = 'Ready for offline use'
+      setTimeout(() => {
+        statusFileEl.textContent = 'No data'
+      }, 4000)
+    }
+  },
+})
+
+pwaUpdateBtn?.addEventListener('click', () => {
+  hidePwaToast()
+  location.reload()
+})
+pwaDismissBtn?.addEventListener('click', hidePwaToast)
 
 // Global Window & Workspace Drag-and-Drop Handler for .SMP, .SMA, and .TXT files
 window.addEventListener('dragover', (e) => e.preventDefault())

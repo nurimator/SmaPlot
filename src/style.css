@@ -63,6 +63,53 @@ body {
   flex-shrink: 0;
 }
 
+/* Fallback: hide internal titlebar only in traditional standalone/fullscreen where OS provides full titlebar */
+@media (display-mode: standalone),
+  (display-mode: fullscreen),
+  (display-mode: minimal-ui) {
+  body:not(.wco-active) .titlebar {
+    display: none;
+  }
+}
+
+/* Window Controls Overlay mode: full-bleed custom titlebar with drag region and controls padding */
+@media (display-mode: window-controls-overlay) {
+  .titlebar {
+    display: flex;
+    height: env(titlebar-area-height, 34px);
+    min-height: env(titlebar-area-height, 34px);
+    padding-left: calc(env(titlebar-area-x, 0px) + 10px);
+    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px);
+    padding-top: 0;
+    padding-bottom: 0;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .titlebar * {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
+
+/* JS-activated WCO state for broad compatibility */
+body.wco-active .titlebar {
+  display: flex !important;
+  height: env(titlebar-area-height, 34px);
+  min-height: env(titlebar-area-height, 34px);
+  padding-left: calc(env(titlebar-area-x, 0px) + 10px);
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px);
+  padding-top: 0;
+  padding-bottom: 0;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+body.wco-active .titlebar * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .titlebar-left {
   display: flex;
   align-items: center;
@@ -1784,6 +1831,31 @@ body.shape-drawing,
 body.shape-drawing * {
   cursor: crosshair !important;
 }
+
+/* ===== PWA Update Toast ===== */
+.pwa-update-toast {
+  position: fixed;
+  bottom: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: var(--slate-900);
+  color: var(--white);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
+  font-size: 12px;
+  z-index: 9999;
+  user-select: none;
+}
+
+.pwa-update-actions {
+  display: flex;
+  gap: 6px;
+}
+
 
 
 
