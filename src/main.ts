@@ -494,8 +494,6 @@ if (ctxMenuEl) {
       showArrowDialog(arrowOverlayEl)
     } else if (actionKey === 'rectangle') {
       showRectangleDialog(rectOverlayEl)
-    } else if (actionKey === 'frame') {
-      showPropertyDialog(propOverlayEl)
     }
   })
 }
