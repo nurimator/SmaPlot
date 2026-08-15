@@ -52,6 +52,7 @@ import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
 import { ZOOM_BASE, initCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
+import { initTouchGestures } from './utils/touchGestures.ts'
 import { registerSW } from 'virtual:pwa-register'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')
@@ -600,6 +601,19 @@ if (marqueeCtxMenuEl) {
   initMarqueeExport(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
 }
 
+// Initialize Touch Gestures (500ms Long Press, Haptic, Context Menu, Touch Marquee Export & Select)
+if (marqueeCtxMenuEl) {
+  initTouchGestures({
+    workspaceEl,
+    graphAreaEl,
+    ctxMenuEl,
+    marqueeCtxMenuEl,
+    onDoubleTapAxis: (axis, svg) => showAxisDialog(axisOverlayEl, axis, svg),
+    onDoubleTapGraph: (dataset, svg) => showPropertyDialog(propOverlayEl, dataset as string | Dataset, svg),
+    onDoubleTapPlot: () => showDataManagerDialog(dmOverlayEl),
+  })
+}
+
 // Initialize Property, Data Manager, Axis & Confirm Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
 if (axisOverlayEl) initAxisDialog(axisOverlayEl)
@@ -774,7 +788,11 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
   showContextMenu(ctxMenuEl, e.clientX, e.clientY)
 })
 
-document.addEventListener('click', () => hideContextMenu(ctxMenuEl))
+document.addEventListener('click', (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (target.closest('#ctxMenu')) return
+  hideContextMenu(ctxMenuEl)
+})
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu(ctxMenuEl)
 

@@ -2,6 +2,7 @@ import type { SmpLineAnnotation } from '../types.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 import { beginShapeDraw } from './ShapeDraw.ts'
+import { makeDraggable } from '../utils/draggable.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentAnnotationIndex: number = -1
@@ -114,33 +115,7 @@ export function initRectangleDialog(overlayEl: HTMLElement): void {
   // Draggable dialog header
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
   if (headerEl && dialogEl) {
-    let isDragging = false
-    let startX = 0
-    let startY = 0
-    let startLeft = 0
-    let startTop = 0
-
-    headerEl.addEventListener('mousedown', (e: MouseEvent) => {
-      if ((e.target as HTMLElement).tagName === 'BUTTON') return
-      isDragging = true
-      startX = e.clientX
-      startY = e.clientY
-      startLeft = dialogEl.offsetLeft
-      startTop = dialogEl.offsetTop
-      e.preventDefault()
-    })
-
-    document.addEventListener('mousemove', (e: MouseEvent) => {
-      if (!isDragging) return
-      const dx = e.clientX - startX
-      const dy = e.clientY - startY
-      dialogEl.style.left = `${startLeft + dx}px`
-      dialogEl.style.top = `${startTop + dy}px`
-    })
-
-    document.addEventListener('mouseup', () => {
-      isDragging = false
-    })
+    makeDraggable(dialogEl, headerEl)
   }
 }
 

@@ -236,6 +236,50 @@ export function hideMarqueeExport(marqueeCtxMenuEl?: HTMLElement | null): void {
   }
 }
 
+export function getOrCreateMarqueeBox(graphAreaEl: HTMLElement): HTMLElement {
+  if (!activeMarqueeBox) {
+    activeMarqueeBox = document.createElement('div')
+    activeMarqueeBox.className = 'marquee-export-box'
+    graphAreaEl.appendChild(activeMarqueeBox)
+  }
+  return activeMarqueeBox
+}
+
+export function updateMarqueeExportBox(
+  graphAreaEl: HTMLElement,
+  startGraphX: number,
+  startGraphY: number,
+  currentGraphX: number,
+  currentGraphY: number
+): boolean {
+  const mLeft = Math.min(startGraphX, currentGraphX)
+  const mTop = Math.min(startGraphY, currentGraphY)
+  const mWidth = Math.abs(currentGraphX - startGraphX)
+  const mHeight = Math.abs(currentGraphY - startGraphY)
+
+  currentMarqueeBounds = { left: mLeft, top: mTop, width: mWidth, height: mHeight }
+
+  const box = getOrCreateMarqueeBox(graphAreaEl)
+  box.style.left = `${mLeft}px`
+  box.style.top = `${mTop}px`
+  box.style.width = `${mWidth}px`
+  box.style.height = `${mHeight}px`
+  box.style.display = 'block'
+  return mWidth > 5 && mHeight > 5
+}
+
+export function finishMarqueeExportBox(
+  marqueeCtxMenuEl: HTMLElement,
+  clientX: number,
+  clientY: number
+): boolean {
+  if (currentMarqueeBounds && currentMarqueeBounds.width > 5 && currentMarqueeBounds.height > 5) {
+    showContextMenu(marqueeCtxMenuEl, clientX, clientY)
+    return true
+  }
+  return false
+}
+
 export function initMarqueeExport(
   graphAreaEl: HTMLElement,
   marqueeCtxMenuEl: HTMLElement,
@@ -247,15 +291,6 @@ export function initMarqueeExport(
   let startClientY = 0
   let startGraphX = 0
   let startGraphY = 0
-
-  const getMarqueeBox = (): HTMLElement => {
-    if (!activeMarqueeBox) {
-      activeMarqueeBox = document.createElement('div')
-      activeMarqueeBox.className = 'marquee-selection-box'
-      graphAreaEl.appendChild(activeMarqueeBox)
-    }
-    return activeMarqueeBox
-  }
 
   const workspaceEl = graphAreaEl.closest<HTMLElement>('.workspace') || document.body
 
@@ -289,19 +324,7 @@ export function initMarqueeExport(
       const currentGraphX = (e.clientX - rect.left) / zoom
       const currentGraphY = (e.clientY - rect.top) / zoom
 
-      const mLeft = Math.min(startGraphX, currentGraphX)
-      const mTop = Math.min(startGraphY, currentGraphY)
-      const mWidth = Math.abs(currentGraphX - startGraphX)
-      const mHeight = Math.abs(currentGraphY - startGraphY)
-
-      currentMarqueeBounds = { left: mLeft, top: mTop, width: mWidth, height: mHeight }
-
-      const box = getMarqueeBox()
-      box.style.left = `${mLeft}px`
-      box.style.top = `${mTop}px`
-      box.style.width = `${mWidth}px`
-      box.style.height = `${mHeight}px`
-      box.style.display = 'block'
+      updateMarqueeExportBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
     }
   })
 
@@ -311,10 +334,12 @@ export function initMarqueeExport(
     document.body.style.userSelect = ''
     window.getSelection()?.removeAllRanges()
 
-    if (hasRightDragged && currentMarqueeBounds && currentMarqueeBounds.width > 5 && currentMarqueeBounds.height > 5) {
-      e.preventDefault()
-      e.stopPropagation()
-      showContextMenu(marqueeCtxMenuEl, e.clientX, e.clientY)
+    if (hasRightDragged) {
+      const shown = finishMarqueeExportBox(marqueeCtxMenuEl, e.clientX, e.clientY)
+      if (shown) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
   })
 
@@ -346,7 +371,7 @@ export function initMarqueeExport(
 
   document.addEventListener('click', (e: MouseEvent) => {
     const target = e.target as HTMLElement
-    if (target.closest('#marqueeCtxMenu') || target.closest('.marquee-selection-box')) return
+    if (target.closest('#marqueeCtxMenu') || target.closest('.marquee-export-box')) return
     hideMarqueeExport(marqueeCtxMenuEl)
   })
 

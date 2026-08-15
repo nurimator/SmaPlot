@@ -383,20 +383,46 @@ export function initCanvasZoom(
     { passive: false }
   )
 
-  // Two-finger touch pan (trackpad-equivalent gesture on touch devices)
-  let touchPanStart: { midX: number; midY: number; panX: number; panY: number } | null = null
+  // Two-finger touch pan & pinch-zoom (trackpad / touch device gesture)
+  let touchPanStart: {
+    midX: number
+    midY: number
+    panX: number
+    panY: number
+    startDist: number
+    startZoom: number
+    canvasX: number
+    canvasY: number
+  } | null = null
+
   const getTouchMid = (touches: TouchList): { midX: number; midY: number } => ({
     midX: (touches[0].clientX + touches[1].clientX) / 2,
     midY: (touches[0].clientY + touches[1].clientY) / 2,
   })
 
+  const getTouchDist = (touches: TouchList): number =>
+    Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
+
   container.addEventListener(
     'touchstart',
     (e: TouchEvent) => {
-      if (e.touches.length !== 2) return
-      const mid = getTouchMid(e.touches)
-      touchPanStart = { ...mid, panX, panY }
-      e.preventDefault()
+      if (e.touches.length === 2) {
+        const mid = getTouchMid(e.touches)
+        const dist = Math.max(10, getTouchDist(e.touches))
+        const canvasX = (mid.midX - panX) / currentZoom
+        const canvasY = (mid.midY - panY) / currentZoom
+        touchPanStart = {
+          midX: mid.midX,
+          midY: mid.midY,
+          panX,
+          panY,
+          startDist: dist,
+          startZoom: currentZoom,
+          canvasX,
+          canvasY,
+        }
+        e.preventDefault()
+      }
     },
     { passive: false }
   )
@@ -407,8 +433,15 @@ export function initCanvasZoom(
       if (!touchPanStart || e.touches.length < 2) return
       e.preventDefault()
       const mid = getTouchMid(e.touches)
-      panX = touchPanStart.panX + (mid.midX - touchPanStart.midX)
-      panY = touchPanStart.panY + (mid.midY - touchPanStart.midY)
+      const currentDist = Math.max(10, getTouchDist(e.touches))
+      const scale = currentDist / touchPanStart.startDist
+      const targetZoom = touchPanStart.startZoom * scale
+      const minZoom = calculateMinZoom(container)
+      const newZoom = Math.min(MAX_ZOOM, Math.max(minZoom, targetZoom))
+
+      currentZoom = newZoom
+      panX = mid.midX - touchPanStart.canvasX * newZoom
+      panY = mid.midY - touchPanStart.canvasY * newZoom
       clampPan(container)
       applyTransform(graphAreaEl, statusEl)
     },
@@ -418,4 +451,9 @@ export function initCanvasZoom(
   container.addEventListener('touchend', (e: TouchEvent) => {
     if (e.touches.length < 2) touchPanStart = null
   })
+
+  container.addEventListener('touchcancel', () => {
+    touchPanStart = null
+  })
 }
+

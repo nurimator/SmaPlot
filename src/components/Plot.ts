@@ -1256,7 +1256,7 @@ function buildGroupDragItems(selection: SelectableObject[]): GroupDragItem[] {
   return items
 }
 
-function startGroupDrag(startX: number, startY: number): void {
+export function startGroupDrag(startX: number, startY: number): void {
   activeGroupDrag = {
     items: buildGroupDragItems(selectedObjects),
     startX,
@@ -3663,54 +3663,58 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
       // Don't stopPropagation — MarqueeSelect will start marquee selection or point hit-test
       return
     }
-    setSelectedPlotSvg(svg)
+    startPlotDrag(svg, dir, e.clientX, e.clientY)
     e.preventDefault()
     e.stopPropagation()
-
-    const rect = svg.getBoundingClientRect()
-    const parentRect = graphArea.getBoundingClientRect()
-
-    const smpDoc = getPlotSmpDoc(svg)
-    const margin = PLOT_MARGIN
-    const curW = parseFloat(svg.style.width) || rect.width
-    const curH = parseFloat(svg.style.height) || rect.height
-    const startPlotW = Math.max(10, curW - margin.l - margin.r)
-    const startPlotH = Math.max(10, curH - margin.t - margin.b)
-    const initialItemPositions = smpDoc?.legendItems.map((item) => ({
-      xPx: (item.xNorm / 10000) * startPlotW,
-      yPx: (item.yNorm / 10000) * startPlotH,
-      x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
-      y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
-    }))
-    const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => {
-      const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
-      return {
-        useMm,
-        x1Norm: aLine.x1Norm,
-        y1Norm: aLine.y1Norm,
-        x2Norm: aLine.x2Norm,
-        y2Norm: aLine.y2Norm,
-        x1Px: useMm ? aLine.x1Norm : (aLine.x1Norm / 100) * startPlotW,
-        y1Px: useMm ? aLine.y1Norm : (aLine.y1Norm / 100) * startPlotH,
-        x2Px: useMm ? aLine.x2Norm : (aLine.x2Norm / 100) * startPlotW,
-        y2Px: useMm ? aLine.y2Norm : (aLine.y2Norm / 100) * startPlotH,
-      }
-    })
-
-    activeDrag = {
-      svg,
-      dir,
-      startX: e.clientX,
-      startY: e.clientY,
-      startLeft: parseFloat(svg.style.left) || rect.left - parentRect.left,
-      startTop: parseFloat(svg.style.top) || rect.top - parentRect.top,
-      startWidth: curW,
-      startHeight: curH,
-      initialItemPositions,
-      initialAnnotationPositions,
-    }
-    document.body.style.userSelect = 'none'
   })
+}
+
+export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, clientY: number): void {
+  setSelectedPlotSvg(svg)
+  const graphArea = svg.parentElement || document.body
+  const rect = svg.getBoundingClientRect()
+  const parentRect = graphArea.getBoundingClientRect()
+
+  const smpDoc = getPlotSmpDoc(svg)
+  const margin = PLOT_MARGIN
+  const curW = parseFloat(svg.style.width) || rect.width
+  const curH = parseFloat(svg.style.height) || rect.height
+  const startPlotW = Math.max(10, curW - margin.l - margin.r)
+  const startPlotH = Math.max(10, curH - margin.t - margin.b)
+  const initialItemPositions = smpDoc?.legendItems.map((item) => ({
+    xPx: (item.xNorm / 10000) * startPlotW,
+    yPx: (item.yNorm / 10000) * startPlotH,
+    x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
+    y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
+  }))
+  const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => {
+    const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
+    return {
+      useMm,
+      x1Norm: aLine.x1Norm,
+      y1Norm: aLine.y1Norm,
+      x2Norm: aLine.x2Norm,
+      y2Norm: aLine.y2Norm,
+      x1Px: useMm ? aLine.x1Norm : (aLine.x1Norm / 100) * startPlotW,
+      y1Px: useMm ? aLine.y1Norm : (aLine.y1Norm / 100) * startPlotH,
+      x2Px: useMm ? aLine.x2Norm : (aLine.x2Norm / 100) * startPlotW,
+      y2Px: useMm ? aLine.y2Norm : (aLine.y2Norm / 100) * startPlotH,
+    }
+  })
+
+  activeDrag = {
+    svg,
+    dir,
+    startX: clientX,
+    startY: clientY,
+    startLeft: parseFloat(svg.style.left) || rect.left - parentRect.left,
+    startTop: parseFloat(svg.style.top) || rect.top - parentRect.top,
+    startWidth: curW,
+    startHeight: curH,
+    initialItemPositions,
+    initialAnnotationPositions,
+  }
+  document.body.style.userSelect = 'none'
 }
 
 export async function createPlot(
@@ -3803,15 +3807,15 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
   return val
 }
 
-// Global mousemove & mouseup listeners for resize with snap to grid.
+// Global mousemove, mouseup, touchmove, and touchend listeners for resize with snap to grid.
 // onDragCommit is invoked after a resize/group-move finishes, letting the caller
 // (e.g. undo manager) record the mutation without Plot importing it.
 export function initPlotDragListeners(onDragCommit?: () => void): void {
-  document.addEventListener('mousemove', (e: MouseEvent) => {
+  const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean) => {
     if (activeTransDrag) {
       const zoom = getCanvasZoom()
-      const dxPx = (e.clientX - activeTransDrag.startX) / zoom
-      const dyPx = (e.clientY - activeTransDrag.startY) / zoom
+      const dxPx = (clientX - activeTransDrag.startX) / zoom
+      const dyPx = (clientY - activeTransDrag.startY) / zoom
 
       const {
         svg,
@@ -3935,9 +3939,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
       const zoom = getCanvasZoom()
-      const dx = (e.clientX - dragRef.startX) / zoom
-      const dy = (e.clientY - dragRef.startY) / zoom
-      const shiftKey = e.shiftKey
+      const dx = (clientX - dragRef.startX) / zoom
+      const dy = (clientY - dragRef.startY) / zoom
       const touchedSvgs = new Set<SVGSVGElement>()
 
       for (const item of dragRef.items) {
@@ -4021,7 +4024,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
-                aLine.y2Norm = item.startY1Norm!
+                aLine.y1Norm = item.startY1Norm!
                 aLine.x2Norm = rawX2
               } else {
                 aLine.x2Norm = item.startX1Norm!
@@ -4066,8 +4069,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (!activeDrag) return
     const { svg, dir, startX, startY, startLeft, startTop, startWidth, startHeight } = activeDrag
     const zoom = getCanvasZoom()
-    const dx = (e.clientX - startX) / zoom
-    const dy = (e.clientY - startY) / zoom
+    const dx = (clientX - startX) / zoom
+    const dy = (clientY - startY) / zoom
     let newLeft = startLeft
     let newTop = startTop
     let newWidth = startWidth
@@ -4181,9 +4184,9 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       if (ds) drawPlot(currentDrag.svg, ds, newWidth, newHeight)
       rafId = null
     })
-  })
+  }
 
-  document.addEventListener('mouseup', () => {
+  const handleDragEnd = () => {
     let wasDragging = false
     if (activeTransDrag) {
       activeTransDrag = null
@@ -4213,5 +4216,34 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (wasDragging) {
       onDragCommit?.()
     }
+  }
+
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    handleDragMove(e.clientX, e.clientY, e.shiftKey)
+  })
+
+  document.addEventListener(
+    'touchmove',
+    (e: TouchEvent) => {
+      if (e.touches.length === 1 && (activeTransDrag || activeGroupDrag || activeDrag)) {
+        e.preventDefault()
+        const touch = e.touches[0]
+        handleDragMove(touch.clientX, touch.clientY, e.shiftKey)
+      }
+    },
+    { passive: false }
+  )
+
+  document.addEventListener('mouseup', () => {
+    handleDragEnd()
+  })
+
+  document.addEventListener('touchend', () => {
+    handleDragEnd()
+  })
+
+  document.addEventListener('touchcancel', () => {
+    handleDragEnd()
   })
 }
+

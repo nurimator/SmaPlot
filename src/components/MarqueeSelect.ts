@@ -5,8 +5,12 @@ import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
 import { isShapeDrawing } from './ShapeDraw.ts'
 
+let globalMarqueeSelectBox: HTMLElement | null = null
+let lastClickTime = 0
+let lastHitObj: SelectableObject | null = null
+
 // Check whether the click point (in graph-area local coords) hits an already-selected object.
-function hitsSelectedObject(gx: number, gy: number): boolean {
+export function hitsSelectedObject(gx: number, gy: number): boolean {
   return getSelectableObjects().some((o) => {
     if (!isObjectSelected(o.obj)) return false
     if (o.obj.kind === 'plot') return hitsRectBorder(gx, gy, o.l, o.t, o.w, o.h)
@@ -15,7 +19,7 @@ function hitsSelectedObject(gx: number, gy: number): boolean {
 }
 
 // Find the topmost selectable object at a click point (point hit-test).
-function hitTestPoint(gx: number, gy: number): SelectableObject | null {
+export function hitTestPoint(gx: number, gy: number): SelectableObject | null {
   // Check inner objects (legend, annotation) first — they are "on top" of plots.
   const all = getSelectableObjects()
   for (let i = all.length - 1; i >= 0; i--) {
@@ -34,6 +38,95 @@ function hitTestPoint(gx: number, gy: number): SelectableObject | null {
   return null
 }
 
+export function getOrCreateMarqueeSelectBox(graphAreaEl: HTMLElement): HTMLElement {
+  if (!globalMarqueeSelectBox) {
+    globalMarqueeSelectBox = document.createElement('div')
+    globalMarqueeSelectBox.className = 'marquee-selection-box'
+    graphAreaEl.appendChild(globalMarqueeSelectBox)
+  }
+  return globalMarqueeSelectBox
+}
+
+export function clearMarqueeSelectBox(): void {
+  if (globalMarqueeSelectBox) {
+    globalMarqueeSelectBox.remove()
+    globalMarqueeSelectBox = null
+  }
+}
+
+export function updateMarqueeSelectBox(
+  graphAreaEl: HTMLElement,
+  startGraphX: number,
+  startGraphY: number,
+  currentGraphX: number,
+  currentGraphY: number
+): void {
+  const mLeft = Math.min(startGraphX, currentGraphX)
+  const mTop = Math.min(startGraphY, currentGraphY)
+  const mWidth = Math.abs(currentGraphX - startGraphX)
+  const mHeight = Math.abs(currentGraphY - startGraphY)
+
+  const box = getOrCreateMarqueeSelectBox(graphAreaEl)
+  box.style.left = `${mLeft}px`
+  box.style.top = `${mTop}px`
+  box.style.width = `${mWidth}px`
+  box.style.height = `${mHeight}px`
+  box.style.display = 'block'
+
+  const mRight = mLeft + mWidth
+  const mBottom = mTop + mHeight
+  const hits = getSelectableObjects()
+    .filter((o) => o.l < mRight && o.l + o.w > mLeft && o.t < mBottom && o.t + o.h > mTop)
+    .map((o) => o.obj)
+    .filter((o) => o.kind !== 'plot') // Marquee never selects boxplots; use click instead
+  setObjectSelection(hits)
+}
+
+export function handleSelectClickOrTap(startGraphX: number, startGraphY: number): void {
+  const hit = hitTestPoint(startGraphX, startGraphY)
+  const now = Date.now()
+
+  if (
+    hit &&
+    lastHitObj &&
+    hit.kind === 'annotation' &&
+    lastHitObj.kind === 'annotation' &&
+    hit.svg === lastHitObj.svg &&
+    hit.annotationIdx !== undefined &&
+    hit.annotationIdx === lastHitObj.annotationIdx &&
+    now - lastClickTime < 450
+  ) {
+    const aIdx = hit.annotationIdx
+    lastClickTime = 0
+    lastHitObj = null
+    const smpDoc = getPlotSmpDoc(hit.svg)
+    const aLine = smpDoc?.annotationLines?.[aIdx]
+    if (aLine && (aLine.shape === 'rectangle' || aLine.shape === 'rect')) {
+      const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
+      if (rectOverlayEl) {
+        showRectangleDialog(rectOverlayEl, aIdx, hit.svg)
+        return
+      }
+    } else if (aLine) {
+      const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
+      if (arrowOverlayEl) {
+        showArrowDialog(arrowOverlayEl, aIdx, hit.svg)
+        return
+      }
+    }
+  }
+
+  if (hit) {
+    lastClickTime = now
+    lastHitObj = hit
+    setObjectSelection([hit])
+  } else {
+    lastClickTime = 0
+    lastHitObj = null
+    clearObjectSelection()
+  }
+}
+
 // Left-drag marquee selection of plot elements (boxplots, labels, legends, lines/arrows).
 // Distinct from the right-click marquee in MarqueeExport.ts, which is used solely for SVG export.
 export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
@@ -43,10 +136,6 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
   let startClientY = 0
   let startGraphX = 0
   let startGraphY = 0
-  let marqueeBox: HTMLElement | null = null
-
-  let lastClickTime = 0
-  let lastHitObj: SelectableObject | null = null
 
   const workspaceEl = graphAreaEl.closest<HTMLElement>('.workspace') || document.body
 
@@ -69,7 +158,7 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     if (target.closest('[data-dir]')) return
 
     // Clear any leftover right-click export marquee box
-    graphAreaEl.querySelectorAll('.marquee-selection-box').forEach((el) => el.remove())
+    graphAreaEl.querySelectorAll('.marquee-selection-box, .marquee-export-box').forEach((el) => el.remove())
 
     const rect = graphAreaEl.getBoundingClientRect()
     const zoom = getCanvasZoom()
@@ -93,38 +182,13 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     const dy = e.clientY - startClientY
     if (!hasMoved && Math.hypot(dx, dy) < 4) return
 
-    if (!hasMoved) {
-      hasMoved = true
-      marqueeBox = document.createElement('div')
-      marqueeBox.className = 'marquee-selection-box'
-      graphAreaEl.appendChild(marqueeBox)
-    }
-
+    hasMoved = true
     const rect = graphAreaEl.getBoundingClientRect()
     const zoom = getCanvasZoom()
     const currentGraphX = (e.clientX - rect.left) / zoom
     const currentGraphY = (e.clientY - rect.top) / zoom
 
-    const mLeft = Math.min(startGraphX, currentGraphX)
-    const mTop = Math.min(startGraphY, currentGraphY)
-    const mWidth = Math.abs(currentGraphX - startGraphX)
-    const mHeight = Math.abs(currentGraphY - startGraphY)
-
-    if (marqueeBox) {
-      marqueeBox.style.left = `${mLeft}px`
-      marqueeBox.style.top = `${mTop}px`
-      marqueeBox.style.width = `${mWidth}px`
-      marqueeBox.style.height = `${mHeight}px`
-      marqueeBox.style.display = 'block'
-    }
-
-    const mRight = mLeft + mWidth
-    const mBottom = mTop + mHeight
-    const hits = getSelectableObjects()
-      .filter((o) => o.l < mRight && o.l + o.w > mLeft && o.t < mBottom && o.t + o.h > mTop)
-      .map((o) => o.obj)
-      .filter((o) => o.kind !== 'plot') // Marquee never selects boxplots; use click instead
-    setObjectSelection(hits)
+    updateMarqueeSelectBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
   })
 
   window.addEventListener('mouseup', () => {
@@ -132,55 +196,9 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     isSelecting = false
     document.body.style.userSelect = ''
     window.getSelection()?.removeAllRanges()
-    if (marqueeBox) {
-      marqueeBox.remove()
-      marqueeBox = null
-    }
+    clearMarqueeSelectBox()
     if (!hasMoved) {
-      // Single click without drag: select whatever object is at the click point,
-      // or clear selection if clicking on empty space.
-      const hit = hitTestPoint(startGraphX, startGraphY)
-      const now = Date.now()
-
-      if (
-        hit &&
-        lastHitObj &&
-        hit.kind === 'annotation' &&
-        lastHitObj.kind === 'annotation' &&
-        hit.svg === lastHitObj.svg &&
-        hit.annotationIdx !== undefined &&
-        hit.annotationIdx === lastHitObj.annotationIdx &&
-        now - lastClickTime < 450
-      ) {
-        const aIdx = hit.annotationIdx
-        lastClickTime = 0
-        lastHitObj = null
-        const smpDoc = getPlotSmpDoc(hit.svg)
-        const aLine = smpDoc?.annotationLines?.[aIdx]
-        if (aLine && (aLine.shape === 'rectangle' || aLine.shape === 'rect')) {
-          const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
-          if (rectOverlayEl) {
-            showRectangleDialog(rectOverlayEl, aIdx, hit.svg)
-            return
-          }
-        } else if (aLine) {
-          const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
-          if (arrowOverlayEl) {
-            showArrowDialog(arrowOverlayEl, aIdx, hit.svg)
-            return
-          }
-        }
-      }
-
-      if (hit) {
-        lastClickTime = now
-        lastHitObj = hit
-        setObjectSelection([hit])
-      } else {
-        lastClickTime = 0
-        lastHitObj = null
-        clearObjectSelection()
-      }
+      handleSelectClickOrTap(startGraphX, startGraphY)
     }
   })
 
@@ -189,10 +207,7 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
       isSelecting = false
       document.body.style.userSelect = ''
       window.getSelection()?.removeAllRanges()
-      if (marqueeBox) {
-        marqueeBox.remove()
-        marqueeBox = null
-      }
+      clearMarqueeSelectBox()
       clearObjectSelection()
     }
   })
