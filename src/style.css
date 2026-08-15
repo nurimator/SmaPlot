@@ -76,8 +76,8 @@ body {
 @media (display-mode: window-controls-overlay) {
   .titlebar {
     display: flex;
-    height: env(titlebar-area-height, 34px);
-    min-height: env(titlebar-area-height, 34px);
+    height: calc(env(titlebar-area-height, 34px) + 4px);
+    min-height: calc(env(titlebar-area-height, 34px) + 4px);
     padding-left: calc(env(titlebar-area-x, 0px) + 10px);
     padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px);
     padding-top: 0;
@@ -95,8 +95,8 @@ body {
 /* JS-activated WCO state for broad compatibility */
 body.wco-active .titlebar {
   display: flex !important;
-  height: env(titlebar-area-height, 34px);
-  min-height: env(titlebar-area-height, 34px);
+  height: calc(env(titlebar-area-height, 34px) + 4px);
+  min-height: calc(env(titlebar-area-height, 34px) + 4px);
   padding-left: calc(env(titlebar-area-x, 0px) + 10px);
   padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px);
   padding-top: 0;
@@ -116,20 +116,23 @@ body.wco-active .titlebar * {
   gap: 8px;
 }
 
+/* macOS convention: center the title bar content */
+body.os-mac .titlebar {
+  justify-content: center;
+}
+
 .app-icon {
   width: 18px;
   height: 18px;
-  background-color: var(--blue-600);
-  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.app-icon .icon {
-  color: #fff;
-  width: 12px;
-  height: 12px;
+.app-icon img {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
 }
 
 .app-title {

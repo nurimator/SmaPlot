@@ -19,8 +19,8 @@ export default defineConfig({
         lang: 'en',
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone',
-        display_override: ['window-controls-overlay', 'standalone'],
+        display: 'fullscreen',
+        display_override: ['window-controls-overlay'],
         start_url: '/',
         icons: [
           {
