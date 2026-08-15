@@ -25,7 +25,7 @@ import {
   isPropertyTabMode,
   isReadValueMode,
   loadSmpProject,
-  removeDatasetFromAllPlots,
+  removeDatasetFromPlot,
   setObjectSelection,
   setSelectedPlotSvg,
   setTrimmingMode,
@@ -43,6 +43,7 @@ import {
 import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import type { TitlePreset } from './components/TitleDialog.ts'
+import type { Dataset } from './types.ts'
 import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
@@ -602,15 +603,30 @@ if (axisOverlayEl) initAxisDialog(axisOverlayEl)
 const confirmOverlayEl = document.querySelector<HTMLElement>('#confirmOverlay')
 if (confirmOverlayEl) initConfirmDialog(confirmOverlayEl)
 
-// Data Manager callback: when a file is selected, transition to Property modal
+// Data Manager callback: when a file is selected, transition to Property modal.
+// The dialog only lists the datasets of the currently selected (or last
+// selected) boxplot, so datasets of different plots never mix. The global pool
+// is used only when the active plot has no datasets of its own (e.g. when
+// picking data to add to a fresh plot).
 if (dmOverlayEl) {
+  const getDataManagerDatasets = (): Dataset[] => {
+    const svg = getSelectedPlotSvg()
+    if (svg) {
+      const plotDatasets = getPlotDatasets(svg)
+      if (plotDatasets.length > 0) return plotDatasets
+    }
+    return globalDataManager.getDatasets()
+  }
+
   initDataManagerDialog(
     dmOverlayEl,
+    getDataManagerDatasets,
     (selectedFileName) => {
       showPropertyDialog(propOverlayEl, selectedFileName)
     },
     (identifier) => {
-      removeDatasetFromAllPlots(identifier)
+      const svg = getSelectedPlotSvg()
+      if (svg) removeDatasetFromPlot(svg, identifier)
     }
   )
 }

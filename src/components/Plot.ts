@@ -3474,6 +3474,15 @@ function isSeriesLegendText(text: string): boolean {
   return /^%\d+E/.test((text || '').trim())
 }
 
+export function removeDatasetFromPlot(svg: SVGSVGElement, identifier: string): void {
+  const ds = svgDataMap.get(svg) || []
+  const filtered = ds.filter((d) => datasetIdentifier(d) !== identifier)
+  if (filtered.length !== ds.length) {
+    svgDataMap.set(svg, filtered)
+    updatePlotVisual(svg)
+  }
+}
+
 export function removeDatasetFromAllPlots(identifier: string): void {
   const gds = globalDataManager.getDatasets()
   const idx = gds.findIndex((d) => datasetIdentifier(d) === identifier)

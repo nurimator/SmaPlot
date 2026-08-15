@@ -53,6 +53,29 @@ let activeSelectCallback: ((fileName: string) => void) | null = null
 let legendSelectCallback: ((identifiers: string[]) => void) | null = null
 let multiSelectMode = false
 
+// The dialog renders only the datasets of the currently selected (or last
+// selected) boxplot, so datasets of different plots never mix. Falls back to
+// the global pool only when the active plot has no datasets of its own.
+let dmDatasetsProvider: () => Dataset[] = () => globalDataManager.getDatasets()
+let dmOverlayEl: HTMLElement | null = null
+let dmListBoxEl: HTMLElement | null = null
+let dmOnOpenProperty: ((selectedFileName?: string) => void) | undefined
+let dmOnDeleteDataset: ((identifier: string) => void) | undefined
+
+function refreshDataManagerList(): void {
+  if (!dmListBoxEl) return
+  renderDataManagerListBox(dmListBoxEl, dmDatasetsProvider(), (fn) => {
+    const cb = activeSelectCallback
+    activeSelectCallback = null
+    hideDataManagerDialog(document.querySelector('#dataManagerOverlay') as HTMLElement)
+    if (cb) {
+      cb(fn)
+    } else if (dmOnOpenProperty) {
+      dmOnOpenProperty(fn)
+    }
+  })
+}
+
 export function renderDataManagerListBox(
   listBoxEl: HTMLElement,
   datasets: Dataset[],
@@ -117,9 +140,15 @@ export function renderDataManagerListBox(
 
 export function initDataManagerDialog(
   overlayEl: HTMLElement,
+  getDatasets?: () => Dataset[],
   onOpenProperty?: (selectedFileName?: string) => void,
   onDeleteDataset?: (identifier: string) => void
 ): void {
+  dmOverlayEl = overlayEl
+  if (getDatasets) dmDatasetsProvider = getDatasets
+  dmOnOpenProperty = onOpenProperty
+  dmOnDeleteDataset = onDeleteDataset
+
   const dialogEl = overlayEl.querySelector<HTMLElement>('#dataManagerDialog')
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
 
@@ -145,12 +174,14 @@ export function initDataManagerDialog(
 
   deleteBtn?.addEventListener('click', () => {
     if (multiSelectMode) return
-    if (!listBox || !onDeleteDataset) return
+    if (!listBox || !dmOnDeleteDataset) return
+    const onDelete = dmOnDeleteDataset
     const selectedItems = listBox.querySelectorAll<HTMLElement>('.dm-list-item.selected')
     selectedItems.forEach((item) => {
       const identifier = item.getAttribute('data-filename')
-      if (identifier) onDeleteDataset(identifier)
+      if (identifier) onDelete(identifier)
     })
+    refreshDataManagerList()
   })
 
   const triggerPropertyModal = () => {
@@ -161,8 +192,8 @@ export function initDataManagerDialog(
     const fileName = selected?.getAttribute('data-filename') || 'Dataset.txt'
     if (cb) {
       cb(fileName)
-    } else if (onOpenProperty) {
-      onOpenProperty(fileName)
+    } else if (dmOnOpenProperty) {
+      dmOnOpenProperty(fileName)
     }
   }
 
@@ -183,28 +214,11 @@ export function initDataManagerDialog(
   })
 
   if (listBox) {
-    renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
-      const cb = activeSelectCallback
-      activeSelectCallback = null
-      hide()
-      if (cb) {
-        cb(fn)
-      } else if (onOpenProperty) {
-        onOpenProperty(fn)
-      }
-    })
+    dmListBoxEl = listBox
+    refreshDataManagerList()
 
     globalDataManager.subscribe(() => {
-      renderDataManagerListBox(listBox, globalDataManager.getDatasets(), (fn) => {
-        const cb = activeSelectCallback
-        activeSelectCallback = null
-        hide()
-        if (cb) {
-          cb(fn)
-        } else if (onOpenProperty) {
-          onOpenProperty(fn)
-        }
-      })
+      refreshDataManagerList()
     })
 
     // Up(U) button action
@@ -237,6 +251,7 @@ export function showDataManagerDialog(
   activeSelectCallback = onSelectDatasetCallback || null
   legendSelectCallback = null
   multiSelectMode = false
+  refreshDataManagerList()
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Open'
   const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
@@ -250,6 +265,7 @@ export function showDataManagerForLegend(
 ): void {
   legendSelectCallback = onChoose
   multiSelectMode = true
+  refreshDataManagerList()
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Insert'
   const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
@@ -260,6 +276,7 @@ export function showDataManagerForLegend(
 export function hideDataManagerDialog(overlayEl: HTMLElement): void {
   legendSelectCallback = null
   multiSelectMode = false
+  if (overlayEl === dmOverlayEl) dmOverlayEl = null
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Open'
   const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
