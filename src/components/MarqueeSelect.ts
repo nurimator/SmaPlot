@@ -1,5 +1,5 @@
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
-import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, isReadValueMode, isTrimmingMode, setObjectSelection } from './Plot.ts'
+import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, isPropertyTabMode, isReadValueMode, isTrimmingMode, setObjectSelection } from './Plot.ts'
 import type { SelectableObject } from './Plot.ts'
 import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
@@ -58,6 +58,8 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     if (isTrimmingMode()) return
     // Read Value mode takes over clicking and dragging on plot; suspend marquee selection.
     if (isReadValueMode()) return
+    // Property tab mode (transform manipulation active); suspend marquee and click selection.
+    if (isPropertyTabMode()) return
     // While a Rectangle/Arrow mouse-draw is in progress the next left-drag draws
     // the shape instead of a marquee selection.
     if (isShapeDrawing()) return

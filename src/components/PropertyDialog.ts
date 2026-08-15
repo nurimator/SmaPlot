@@ -4,6 +4,7 @@ import {
   exportPlotToSmpDoc,
   getPlotDatasets,
   getSelectedPlotSvg,
+  setPropertyDialogTarget,
   updatePlotVisual,
   type PlotVisualOptions,
 } from './Plot.ts'
@@ -140,6 +141,15 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
       contents.forEach((c) => c.classList.remove('active'))
       const targetContent = overlayEl.querySelector(`#tab-${targetTab}`)
       targetContent?.classList.add('active')
+
+      const svg = currentTargetSvg || getSelectedPlotSvg()
+      if (targetTab === 'plot' && svg) {
+        setPropertyDialogTarget({ svg, dataset: currentActiveDataset })
+        updatePlotVisual(svg)
+      } else {
+        setPropertyDialogTarget(null)
+        if (svg) updatePlotVisual(svg)
+      }
     })
   })
 
@@ -348,9 +358,23 @@ export function showPropertyDialog(
     if (yColSelect) yColSelect.value = String(existingOpts.yColumn || 2)
   }
 
+  const activeTabBtn = overlayEl.querySelector('.tab-btn.active')
+  const activeTab = activeTabBtn?.getAttribute('data-tab') || 'file'
+  if (activeTab === 'plot' && svg) {
+    setPropertyDialogTarget({ svg, dataset })
+    updatePlotVisual(svg)
+  } else {
+    setPropertyDialogTarget(null)
+    if (svg) updatePlotVisual(svg)
+  }
   overlayEl.style.display = 'flex'
 }
 
 export function hidePropertyDialog(overlayEl: HTMLElement): void {
   overlayEl.style.display = 'none'
+  const svg = currentTargetSvg
+  setPropertyDialogTarget(null)
+  if (svg) updatePlotVisual(svg)
+  currentTargetSvg = null
+  currentActiveDataset = undefined
 }

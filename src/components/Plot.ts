@@ -407,6 +407,164 @@ function createOverlayEl(className: string): HTMLDivElement {
 // Redraws only recompute when the relevant options change.
 const processedCache = new WeakMap<Dataset, { key: string; x: number[]; y: number[] }>()
 
+export function getRawDatasetCoords(ds: Dataset): { x: number[]; y: number[] } {
+  const opts = ds.options || {}
+  let sourceX = ds.x
+  let sourceY = ds.y
+
+  if (ds.rawLines && ds.rawLines.length > 0) {
+    const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
+    const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
+    const px: number[] = []
+    const py: number[] = []
+    ds.rawLines.forEach((parts) => {
+      if (parts.length > Math.max(xIdx, yIdx)) {
+        const vx = parseFloat(parts[xIdx])
+        const vy = parseFloat(parts[yIdx])
+        if (!isNaN(vx) && !isNaN(vy)) {
+          px.push(vx)
+          py.push(vy)
+        }
+      }
+    })
+    if (px.length > 0 && py.length > 0) {
+      sourceX = px
+      sourceY = py
+    }
+  }
+  return { x: sourceX, y: sourceY }
+}
+
+function formatNumber(num: number): string {
+  if (num === 0) return '0'
+  const abs = Math.abs(num)
+  const roundInt = Math.round(num)
+  if (Math.abs(num - roundInt) < 1e-6) {
+    return roundInt.toString()
+  }
+
+  // Standard case: for normal numbers (>= 0.01), limit strictly to at most 2 decimal places
+  if (abs >= 0.01 && abs < 1e7) {
+    const fixed2 = parseFloat(num.toFixed(2)).toString()
+    if (fixed2 !== '0') {
+      return fixed2
+    }
+  }
+
+  // High precision case: activated only when necessary for small numbers (< 0.01)
+  if (abs >= 0.0001 && abs < 0.01) {
+    let decimals = 4
+    if (abs < 0.001) decimals = 5
+    return parseFloat(num.toFixed(decimals)).toString()
+  }
+
+  // Micro-scale numbers (< 0.0001)
+  return parseFloat(num.toPrecision(3)).toString()
+}
+
+export function extractLinearParams(expr: string | undefined, varName: 'x' | 'y'): { a: number; b: number } {
+  if (!expr || !expr.trim()) return { a: 1, b: 0 }
+  const b = evaluateMathExpr(expr, 0, varName)
+  const f1 = evaluateMathExpr(expr, 1, varName)
+  const f100 = evaluateMathExpr(expr, 100, varName)
+  let a = f1 - b
+  if (Math.abs(a) < 1e-7 || isNaN(a) || !isFinite(a)) {
+    a = (f100 - b) / 100
+  }
+  if (isNaN(a) || !isFinite(a) || isNaN(b) || !isFinite(b)) {
+    return { a: 1, b: 0 }
+  }
+  return { a, b }
+}
+
+export function formatLinearExpr(a: number, b: number, varName: 'x' | 'y'): string {
+  if (Math.abs(a) < 1e-12) {
+    a = a < 0 ? -1e-12 : 1e-12
+  }
+
+  // Snap scale 'a' to integer only if Math.round(a) is non-zero
+  const roundA = Math.round(a)
+  if (roundA !== 0 && Math.abs(a - roundA) < 0.02) {
+    a = roundA
+  }
+
+  const absA = Math.abs(a)
+
+  // Snap offset 'b' to 0 or integer
+  if (Math.abs(b) < 1e-5) {
+    b = 0
+  } else {
+    const roundB = Math.round(b)
+    if (roundB !== 0 && Math.abs(b - roundB) < 0.02) {
+      b = roundB
+    }
+  }
+
+  let termA = ''
+  if (Math.abs(absA - 1) < 0.01) {
+    termA = a < 0 ? `-${varName}` : varName
+  } else if (absA < 1) {
+    // For scale < 1 (compress/squeeze), format as division (integer or decimal divisor)
+    const invA = 1 / absA
+    const roundInvA = Math.round(invA)
+    const divisorStr = Math.abs(invA - roundInvA) < 0.02 ? roundInvA.toString() : formatNumber(invA)
+    termA = a < 0 ? `-${varName}/${divisorStr}` : `${varName}/${divisorStr}`
+  } else {
+    // For scale > 1 (stretch/expand), format as multiplication
+    const aStr = formatNumber(absA)
+    termA = a < 0 ? `-${varName}*${aStr}` : `${varName}*${aStr}`
+  }
+
+  if (b === 0) {
+    return termA
+  }
+
+  const bAbs = Math.abs(b)
+  const bStr = formatNumber(bAbs)
+  if (b > 0) {
+    return `${termA}+${bStr}`
+  } else {
+    return `${termA}-${bStr}`
+  }
+}
+
+export function getDatasetRawMinMax(ds: Dataset): {
+  rawXMin: number
+  rawXMax: number
+  rawYMin: number
+  rawYMax: number
+} {
+  const { x, y } = getRawDatasetCoords(ds)
+  let rawXMin = Infinity,
+    rawXMax = -Infinity
+  let rawYMin = Infinity,
+    rawYMax = -Infinity
+
+  for (let i = 0; i < x.length; i++) {
+    const vx = x[i]
+    if (!isNaN(vx)) {
+      if (vx < rawXMin) rawXMin = vx
+      if (vx > rawXMax) rawXMax = vx
+    }
+  }
+  for (let i = 0; i < y.length; i++) {
+    const vy = y[i]
+    if (!isNaN(vy)) {
+      if (vy < rawYMin) rawYMin = vy
+      if (vy > rawYMax) rawYMax = vy
+    }
+  }
+  if (rawXMin === Infinity || rawXMax === -Infinity) {
+    rawXMin = 0
+    rawXMax = 10
+  }
+  if (rawYMin === Infinity || rawYMax === -Infinity) {
+    rawYMin = 0
+    rawYMax = 10
+  }
+  return { rawXMin, rawXMax, rawYMin, rawYMax }
+}
+
 export function getProcessedDataset(ds: Dataset): Dataset {
   const opts = ds.options || {}
   const key = `${opts.xColumn || 1}|${opts.yColumn || 2}|${opts.xTransCheck ? 1 : 0}|${opts.xExpr || ''}|${opts.yTransCheck ? 1 : 0}|${opts.yExpr || ''}`
@@ -418,29 +576,9 @@ export function getProcessedDataset(ds: Dataset): Dataset {
     sourceX = cached.x
     sourceY = cached.y
   } else {
-    sourceX = ds.x
-    sourceY = ds.y
-
-    if (ds.rawLines && ds.rawLines.length > 0) {
-      const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
-      const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
-      const px: number[] = []
-      const py: number[] = []
-      ds.rawLines.forEach((parts) => {
-        if (parts.length > Math.max(xIdx, yIdx)) {
-          const vx = parseFloat(parts[xIdx])
-          const vy = parseFloat(parts[yIdx])
-          if (!isNaN(vx) && !isNaN(vy)) {
-            px.push(vx)
-            py.push(vy)
-          }
-        }
-      })
-      if (px.length > 0 && py.length > 0) {
-        sourceX = px
-        sourceY = py
-      }
-    }
+    const rawCoords = getRawDatasetCoords(ds)
+    sourceX = rawCoords.x
+    sourceY = rawCoords.y
 
     const newX = opts.xTransCheck && opts.xExpr
       ? sourceX.map((val) => evaluateMathExpr(opts.xExpr!, val, 'x'))
@@ -935,6 +1073,10 @@ export function setReadValueMode(on: boolean): void {
   readValueMode = on
 }
 
+export function isPropertyTabMode(): boolean {
+  return activePropertyTarget !== null
+}
+
 // Return the live SmpPlotDoc for a plot, synthesizing & caching one (from the
 // base data scale) if it does not yet exist, so axis min/max edits persist.
 export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
@@ -1327,6 +1469,271 @@ export function setPlotBaseScale(
 ): void {
   if (base === null) svgBaseScaleMap.delete(svg)
   else svgBaseScaleMap.set(svg, base)
+}
+
+interface ActiveTransDrag {
+  svg: SVGSVGElement
+  dataset: Dataset
+  dir: 'box' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  startX: number
+  startY: number
+  xTransActive: boolean
+  yTransActive: boolean
+  startXLinear: { a: number; b: number }
+  startYLinear: { a: number; b: number }
+  rawXMin: number
+  rawXMax: number
+  rawYMin: number
+  rawYMax: number
+  startXTransMin: number
+  startXTransMax: number
+  startYTransMin: number
+  startYTransMax: number
+  xMin: number
+  xMax: number
+  yMin: number
+  yMax: number
+  plotW: number
+  plotH: number
+  margin: { l: number; r: number; t: number; b: number }
+}
+
+let activeTransDrag: ActiveTransDrag | null = null
+
+let activePropertyTarget: { svg: SVGSVGElement; dataset?: Dataset } | null = null
+export function setPropertyDialogTarget(target: { svg: SVGSVGElement; dataset?: Dataset } | null): void {
+  const prevSvg = activePropertyTarget?.svg
+  activePropertyTarget = target
+  if (prevSvg && prevSvg !== target?.svg) {
+    updatePlotVisual(prevSvg)
+  }
+}
+
+function startTransformDrag(
+  e: MouseEvent,
+  svg: SVGSVGElement,
+  dataset: Dataset,
+  dir: 'box' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right',
+  xTransActive: boolean,
+  yTransActive: boolean,
+  xMin: number,
+  xMax: number,
+  yMin: number,
+  yMax: number,
+  plotW: number,
+  plotH: number,
+  margin: { l: number; r: number; t: number; b: number }
+): void {
+  e.stopPropagation()
+  e.preventDefault()
+
+  const opts = dataset.options || {}
+  const startXLinear = extractLinearParams(opts.xExpr || 'x', 'x')
+  const startYLinear = extractLinearParams(opts.yExpr || 'y', 'y')
+
+  const { rawXMin, rawXMax, rawYMin, rawYMax } = getDatasetRawMinMax(dataset)
+
+  const xTrans1 = startXLinear.a * rawXMin + startXLinear.b
+  const xTrans2 = startXLinear.a * rawXMax + startXLinear.b
+  const startXTransMin = Math.min(xTrans1, xTrans2)
+  const startXTransMax = Math.max(xTrans1, xTrans2)
+
+  const yTrans1 = startYLinear.a * rawYMin + startYLinear.b
+  const yTrans2 = startYLinear.a * rawYMax + startYLinear.b
+  const startYTransMin = Math.min(yTrans1, yTrans2)
+  const startYTransMax = Math.max(yTrans1, yTrans2)
+
+  activeTransDrag = {
+    svg,
+    dataset,
+    dir,
+    startX: e.clientX,
+    startY: e.clientY,
+    xTransActive,
+    yTransActive,
+    startXLinear,
+    startYLinear,
+    rawXMin,
+    rawXMax,
+    rawYMin,
+    rawYMax,
+    startXTransMin,
+    startXTransMax,
+    startYTransMin,
+    startYTransMax,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    plotW,
+    plotH,
+    margin,
+  }
+
+  document.body.style.userSelect = 'none'
+}
+
+function renderDatasetTransformOverlays(
+  svg: SVGSVGElement,
+  datasets: Dataset[],
+  processedDatasets: Dataset[],
+  plotW: number,
+  plotH: number,
+  margin: { l: number; r: number; t: number; b: number },
+  sx: (v: number) => number,
+  sy: (v: number) => number,
+  su: (v: number) => number,
+  sr: (v: number) => number,
+  xMin: number,
+  xMax: number,
+  yMin: number,
+  yMax: number,
+  uMin: number,
+  uMax: number,
+  rMin: number,
+  rMax: number
+): void {
+  const ov = getPlotOverlay(svg)
+  if (isTrimmingMode() || isReadValueMode() || !activePropertyTarget || activePropertyTarget.svg !== svg) return
+
+  for (let dIdx = 0; dIdx < datasets.length; dIdx++) {
+    const rawDs = datasets[dIdx]
+    const procDs = processedDatasets[dIdx]
+    if (!rawDs || !procDs) continue
+    if (activePropertyTarget.dataset && rawDs !== activePropertyTarget.dataset) continue
+
+    const opts = rawDs.options || {}
+    const xTransActive = !!opts.xTransCheck
+    const yTransActive = !!opts.yTransCheck
+
+    if (!xTransActive && !yTransActive) continue
+
+    const dsSx = opts.axisX === 'u' ? su : sx
+    const dsSy = opts.axisY === 'r' ? sr : sy
+
+    const effXMin = opts.axisX === 'u' ? uMin : xMin
+    const effXMax = opts.axisX === 'u' ? uMax : xMax
+    const effYMin = opts.axisY === 'r' ? rMin : yMin
+    const effYMax = opts.axisY === 'r' ? rMax : yMax
+
+    if (!procDs.x || procDs.x.length === 0 || !procDs.y || procDs.y.length === 0) continue
+
+    let minPx = Infinity,
+      maxPx = -Infinity
+    let minPy = Infinity,
+      maxPy = -Infinity
+
+    for (let i = 0; i < procDs.x.length; i++) {
+      const px = dsSx(procDs.x[i])
+      const py = dsSy(procDs.y[i])
+      if (!isNaN(px) && !isNaN(py)) {
+        if (px < minPx) minPx = px
+        if (px > maxPx) maxPx = px
+        if (py < minPy) minPy = py
+        if (py > maxPy) maxPy = py
+      }
+    }
+
+    if (minPx === Infinity || maxPx === -Infinity || minPy === Infinity || maxPy === -Infinity) continue
+
+    const boxLeft = minPx
+    const boxTop = minPy
+    const boxW = Math.max(12, maxPx - minPx)
+    const boxH = Math.max(12, maxPy - minPy)
+
+    // Bounding box container
+    const boxEl = createOverlayEl('ov-trans-box')
+    boxEl.style.left = `${boxLeft}px`
+    boxEl.style.top = `${boxTop}px`
+    boxEl.style.width = `${boxW}px`
+    boxEl.style.height = `${boxH}px`
+
+    if (xTransActive && yTransActive) {
+      boxEl.style.cursor = 'move'
+    } else if (yTransActive) {
+      boxEl.style.cursor = 'ns-resize'
+    } else {
+      boxEl.style.cursor = 'ew-resize'
+    }
+
+    const exprParts: string[] = []
+    if (xTransActive) exprParts.push(`X: ${opts.xExpr || 'x'}`)
+    if (yTransActive) exprParts.push(`Y: ${opts.yExpr || 'y'}`)
+    const exprText = exprParts.join(' | ')
+    boxEl.title = `Transform (${exprText}) — Drag to translate, drag handles to resize`
+
+    boxEl.addEventListener('mousedown', (e: MouseEvent) => {
+      if (e.button !== 0) return
+      startTransformDrag(
+        e,
+        svg,
+        rawDs,
+        'box',
+        xTransActive,
+        yTransActive,
+        effXMin,
+        effXMax,
+        effYMin,
+        effYMax,
+        plotW,
+        plotH,
+        margin
+      )
+    })
+
+    ov.appendChild(boxEl)
+
+    const addHandle = (
+      hx: number,
+      hy: number,
+      dir: 'top' | 'bottom' | 'left' | 'right',
+      orientation: 'h' | 'v'
+    ) => {
+      const isHorizontal = orientation === 'h'
+      const hw = isHorizontal ? 10 : 5
+      const hh = isHorizontal ? 5 : 10
+      const cursor = isHorizontal ? 'ns-resize' : 'ew-resize'
+
+      const handle = createOverlayEl(`ov-trans-handle ov-trans-handle-${orientation}`)
+      handle.style.left = `${hx - hw / 2}px`
+      handle.style.top = `${hy - hh / 2}px`
+      handle.style.width = `${hw}px`
+      handle.style.height = `${hh}px`
+      handle.style.cursor = cursor
+      handle.setAttribute('data-trans-dir', dir)
+      handle.title = `Scale ${dir.toUpperCase()} (${exprText})`
+
+      handle.addEventListener('mousedown', (e: MouseEvent) => {
+        if (e.button !== 0) return
+        startTransformDrag(
+          e,
+          svg,
+          rawDs,
+          dir,
+          xTransActive,
+          yTransActive,
+          effXMin,
+          effXMax,
+          effYMin,
+          effYMax,
+          plotW,
+          plotH,
+          margin
+        )
+      })
+
+      ov.appendChild(handle)
+    }
+
+    if (yTransActive) {
+      addHandle(boxLeft + boxW / 2, boxTop, 'top', 'h')
+      addHandle(boxLeft + boxW / 2, boxTop + boxH, 'bottom', 'h')
+    }
+    if (xTransActive) {
+      addHandle(boxLeft, boxTop + boxH / 2, 'left', 'v')
+      addHandle(boxLeft + boxW, boxTop + boxH / 2, 'right', 'v')
+    }
+  }
 }
 
 export function drawPlot(
@@ -2006,7 +2413,7 @@ export function drawPlot(
 
     const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
       if (e.button !== 0) return
-      if (isTrimmingMode() || isReadValueMode()) return
+      if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
       if (!wasSelected) {
@@ -2474,7 +2881,7 @@ export function drawPlot(
 
       const handleLegendMouseDown = (e: MouseEvent) => {
         if (e.button !== 0) return
-        if (isTrimmingMode() || isReadValueMode()) return
+        if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
         const wasSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
         // Double-click detection (always works)
@@ -2999,6 +3406,27 @@ export function drawPlot(
     addVisualHandle(fx + fw, fy + fh / 2)
   }
 
+  renderDatasetTransformOverlays(
+    svg,
+    datasets,
+    processedDatasets,
+    plotW,
+    plotH,
+    margin,
+    sx,
+    sy,
+    su,
+    sr,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    uMin,
+    uMax,
+    rMin,
+    rMax
+  )
+
   syncPlotOverlay(svg)
   updateSelectionBorder(svg)
   const cb = svgCrossbarMap.get(svg)
@@ -3182,7 +3610,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   setupPlotFileDrop(svg)
 
   svg.addEventListener('click', (e: MouseEvent) => {
-    if (isReadValueMode()) return
+    if (isReadValueMode() || isPropertyTabMode()) return
     lastSelectedPlotSvg = svg
     if (e.target === svg || ((e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir'))) {
       if (selectedLegendIndex !== -1 || selectedAnnotationIndex !== -1) {
@@ -3194,7 +3622,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
-    if (isTrimmingMode() || isReadValueMode()) return
+    if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
     lastSelectedPlotSvg = svg
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
@@ -3371,6 +3799,130 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
 // (e.g. undo manager) record the mutation without Plot importing it.
 export function initPlotDragListeners(onDragCommit?: () => void): void {
   document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (activeTransDrag) {
+      const zoom = getCanvasZoom()
+      const dxPx = (e.clientX - activeTransDrag.startX) / zoom
+      const dyPx = (e.clientY - activeTransDrag.startY) / zoom
+
+      const {
+        svg,
+        dataset,
+        dir,
+        xTransActive,
+        yTransActive,
+        startXLinear,
+        startYLinear,
+        rawXMin,
+        rawXMax,
+        rawYMin,
+        rawYMax,
+        startXTransMin,
+        startXTransMax,
+        startYTransMin,
+        startYTransMax,
+        xMin,
+        xMax,
+        yMin,
+        yMax,
+        plotW,
+        plotH,
+      } = activeTransDrag
+
+      const deltaVx = (dxPx / plotW) * (xMax - xMin)
+      const deltaVy = -(dyPx / plotH) * (yMax - yMin)
+
+      if (!dataset.options) dataset.options = {}
+
+      // Handle Y transformation
+      if (yTransActive) {
+        let newAy = startYLinear.a
+        let newBy = startYLinear.b
+        const isYInverted = startYLinear.a < 0
+
+        if (dir === 'box') {
+          newBy = startYLinear.b + deltaVy
+        } else if (dir === 'top' || dir === 'top-left' || dir === 'top-right') {
+          const rawYAnchor = isYInverted ? rawYMax : rawYMin
+          const rawYMoving = isYInverted ? rawYMin : rawYMax
+          const yBottom = startYTransMin
+          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
+          let yMovingNew = startYTransMax + deltaVy
+          if (yMovingNew < yBottom + minSpanY) yMovingNew = yBottom + minSpanY
+
+          const rawSpan = rawYMoving - rawYAnchor
+          if (Math.abs(rawSpan) > 1e-12) {
+            newAy = (yMovingNew - yBottom) / rawSpan
+            newBy = yBottom - newAy * rawYAnchor
+          }
+        } else if (dir === 'bottom' || dir === 'bottom-left' || dir === 'bottom-right') {
+          const rawYAnchor = isYInverted ? rawYMin : rawYMax
+          const rawYMoving = isYInverted ? rawYMax : rawYMin
+          const yTop = startYTransMax
+          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
+          let yMovingNew = startYTransMin + deltaVy
+          if (yMovingNew > yTop - minSpanY) yMovingNew = yTop - minSpanY
+
+          const rawSpan = rawYMoving - rawYAnchor
+          if (Math.abs(rawSpan) > 1e-12) {
+            newAy = (yMovingNew - yTop) / rawSpan
+            newBy = yTop - newAy * rawYAnchor
+          }
+        }
+
+        const formattedY = formatLinearExpr(newAy, newBy, 'y')
+        dataset.options.yExpr = formattedY
+
+        const propYInput = document.querySelector<HTMLInputElement>('#propYTransExpr')
+        if (propYInput) propYInput.value = formattedY
+      }
+
+      // Handle X transformation
+      if (xTransActive) {
+        let newAx = startXLinear.a
+        let newBx = startXLinear.b
+        const isXInverted = startXLinear.a < 0
+
+        if (dir === 'box') {
+          newBx = startXLinear.b + deltaVx
+        } else if (dir === 'right' || dir === 'top-right' || dir === 'bottom-right') {
+          const rawXAnchor = isXInverted ? rawXMax : rawXMin
+          const rawXMoving = isXInverted ? rawXMin : rawXMax
+          const xLeft = startXTransMin
+          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
+          let xMovingNew = startXTransMax + deltaVx
+          if (xMovingNew < xLeft + minSpanX) xMovingNew = xLeft + minSpanX
+
+          const rawSpan = rawXMoving - rawXAnchor
+          if (Math.abs(rawSpan) > 1e-12) {
+            newAx = (xMovingNew - xLeft) / rawSpan
+            newBx = xLeft - newAx * rawXAnchor
+          }
+        } else if (dir === 'left' || dir === 'top-left' || dir === 'bottom-left') {
+          const rawXAnchor = isXInverted ? rawXMax : rawXMin
+          const rawXMoving = isXInverted ? rawXMax : rawXMin
+          const xRight = startXTransMax
+          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
+          let xMovingNew = startXTransMin + deltaVx
+          if (xMovingNew > xRight - minSpanX) xMovingNew = xRight - minSpanX
+
+          const rawSpan = rawXMoving - rawXAnchor
+          if (Math.abs(rawSpan) > 1e-12) {
+            newAx = (xMovingNew - xRight) / rawSpan
+            newBx = xRight - newAx * rawXAnchor
+          }
+        }
+
+        const formattedX = formatLinearExpr(newAx, newBx, 'x')
+        dataset.options.xExpr = formattedX
+
+        const propXInput = document.querySelector<HTMLInputElement>('#propXTransExpr')
+        if (propXInput) propXInput.value = formattedX
+      }
+
+      updatePlotVisual(svg)
+      return
+    }
+
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
       const zoom = getCanvasZoom()
@@ -3624,6 +4176,12 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
   document.addEventListener('mouseup', () => {
     let wasDragging = false
+    if (activeTransDrag) {
+      activeTransDrag = null
+      document.body.style.userSelect = ''
+      wasDragging = true
+    }
+
     if (activeGroupDrag) {
       activeGroupDrag = null
       document.body.style.userSelect = ''

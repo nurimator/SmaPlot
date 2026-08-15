@@ -22,6 +22,7 @@ import {
   hitTestAxisArea,
   isInsidePlotArea,
   initPlotDragListeners,
+  isPropertyTabMode,
   isReadValueMode,
   loadSmpProject,
   removeDatasetFromAllPlots,
@@ -530,7 +531,7 @@ if (ctxMenuEl) {
 
 // Click on empty area outside any plot box deselects the current plot
 graphAreaEl.addEventListener('mousedown', (e) => {
-  if (isReadValueMode()) return
+  if (isReadValueMode() || isPropertyTabMode()) return
   const target = e.target as HTMLElement
   if (target.closest('.plot-svg, .plot-overlay')) return
   setObjectSelection([])
@@ -546,7 +547,7 @@ let lastPlotClickTime = 0
 let lastPlotClickSvg: SVGSVGElement | null = null
 graphAreaEl.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return
-  if (isReadValueMode()) return
+  if (isReadValueMode() || isPropertyTabMode()) return
   const target = e.target as HTMLElement
   if (target.closest('[data-dir]')) return
   const svg = target.closest('.plot-svg') as SVGSVGElement | null

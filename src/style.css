@@ -633,6 +633,34 @@ body.wco-active .titlebar * {
   pointer-events: none;
 }
 
+.ov-trans-box {
+  position: absolute;
+  border: 1px solid #00ffff;
+  background: transparent;
+  pointer-events: auto;
+  box-sizing: border-box;
+  z-index: 14;
+}
+
+.ov-trans-handle {
+  position: absolute;
+  background: #00ffff;
+  border: none;
+  pointer-events: auto;
+  z-index: 16;
+  box-sizing: border-box;
+}
+
+.ov-trans-handle-h {
+  width: 10px;
+  height: 5px;
+}
+
+.ov-trans-handle-v {
+  width: 5px;
+  height: 10px;
+}
+
 .workspace-right {
   width: 50%;
   height: 100%;
@@ -1727,10 +1755,21 @@ body.wco-active .titlebar * {
   color: var(--slate-700);
 }
 
+.math-trans-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .trans-row {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.trans-row .checkbox-label {
+  min-width: 78px;
+  flex-shrink: 0;
 }
 
 /* ===== Unified Consistent Form Controls for Modal Popups ===== */
