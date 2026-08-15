@@ -1,5 +1,5 @@
 import type { Dataset } from '../types.ts'
-import { getPlotLimits, getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar } from './Plot.ts'
+import { getPlotLimits, getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar, setReadValueMode } from './Plot.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 
 export function formatScientific(val: number): string {
@@ -10,12 +10,106 @@ export function formatScientific(val: number): string {
 
 let activeSvg: SVGSVGElement | null = null
 let activeDataset: Dataset | null = null
-let currentIndex: number = 0
-let markedPoints: { x: number; y: number; index: number }[] = []
 let activeOverlayEl: HTMLElement | null = null
 
-let graphClickListener: ((e: MouseEvent) => void) | null = null
+export function isReadValueOpen(): boolean {
+  return activeSvg !== null && activeOverlayEl !== null && activeOverlayEl.style.display !== 'none'
+}
+
+export function getValidIndices(svg: SVGSVGElement | null, dataset: Dataset | null): number[] {
+  if (!svg || !dataset) return []
+  const proc = getProcessedDataset(dataset)
+  const N = proc.x.length
+  if (N === 0) return []
+
+  const limits = getPlotLimits(svg)
+  const minX = Math.min(limits.xMin, limits.xMax)
+  const maxX = Math.max(limits.xMin, limits.xMax)
+  const eps = Math.max(1e-9, (maxX - minX) * 1e-7)
+
+  const indices: number[] = []
+  for (let i = 0; i < N; i++) {
+    const x = proc.x[i]
+    if (x >= minX - eps && x <= maxX + eps) {
+      indices.push(i)
+    }
+  }
+
+  // If no points fall within range (e.g. plot limits zoomed completely away from data),
+  // fallback to all indices to prevent breaking UI
+  if (indices.length === 0) {
+    for (let i = 0; i < N; i++) indices.push(i)
+  }
+
+  return indices
+}
+
+let currentIndex: number = 0
+let markedPoints: { x: number; y: number; index: number }[] = []
+let isDraggingGraph = false
+let graphMouseDownListener: ((e: MouseEvent) => void) | null = null
+let graphMouseMoveListener: ((e: MouseEvent) => void) | null = null
+let graphMouseUpListener: (() => void) | null = null
 let keydownListener: ((e: KeyboardEvent) => void) | null = null
+
+function updateFromPointerCoords(clientX: number, clientY: number): void {
+  if (!activeSvg || !activeDataset || !activeOverlayEl || activeOverlayEl.style.display === 'none') return
+
+  const rect = activeSvg.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return
+
+  let svgW = 400
+  let svgH = 300
+  const viewBox = activeSvg.getAttribute('viewBox')
+  if (viewBox) {
+    const parts = viewBox.split(/\s+/).map(Number)
+    if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+      svgW = parts[2]
+      svgH = parts[3]
+    }
+  } else {
+    svgW = activeSvg.clientWidth || parseFloat(activeSvg.style.width) || rect.width || 400
+    svgH = activeSvg.clientHeight || parseFloat(activeSvg.style.height) || rect.height || 300
+  }
+
+  const scaleX = svgW / rect.width
+  const scaleY = svgH / rect.height
+
+  const clickX = (clientX - rect.left) * scaleX
+  const clickY = (clientY - rect.top) * scaleY
+
+  const plotW = Math.max(10, svgW - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const plotH = Math.max(10, svgH - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+  const clampedX = Math.max(PLOT_MARGIN.l, Math.min(PLOT_MARGIN.l + plotW, clickX))
+  const clampedY = Math.max(PLOT_MARGIN.t, Math.min(PLOT_MARGIN.t + plotH, clickY))
+
+  const limits = getPlotLimits(activeSvg)
+  const dataX = limits.xMin + ((clampedX - PLOT_MARGIN.l) / plotW) * (limits.xMax - limits.xMin)
+  const dataY = limits.yMin + ((PLOT_MARGIN.t + plotH - clampedY) / plotH) * (limits.yMax - limits.yMin)
+
+  const procDs = getProcessedDataset(activeDataset)
+  const validIndices = getValidIndices(activeSvg, activeDataset)
+  if (validIndices.length === 0) return
+
+  let bestIdx = validIndices[0]
+  let minDist = Infinity
+  const rangeX = limits.xMax - limits.xMin || 1
+  const rangeY = limits.yMax - limits.yMin || 1
+
+  for (const i of validIndices) {
+    const dx = (procDs.x[i] - dataX) / rangeX
+    const dy = (procDs.y[i] - dataY) / rangeY
+    const dist = dx * dx + dy * dy
+    if (dist < minDist) {
+      minDist = dist
+      bestIdx = i
+    }
+  }
+
+  currentIndex = bestIdx
+  updateReadValueUI(activeOverlayEl)
+}
 
 export function initReadValueDialog(overlayEl: HTMLElement): void {
   activeOverlayEl = overlayEl
@@ -46,7 +140,11 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   sliderEl?.addEventListener('input', () => {
     const val = parseInt(sliderEl.value, 10)
     if (!isNaN(val)) {
-      setIndex(val)
+      const validIndices = getValidIndices(activeSvg, activeDataset)
+      if (validIndices.length > 0) {
+        const clampedVal = Math.max(0, Math.min(validIndices.length - 1, val))
+        setIndex(validIndices[clampedVal])
+      }
     }
   })
 
@@ -54,14 +152,16 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   const inputX = overlayEl.querySelector<HTMLInputElement>('#rvInputX')
   const inputY = overlayEl.querySelector<HTMLInputElement>('#rvInputY')
 
-  const handleInputCommit = () => {
-    if (!activeDataset) return
+  const handleInputXCommit = () => {
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
     const typedX = parseFloat(inputX?.value || '')
     if (!isNaN(typedX)) {
-      let bestIdx = 0
+      let bestIdx = validIndices[0]
       let minDiff = Infinity
-      for (let i = 0; i < proc.x.length; i++) {
+      for (const i of validIndices) {
         const diff = Math.abs(proc.x[i] - typedX)
         if (diff < minDiff) {
           minDiff = diff
@@ -69,13 +169,37 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
         }
       }
       setIndex(bestIdx)
+    } else {
+      updateReadValueUI(overlayEl)
     }
   }
 
-  inputX?.addEventListener('change', handleInputCommit)
-  inputY?.addEventListener('change', handleInputCommit)
+  const handleInputYCommit = () => {
+    if (!activeDataset || !activeSvg) return
+    const proc = getProcessedDataset(activeDataset)
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    const typedY = parseFloat(inputY?.value || '')
+    if (!isNaN(typedY)) {
+      let bestIdx = validIndices[0]
+      let minDiff = Infinity
+      for (const i of validIndices) {
+        const diff = Math.abs(proc.y[i] - typedY)
+        if (diff < minDiff) {
+          minDiff = diff
+          bestIdx = i
+        }
+      }
+      setIndex(bestIdx)
+    } else {
+      updateReadValueUI(overlayEl)
+    }
+  }
 
-  // X axis tool buttons (Copy, Find Highest, Find Lowest)
+  inputX?.addEventListener('change', handleInputXCommit)
+  inputY?.addEventListener('change', handleInputYCommit)
+
+  // X axis tool buttons (Copy, Find Highest, Find Lowest, Find Zero)
   const copyXBtn = overlayEl.querySelector<HTMLElement>('#rvCopyXBtn')
   copyXBtn?.addEventListener('click', () => {
     if (!activeDataset) return
@@ -85,11 +209,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvMaxXBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let maxIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let maxIdx = validIndices[0]
     let maxVal = -Infinity
-    for (let i = 0; i < proc.x.length; i++) {
+    for (const i of validIndices) {
       if (proc.x[i] > maxVal) {
         maxVal = proc.x[i]
         maxIdx = i
@@ -99,11 +225,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvMinXBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let minIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let minIdx = validIndices[0]
     let minVal = Infinity
-    for (let i = 0; i < proc.x.length; i++) {
+    for (const i of validIndices) {
       if (proc.x[i] < minVal) {
         minVal = proc.x[i]
         minIdx = i
@@ -113,11 +241,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvZeroXBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let zeroIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let zeroIdx = validIndices[0]
     let minAbs = Infinity
-    for (let i = 0; i < proc.x.length; i++) {
+    for (const i of validIndices) {
       const absVal = Math.abs(proc.x[i])
       if (absVal < minAbs) {
         minAbs = absVal
@@ -137,11 +267,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvMaxYBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let maxIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let maxIdx = validIndices[0]
     let maxVal = -Infinity
-    for (let i = 0; i < proc.y.length; i++) {
+    for (const i of validIndices) {
       if (proc.y[i] > maxVal) {
         maxVal = proc.y[i]
         maxIdx = i
@@ -151,11 +283,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvMinYBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let minIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let minIdx = validIndices[0]
     let minVal = Infinity
-    for (let i = 0; i < proc.y.length; i++) {
+    for (const i of validIndices) {
       if (proc.y[i] < minVal) {
         minVal = proc.y[i]
         minIdx = i
@@ -165,11 +299,13 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   })
 
   overlayEl.querySelector('#rvZeroYBtn')?.addEventListener('click', () => {
-    if (!activeDataset) return
+    if (!activeDataset || !activeSvg) return
     const proc = getProcessedDataset(activeDataset)
-    let zeroIdx = 0
+    const validIndices = getValidIndices(activeSvg, activeDataset)
+    if (validIndices.length === 0) return
+    let zeroIdx = validIndices[0]
     let minAbs = Infinity
-    for (let i = 0; i < proc.y.length; i++) {
+    for (const i of validIndices) {
       const absVal = Math.abs(proc.y[i])
       if (absVal < minAbs) {
         minAbs = absVal
@@ -230,32 +366,48 @@ async function copyToClipboard(text: string, btnEl?: HTMLElement | null): Promis
 }
 
 function stepIndex(delta: number): void {
-  if (!activeDataset) return
-  const proc = getProcessedDataset(activeDataset)
-  const N = proc.x.length
-  if (N <= 0) return
+  if (!activeDataset || !activeSvg) return
+  const validIndices = getValidIndices(activeSvg, activeDataset)
+  const M = validIndices.length
+  if (M <= 0) return
 
-  const cur1 = currentIndex + 1
-  let target1 = cur1 + delta
+  let pos = validIndices.indexOf(currentIndex)
+  if (pos < 0) pos = 0
+
+  let targetPos = pos + delta
 
   if (delta > 0) {
-    while (target1 > N) {
-      target1 -= N
+    while (targetPos >= M) {
+      targetPos -= M
     }
   } else if (delta < 0) {
-    while (target1 < 1) {
-      target1 += N
+    while (targetPos < 0) {
+      targetPos += M
     }
   }
 
-  setIndex(target1 - 1)
+  setIndex(validIndices[targetPos])
 }
 
 function setIndex(idx: number): void {
-  if (!activeDataset || !activeOverlayEl) return
-  const proc = getProcessedDataset(activeDataset)
-  const maxIdx = Math.max(0, proc.x.length - 1)
-  currentIndex = Math.max(0, Math.min(maxIdx, idx))
+  if (!activeDataset || !activeOverlayEl || !activeSvg) return
+  const validIndices = getValidIndices(activeSvg, activeDataset)
+  if (validIndices.length === 0) return
+
+  if (validIndices.includes(idx)) {
+    currentIndex = idx
+  } else {
+    let best = validIndices[0]
+    let minDiff = Math.abs(best - idx)
+    for (let i = 1; i < validIndices.length; i++) {
+      const diff = Math.abs(validIndices[i] - idx)
+      if (diff < minDiff) {
+        minDiff = diff
+        best = validIndices[i]
+      }
+    }
+    currentIndex = best
+  }
   updateReadValueUI(activeOverlayEl)
 }
 
@@ -284,8 +436,10 @@ function updateReadValueUI(overlayEl: HTMLElement): void {
   if (!activeDataset || !activeSvg) return
 
   const proc = getProcessedDataset(activeDataset)
-  const maxIdx = Math.max(0, proc.x.length - 1)
-  currentIndex = Math.max(0, Math.min(maxIdx, currentIndex))
+  const validIndices = getValidIndices(activeSvg, activeDataset)
+  if (validIndices.length > 0 && !validIndices.includes(currentIndex)) {
+    currentIndex = validIndices[0]
+  }
 
   const xVal = proc.x[currentIndex] ?? 0
   const yVal = proc.y[currentIndex] ?? 0
@@ -300,9 +454,11 @@ function updateReadValueUI(overlayEl: HTMLElement): void {
   if (inputY) inputY.value = formatScientific(yVal)
 
   if (slider) {
+    const validPos = validIndices.indexOf(currentIndex)
+    const pos = validPos >= 0 ? validPos : 0
     slider.min = '0'
-    slider.max = String(maxIdx)
-    slider.value = String(currentIndex)
+    slider.max = String(Math.max(0, validIndices.length - 1))
+    slider.value = String(pos)
   }
 
   setPlotCrossbar(activeSvg, xVal, yVal)
@@ -317,8 +473,23 @@ export function showReadValueDialog(
   activeOverlayEl = overlayEl
   activeSvg = svg
   activeDataset = dataset
-  const proc = getProcessedDataset(dataset)
-  currentIndex = Math.max(0, Math.min(proc.x.length - 1, startIndex))
+  const validIndices = getValidIndices(svg, dataset)
+  if (validIndices.includes(startIndex)) {
+    currentIndex = startIndex
+  } else if (validIndices.length > 0) {
+    let best = validIndices[0]
+    let minDiff = Math.abs(best - startIndex)
+    for (let i = 1; i < validIndices.length; i++) {
+      const diff = Math.abs(validIndices[i] - startIndex)
+      if (diff < minDiff) {
+        minDiff = diff
+        best = validIndices[i]
+      }
+    }
+    currentIndex = best
+  } else {
+    currentIndex = 0
+  }
   markedPoints = []
 
   const titleEl = overlayEl.querySelector('#readValueTitle')
@@ -329,12 +500,27 @@ export function showReadValueDialog(
   updateAveragesDisplay()
   updateReadValueUI(overlayEl)
 
-  // Attach graph click listener to update crossbar position by clicking directly on plot
-  if (graphClickListener) {
-    document.removeEventListener('mousedown', graphClickListener)
+  setReadValueMode(true)
+  svg.style.cursor = 'crosshair'
+  document.querySelectorAll('[data-action="read-value"], [data-action="read_value"]').forEach((el) => {
+    el.classList.add('active')
+  })
+
+  // Attach graph pointer listeners to update crossbar position by clicking or dragging directly on plot
+  if (graphMouseDownListener) {
+    document.removeEventListener('mousedown', graphMouseDownListener)
+  }
+  if (graphMouseMoveListener) {
+    window.removeEventListener('mousemove', graphMouseMoveListener)
+  }
+  if (graphMouseUpListener) {
+    window.removeEventListener('mouseup', graphMouseUpListener)
   }
 
-  graphClickListener = (e: MouseEvent) => {
+  isDraggingGraph = false
+
+  graphMouseDownListener = (e: MouseEvent) => {
+    if (e.button !== 0) return
     if (!activeSvg || !activeDataset || overlayEl.style.display === 'none') return
     const target = e.target as HTMLElement
     if (target.closest('.dialog-window')) return
@@ -342,60 +528,25 @@ export function showReadValueDialog(
     const clickedSvg = target.closest('.plot-svg') as SVGSVGElement | null
     if (clickedSvg !== activeSvg) return
 
-    const rect = activeSvg.getBoundingClientRect()
-    let svgW = 400
-    let svgH = 300
-    const viewBox = activeSvg.getAttribute('viewBox')
-    if (viewBox) {
-      const parts = viewBox.split(/\s+/).map(Number)
-      if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-        svgW = parts[2]
-        svgH = parts[3]
-      }
-    } else {
-      svgW = activeSvg.clientWidth || parseFloat(activeSvg.style.width) || rect.width || 400
-      svgH = activeSvg.clientHeight || parseFloat(activeSvg.style.height) || rect.height || 300
-    }
-
-    const scaleX = svgW / (rect.width || 1)
-    const scaleY = svgH / (rect.height || 1)
-
-    const clickX = (e.clientX - rect.left) * scaleX
-    const clickY = (e.clientY - rect.top) * scaleY
-
-    const plotW = Math.max(10, svgW - PLOT_MARGIN.l - PLOT_MARGIN.r)
-    const plotH = Math.max(10, svgH - PLOT_MARGIN.t - PLOT_MARGIN.b)
-
-    if (
-      clickX >= PLOT_MARGIN.l &&
-      clickX <= PLOT_MARGIN.l + plotW &&
-      clickY >= PLOT_MARGIN.t &&
-      clickY <= PLOT_MARGIN.t + plotH
-    ) {
-      const limits = getPlotLimits(activeSvg)
-      const dataX = limits.xMin + ((clickX - PLOT_MARGIN.l) / plotW) * (limits.xMax - limits.xMin)
-      const dataY = limits.yMin + ((PLOT_MARGIN.t + plotH - clickY) / plotH) * (limits.yMax - limits.yMin)
-
-      const procDs = getProcessedDataset(activeDataset)
-      let bestIdx = 0
-      let minDist = Infinity
-      const rangeX = limits.xMax - limits.xMin || 1
-      const rangeY = limits.yMax - limits.yMin || 1
-
-      for (let i = 0; i < procDs.x.length; i++) {
-        const dx = (procDs.x[i] - dataX) / rangeX
-        const dy = (procDs.y[i] - dataY) / rangeY
-        const dist = dx * dx + dy * dy
-        if (dist < minDist) {
-          minDist = dist
-          bestIdx = i
-        }
-      }
-      currentIndex = bestIdx
-      updateReadValueUI(overlayEl)
-    }
+    e.preventDefault()
+    e.stopPropagation()
+    isDraggingGraph = true
+    updateFromPointerCoords(e.clientX, e.clientY)
   }
-  document.addEventListener('mousedown', graphClickListener)
+
+  graphMouseMoveListener = (e: MouseEvent) => {
+    if (!isDraggingGraph) return
+    e.preventDefault()
+    updateFromPointerCoords(e.clientX, e.clientY)
+  }
+
+  graphMouseUpListener = () => {
+    isDraggingGraph = false
+  }
+
+  document.addEventListener('mousedown', graphMouseDownListener)
+  window.addEventListener('mousemove', graphMouseMoveListener)
+  window.addEventListener('mouseup', graphMouseUpListener)
 
   // Attach keydown listener for keyboard arrow navigation
   if (keydownListener) {
@@ -403,12 +554,10 @@ export function showReadValueDialog(
   }
 
   keydownListener = (e: KeyboardEvent) => {
-    if (overlayEl.style.display === 'none' || !activeDataset) return
+    if (overlayEl.style.display === 'none' || !activeDataset || !activeSvg) return
 
     const activeTag = (document.activeElement?.tagName || '').toLowerCase()
     if (activeTag === 'input' || activeTag === 'textarea') return
-
-    const procDs = getProcessedDataset(activeDataset)
 
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault()
@@ -424,10 +573,16 @@ export function showReadValueDialog(
       stepIndex(-10)
     } else if (e.key === 'Home') {
       e.preventDefault()
-      setIndex(0)
+      const validIndices = getValidIndices(activeSvg, activeDataset)
+      if (validIndices.length > 0) {
+        setIndex(validIndices[0])
+      }
     } else if (e.key === 'End') {
       e.preventDefault()
-      setIndex(procDs.x.length - 1)
+      const validIndices = getValidIndices(activeSvg, activeDataset)
+      if (validIndices.length > 0) {
+        setIndex(validIndices[validIndices.length - 1])
+      }
     } else if (e.key === 'Escape') {
       hideReadValueDialog(overlayEl)
     }
@@ -448,17 +603,31 @@ export function showReadValueDialog(
 }
 
 export function hideReadValueDialog(overlayEl: HTMLElement): void {
+  setReadValueMode(false)
+  document.querySelectorAll('[data-action="read-value"], [data-action="read_value"]').forEach((el) => {
+    el.classList.remove('active')
+  })
   if (activeSvg) {
+    activeSvg.style.cursor = ''
     removePlotCrossbar(activeSvg)
   }
-  if (graphClickListener) {
-    document.removeEventListener('mousedown', graphClickListener)
-    graphClickListener = null
+  if (graphMouseDownListener) {
+    document.removeEventListener('mousedown', graphMouseDownListener)
+    graphMouseDownListener = null
+  }
+  if (graphMouseMoveListener) {
+    window.removeEventListener('mousemove', graphMouseMoveListener)
+    graphMouseMoveListener = null
+  }
+  if (graphMouseUpListener) {
+    window.removeEventListener('mouseup', graphMouseUpListener)
+    graphMouseUpListener = null
   }
   if (keydownListener) {
     document.removeEventListener('keydown', keydownListener)
     keydownListener = null
   }
+  isDraggingGraph = false
   activeSvg = null
   activeDataset = null
   overlayEl.style.display = 'none'

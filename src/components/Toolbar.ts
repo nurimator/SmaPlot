@@ -7,11 +7,15 @@ export function initToolbar(
     btn.addEventListener('click', () => {
       const action = btn.getAttribute('data-action') || ''
       const title = btn.getAttribute('title') || ''
-
-      toolbarBtns.forEach((b) => b.classList.remove('active'))
-      btn.classList.add('active')
-
       onActionClick(action, title)
     })
   })
 }
+
+export function setToolbarButtonActive(container: HTMLElement, action: string, active: boolean): void {
+  const btn = container.querySelector<HTMLElement>(`[data-action="${action}"]`)
+  if (btn) {
+    btn.classList.toggle('active', active)
+  }
+}
+

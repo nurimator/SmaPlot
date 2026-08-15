@@ -22,6 +22,7 @@ import {
   hitTestAxisArea,
   isInsidePlotArea,
   initPlotDragListeners,
+  isReadValueMode,
   loadSmpProject,
   removeDatasetFromAllPlots,
   setObjectSelection,
@@ -42,7 +43,7 @@ import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import type { TitlePreset } from './components/TitleDialog.ts'
 import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
-import { initReadValueDialog, showReadValueDialog } from './components/ReadValueDialog.ts'
+import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, serializeSmpProject } from './utils/smpExporter.ts'
 import { initCanvasZoom } from './utils/canvasZoom.ts'
@@ -298,8 +299,12 @@ if (menubarEl) {
       showArrowDialog(arrowOverlayEl)
     } else if (action === 'rectangle') {
       showRectangleDialog(rectOverlayEl)
-    } else if (action === 'read_value') {
-      handleReadValue()
+    } else if (action === 'read_value' || action === 'read-value') {
+      if (isReadValueOpen() && readValueOverlayEl) {
+        hideReadValueDialog(readValueOverlayEl)
+      } else {
+        handleReadValue()
+      }
     } else if (action.startsWith('recent_')) {
       const index = Number(action.slice('recent_'.length))
       const recent = getRecentFiles()[index]
@@ -349,7 +354,11 @@ if (toolbarEl) {
     } else if (action === 'chart' || title === 'Chart') {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
-      handleReadValue()
+      if (isReadValueOpen() && readValueOverlayEl) {
+        hideReadValueDialog(readValueOverlayEl)
+      } else {
+        handleReadValue()
+      }
     }
   })
 }
@@ -426,6 +435,7 @@ if (ctxMenuEl) {
 
 // Click on empty area outside any plot box deselects the current plot
 graphAreaEl.addEventListener('mousedown', (e) => {
+  if (isReadValueMode()) return
   const target = e.target as HTMLElement
   if (target.closest('.plot-svg, .plot-overlay')) return
   setObjectSelection([])
@@ -441,6 +451,7 @@ let lastPlotClickTime = 0
 let lastPlotClickSvg: SVGSVGElement | null = null
 graphAreaEl.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return
+  if (isReadValueMode()) return
   const target = e.target as HTMLElement
   if (target.closest('[data-dir]')) return
   const svg = target.closest('.plot-svg') as SVGSVGElement | null

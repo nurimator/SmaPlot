@@ -925,6 +925,16 @@ export function setTrimmingMode(on: boolean): void {
   trimmingMode = on
 }
 
+let readValueMode = false
+
+export function isReadValueMode(): boolean {
+  return readValueMode
+}
+
+export function setReadValueMode(on: boolean): void {
+  readValueMode = on
+}
+
 // Return the live SmpPlotDoc for a plot, synthesizing & caching one (from the
 // base data scale) if it does not yet exist, so axis min/max edits persist.
 export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
@@ -1992,7 +2002,7 @@ export function drawPlot(
 
     const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
       if (e.button !== 0) return
-      if (isTrimmingMode()) return
+      if (isTrimmingMode() || isReadValueMode()) return
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
       if (!wasSelected) {
@@ -2310,7 +2320,7 @@ export function drawPlot(
 
       const handleLegendMouseDown = (e: MouseEvent) => {
         if (e.button !== 0) return
-        if (isTrimmingMode()) return
+        if (isTrimmingMode() || isReadValueMode()) return
         const wasSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
         // Double-click detection (always works)
@@ -3016,6 +3026,7 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   setupPlotFileDrop(svg)
 
   svg.addEventListener('click', (e: MouseEvent) => {
+    if (isReadValueMode()) return
     lastSelectedPlotSvg = svg
     if (e.target === svg || ((e.target as SVGElement).tagName === 'rect' && !(e.target as SVGElement).getAttribute('data-dir'))) {
       if (selectedLegendIndex !== -1 || selectedAnnotationIndex !== -1) {
@@ -3027,8 +3038,8 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   })
 
   svg.addEventListener('mousedown', (e: MouseEvent) => {
+    if (isTrimmingMode() || isReadValueMode()) return
     lastSelectedPlotSvg = svg
-    if (isTrimmingMode()) return
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
     const graphArea = svg.parentElement || document.body
