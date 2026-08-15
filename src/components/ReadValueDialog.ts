@@ -199,7 +199,7 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   inputX?.addEventListener('change', handleInputXCommit)
   inputY?.addEventListener('change', handleInputYCommit)
 
-  // X axis tool buttons (Copy, Find Highest, Find Lowest, Find Zero)
+  // X axis tool buttons (Copy, Find Highest, Find Lowest)
   const copyXBtn = overlayEl.querySelector<HTMLElement>('#rvCopyXBtn')
   copyXBtn?.addEventListener('click', () => {
     if (!activeDataset) return
@@ -240,24 +240,7 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
     setIndex(minIdx)
   })
 
-  overlayEl.querySelector('#rvZeroXBtn')?.addEventListener('click', () => {
-    if (!activeDataset || !activeSvg) return
-    const proc = getProcessedDataset(activeDataset)
-    const validIndices = getValidIndices(activeSvg, activeDataset)
-    if (validIndices.length === 0) return
-    let zeroIdx = validIndices[0]
-    let minAbs = Infinity
-    for (const i of validIndices) {
-      const absVal = Math.abs(proc.x[i])
-      if (absVal < minAbs) {
-        minAbs = absVal
-        zeroIdx = i
-      }
-    }
-    setIndex(zeroIdx)
-  })
-
-  // Y axis tool buttons (Copy, Find Highest, Find Lowest, Find Zero)
+  // Y axis tool buttons (Copy, Find Highest, Find Lowest)
   const copyYBtn = overlayEl.querySelector<HTMLElement>('#rvCopyYBtn')
   copyYBtn?.addEventListener('click', () => {
     if (!activeDataset) return
@@ -296,23 +279,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
       }
     }
     setIndex(minIdx)
-  })
-
-  overlayEl.querySelector('#rvZeroYBtn')?.addEventListener('click', () => {
-    if (!activeDataset || !activeSvg) return
-    const proc = getProcessedDataset(activeDataset)
-    const validIndices = getValidIndices(activeSvg, activeDataset)
-    if (validIndices.length === 0) return
-    let zeroIdx = validIndices[0]
-    let minAbs = Infinity
-    for (const i of validIndices) {
-      const absVal = Math.abs(proc.y[i])
-      if (absVal < minAbs) {
-        minAbs = absVal
-        zeroIdx = i
-      }
-    }
-    setIndex(zeroIdx)
   })
 
   // Mark button
