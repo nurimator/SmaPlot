@@ -1,10 +1,13 @@
 import { updateStatusCoords } from '../components/Statusbar.ts'
 
-let currentZoom = 1.0
+export const ZOOM_BASE = 1.5
+
+let currentZoom = ZOOM_BASE
 let panX = 0
 let panY = 0
 
-const MAX_ZOOM = 5.0
+const MAX_ZOOM = 5.0 * ZOOM_BASE
+const MIN_ZOOM = 0.5 * ZOOM_BASE
 const GRID_CANVAS_SIZE = 601
 const MAJOR_GRID_BLOCK = 100
 
@@ -14,6 +17,12 @@ let startMouseY = 0
 let startPanX = 0
 let startPanY = 0
 let isSpacePressed = false
+
+const zoomListeners: Array<(zoom: number) => void> = []
+
+export function subscribeZoom(listener: (zoom: number) => void): void {
+  zoomListeners.push(listener)
+}
 
 export function getCanvasZoom(): number {
   return currentZoom
@@ -30,7 +39,7 @@ export function calculateMinZoom(container: HTMLElement): number {
   const neededH = GRID_CANVAS_SIZE + 2 * MAJOR_GRID_BLOCK
   const minW = viewW / neededW
   const minH = viewH / neededH
-  return Math.min(minW, minH, 1.0)
+  return Math.min(minW, minH, MIN_ZOOM)
 }
 
 function clampPan(container: HTMLElement): void {
@@ -93,8 +102,10 @@ function applyTransform(graphAreaEl: HTMLElement, statusEl?: HTMLElement | null)
   updateCustomScrollbars(container)
 
   if (statusEl) {
-    statusEl.textContent = `Zoom: ${Math.round(currentZoom * 100)}%`
+    statusEl.textContent = `Zoom: ${Math.round((currentZoom / ZOOM_BASE) * 100)}%`
   }
+
+  zoomListeners.forEach((listener) => listener(currentZoom))
 }
 
 export function centerCanvas(
@@ -112,12 +123,29 @@ export function centerCanvas(
 
 export function setCanvasZoom(
   zoom: number,
-  container: HTMLElement,
+  workspaceOrContainer: HTMLElement,
   graphAreaEl: HTMLElement,
   statusEl?: HTMLElement | null
 ): void {
+  const container = workspaceOrContainer.classList.contains('workspace-grid')
+    ? workspaceOrContainer
+    : workspaceOrContainer.querySelector<HTMLElement>('.workspace-grid') || workspaceOrContainer
+
+  const viewW = container.clientWidth || 800
+  const viewH = container.clientHeight || 600
+  const centerX = viewW / 2
+  const centerY = viewH / 2
+
+  const canvasX = (centerX - panX) / currentZoom
+  const canvasY = (centerY - panY) / currentZoom
+
   const minZoom = calculateMinZoom(container)
-  currentZoom = Math.min(MAX_ZOOM, Math.max(minZoom, zoom))
+  const newZoom = Math.min(MAX_ZOOM, Math.max(minZoom, zoom))
+
+  currentZoom = newZoom
+  panX = centerX - canvasX * newZoom
+  panY = centerY - canvasY * newZoom
+
   clampPan(container)
   applyTransform(graphAreaEl, statusEl)
 }

@@ -187,6 +187,17 @@
           <div class="toolbar-sep"></div>
           <div class="toolbar-btn" title="Warning" data-action="warning"><span class="icon icon-alert-triangle toolbar-icon-error"></span></div>
           <div class="toolbar-btn" title="Help" data-action="help"><span class="icon icon-help toolbar-icon-help"></span></div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-zoom">
+            <button type="button" class="zoom-step-btn zoom-btn-out" title="Zoom Out (Ctrl+-)">
+              <span class="icon icon-minus"></span>
+            </button>
+            <input type="range" class="zoom-slider" min="50" max="500" step="5" value="100" title="Zoom Level (Drag to adjust)">
+            <button type="button" class="zoom-step-btn zoom-btn-in" title="Zoom In (Ctrl++)">
+              <span class="icon icon-plus"></span>
+            </button>
+            <button type="button" class="zoom-value" title="Reset Zoom to 100% (Click to reset)">100%</button>
+          </div>
         </div>
 
         <!-- Main Workspace -->

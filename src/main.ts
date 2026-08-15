@@ -47,7 +47,7 @@ import { initRectangleDialog, showRectangleDialog } from './components/Rectangle
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
-import { initCanvasZoom } from './utils/canvasZoom.ts'
+import { ZOOM_BASE, initCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { registerSW } from 'virtual:pwa-register'
 
@@ -73,6 +73,35 @@ let currentProjectFileName = 'FTIR.SMP'
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
 if (workspaceEl && graphAreaEl) {
   initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
+
+  const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
+  const zoomValueEl = document.querySelector<HTMLElement>('.zoom-value')
+  const zoomOutBtn = document.querySelector<HTMLButtonElement>('.zoom-btn-out')
+  const zoomInBtn = document.querySelector<HTMLButtonElement>('.zoom-btn-in')
+  if (zoomSliderEl && zoomValueEl) {
+    const updateZoomUI = (zoom: number): void => {
+      const pct = Math.round((zoom / ZOOM_BASE) * 100)
+      zoomSliderEl.value = String(pct)
+      zoomValueEl.textContent = `${pct}%`
+    }
+    subscribeZoom(updateZoomUI)
+    zoomSliderEl.addEventListener('input', () => {
+      setCanvasZoom((Number(zoomSliderEl.value) / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    })
+    zoomOutBtn?.addEventListener('click', () => {
+      const currentPct = Number(zoomSliderEl.value)
+      const nextPct = Math.max(50, Math.min(500, Math.round((currentPct - 10) / 10) * 10))
+      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    })
+    zoomInBtn?.addEventListener('click', () => {
+      const currentPct = Number(zoomSliderEl.value)
+      const nextPct = Math.max(50, Math.min(500, Math.round((currentPct + 10) / 10) * 10))
+      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    })
+    zoomValueEl.addEventListener('click', () => {
+      setCanvasZoom(ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    })
+  }
 }
 
 // Initialize component logic & event listeners
@@ -766,5 +795,26 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   } else if (isCtrlOrCmd && key === 'o') {
     e.preventDefault()
     if (globalFileInput) globalFileInput.click()
+  } else if (isCtrlOrCmd && (e.key === '=' || e.key === '+')) {
+    e.preventDefault()
+    const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
+    const currentPct = zoomSliderEl ? Number(zoomSliderEl.value) : 100
+    const nextPct = Math.max(50, Math.min(500, Math.round((currentPct + 10) / 10) * 10))
+    if (workspaceEl && graphAreaEl) {
+      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    }
+  } else if (isCtrlOrCmd && (e.key === '-' || e.key === '_')) {
+    e.preventDefault()
+    const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
+    const currentPct = zoomSliderEl ? Number(zoomSliderEl.value) : 100
+    const nextPct = Math.max(50, Math.min(500, Math.round((currentPct - 10) / 10) * 10))
+    if (workspaceEl && graphAreaEl) {
+      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    }
+  } else if (isCtrlOrCmd && e.key === '0') {
+    e.preventDefault()
+    if (workspaceEl && graphAreaEl) {
+      setCanvasZoom(ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+    }
   }
 })
