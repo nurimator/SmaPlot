@@ -46,6 +46,7 @@ import type { TitlePreset } from './components/TitleDialog.ts'
 import type { Dataset } from './types.ts'
 import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
+import { initColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
@@ -67,6 +68,7 @@ const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
+const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
 
@@ -112,6 +114,7 @@ if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
+if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
 if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
 
 function handleSaveProject(customFileName?: string): void {

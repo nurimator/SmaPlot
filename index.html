@@ -1135,6 +1135,101 @@
       </div>
     </div>
 
+    <!-- Custom Color Picker Modal Overlay -->
+    <div class="modal-overlay" id="colorPickerOverlay" style="display: none;">
+      <div class="dialog-window color-picker-dialog" id="colorPickerDialog">
+        <div class="dialog-header">
+          <div class="dialog-title">Color</div>
+          <button class="dialog-close-btn" id="closeColorPickerBtn" title="Close"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="dialog-body color-picker-body">
+          <!-- Left: Palettes -->
+          <div class="color-palette-section">
+            <div class="color-section-title">Basic colors:</div>
+            <div class="color-grid basic-grid" id="colorBasicGrid"></div>
+
+            <div class="color-section-title" style="margin-top: 12px;">Custom colors:</div>
+            <div class="color-grid custom-grid" id="colorCustomGrid"></div>
+
+            <button class="btn btn-sm btn-secondary" id="colorAddCustomBtn" style="margin-top: 10px; width: 100%;">Add to Custom Colors</button>
+          </div>
+
+          <!-- Right: 2D Sat/Bri Box + Hue Bar + Values -->
+          <div class="color-custom-section">
+            <div class="color-picker-visuals">
+              <!-- Saturation & Brightness 2D Box -->
+              <div class="color-sb-container">
+                <div class="color-sb-box" id="colorSbBox">
+                  <div class="color-sb-white"></div>
+                  <div class="color-sb-black"></div>
+                  <div class="color-sb-handle" id="colorSbHandle"></div>
+                </div>
+              </div>
+
+              <!-- Hue Vertical Slider Bar -->
+              <div class="color-hue-container">
+                <div class="color-hue-bar" id="colorHueBar">
+                  <div class="color-hue-handle" id="colorHueHandle"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Color Preview & Values -->
+            <div class="color-details-card">
+              <!-- Preview & Hex Row -->
+              <div class="color-top-bar">
+                <div class="color-preview-wrapper" title="Current Selected Color">
+                  <div class="color-preview-swatch" id="colorPreviewCurrent"></div>
+                </div>
+                <div class="color-hex-group">
+                  <span class="color-input-label">Hex:</span>
+                  <input type="text" id="colorHexInput" class="form-input-text" maxlength="7" style="width: 80px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;" value="#000000" />
+                </div>
+              </div>
+
+              <!-- Channels Grid (Hue/Sat/Val + Red/Green/Blue) -->
+              <div class="color-channels-grid">
+                <div class="color-channel-col">
+                  <div class="color-input-row">
+                    <span class="color-input-label">Hue:</span>
+                    <input type="number" id="colorHInput" class="form-input-num" min="0" max="360" value="0" />
+                  </div>
+                  <div class="color-input-row">
+                    <span class="color-input-label">Sat:</span>
+                    <input type="number" id="colorSInput" class="form-input-num" min="0" max="100" value="0" />
+                  </div>
+                  <div class="color-input-row">
+                    <span class="color-input-label">Val:</span>
+                    <input type="number" id="colorVInput" class="form-input-num" min="0" max="100" value="0" />
+                  </div>
+                </div>
+
+                <div class="color-channel-col">
+                  <div class="color-input-row">
+                    <span class="color-input-label">Red:</span>
+                    <input type="number" id="colorRInput" class="form-input-num" min="0" max="255" value="0" />
+                  </div>
+                  <div class="color-input-row">
+                    <span class="color-input-label">Green:</span>
+                    <input type="number" id="colorGInput" class="form-input-num" min="0" max="255" value="0" />
+                  </div>
+                  <div class="color-input-row">
+                    <span class="color-input-label">Blue:</span>
+                    <input type="number" id="colorBInput" class="form-input-num" min="0" max="255" value="0" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="color-picker-footer">
+          <button class="btn btn-primary btn-sm" id="colorOkBtn" style="min-width: 64px;">OK</button>
+          <button class="btn btn-secondary btn-sm" id="colorCancelBtn" style="min-width: 64px;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <!-- PWA Update Toast -->
     <div class="pwa-update-toast" id="pwaUpdateToast" style="display: none;">
       <span>A new version of SmaPlot is available.</span>

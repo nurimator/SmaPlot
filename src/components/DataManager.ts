@@ -1,5 +1,6 @@
 import type { Dataset } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
+import { openColorPicker } from './ColorPickerDialog.ts'
 
 export class DataManager {
   private datasets: Dataset[] = []
@@ -103,6 +104,19 @@ export function renderDataManagerListBox(
     const indicator = document.createElement('span')
     indicator.className = 'dm-line-indicator'
     indicator.style.backgroundColor = ds.color
+    indicator.style.cursor = 'pointer'
+    indicator.title = 'Click to customize color'
+    indicator.addEventListener('click', (e) => {
+      e.stopPropagation()
+      openColorPicker({
+        initialColor: ds.color,
+        onSelect: (newColor) => {
+          globalDataManager.updateDatasetColor(idx, newColor)
+          indicator.style.backgroundColor = newColor
+          item.setAttribute('data-color', newColor)
+        },
+      })
+    })
 
     const text = document.createElement('span')
     text.className = 'dm-item-text'
