@@ -4,7 +4,8 @@ import { formatLinearExpr } from './dataset.ts'
 import { getPlotSmpDoc, syncDocGeometry } from './smpDoc.ts'
 import { PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
 import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
-import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag } from './transform.ts'
+import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag, isPropertyTabMode } from './transform.ts'
+import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import { updatePlotVisual, drawPlot } from './drawPlot.ts'
 import { showTitleDialog } from './../TitleDialog.ts'
 import { showArrowDialog } from './../ArrowDialog.ts'
@@ -14,6 +15,31 @@ import { svgSmpDocMap } from './state.ts'
 
 let activeDrag: ActiveDrag | null = null
 let rafId: number | null = null
+
+// Pointer-capture bookkeeping for handle-initiated drags (resize / move zone).
+// activePointerId is set only when a drag is started via the pointerdown handler
+// (see initPlotDragListeners); other drags (mouse border move, touch marquee-group
+// move, transform) keep activePointerId === null and are driven by the legacy
+// mouse/touch listeners. This separation prevents double-processing.
+let activePointerId: number | null = null
+let capturedSvg: SVGSVGElement | null = null
+
+function releaseCapturedPointer(): void {
+  if (capturedSvg && activePointerId !== null) {
+    try {
+      if (capturedSvg.hasPointerCapture(activePointerId)) {
+        capturedSvg.releasePointerCapture(activePointerId)
+      }
+    } catch {
+      // Pointer may already be released; ignore.
+    }
+  }
+  capturedSvg = null
+  activePointerId = null
+}
+
+// Latest resize geometry, applied once per animation frame by applyResizeFrame.
+let pendingResizeGeom: { svg: SVGSVGElement; left: number; top: number; width: number; height: number } | null = null
 
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
@@ -165,6 +191,54 @@ export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, 
     initialItemPositions,
   }
   document.body.style.userSelect = 'none'
+}
+
+// Deferred per-frame resize application (see handleDragMove): applies the pending
+// geometry, renormalizes legend items, syncs the doc geometry, and redraws the
+// plot once. Touchscreens sample at 120–240 Hz, so per-event style writes forced
+// a reflow per event and stuttered; everything is coalesced to one rAF per frame.
+function applyResizeFrame(dragRef?: ActiveDrag): void {
+  rafId = null
+  const geom = pendingResizeGeom
+  if (!geom) return
+  pendingResizeGeom = null
+  const drag = dragRef ?? activeDrag
+  if (!drag) return
+  const svg = geom.svg
+
+  svg.style.left = `${geom.left}px`
+  svg.style.top = `${geom.top}px`
+  svg.style.width = `${geom.width}px`
+  svg.style.height = `${geom.height}px`
+  syncPlotOverlay(svg)
+
+  const ds = svgDataMap.get(svg)
+  const smpDoc = getPlotSmpDoc(svg)
+
+  const newPlotW = Math.max(10, geom.width - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const newPlotH = Math.max(10, geom.height - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+  if (smpDoc && drag.initialItemPositions && smpDoc.legendItems) {
+    smpDoc.legendItems.forEach((item, idx) => {
+      const initPos = drag.initialItemPositions?.[idx]
+      if (initPos) {
+        item.xNorm = Math.round((initPos.xPx / newPlotW) * 10000)
+        item.yNorm = Math.round((initPos.yPx / newPlotH) * 10000)
+        if (item.x2Norm !== undefined && initPos.x2Px !== undefined) {
+          item.x2Norm = Math.round((initPos.x2Px / newPlotW) * 10000)
+        }
+        if (item.y2Norm !== undefined && initPos.y2Px !== undefined) {
+          item.y2Norm = Math.round((initPos.y2Px / newPlotH) * 10000)
+        }
+      }
+    })
+  }
+
+  // Annotations are frame-relative mm; resizing the plot leaves them
+  // untouched (they scale with the frame).
+  syncDocGeometry(svg)
+
+  if (ds) drawPlot(svg, ds, geom.width, geom.height)
 }
 
 // Coalesced per-frame visual sync for live drags (group move / transform drag).
@@ -536,90 +610,47 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     const startPlotW = startWidth - margin.l - margin.r
     const startPlotH = startHeight - margin.t - margin.b
 
-    if (dir === 'left' || dir === 'top' || dir === 'top-left') {
-      // MOVE: Both X and Y axes move freely with magnetic grid snap on axis lines
-      const rawLeftFrame = startLeft + margin.l + dx
-      const snappedLeftFrame = snapToGridThreshold(rawLeftFrame, GRID_SIZE, SNAP_THRESHOLD)
-      newLeft = snappedLeftFrame - margin.l
-
-      const rawTopFrame = startTop + margin.t + dy
-      const snappedTopFrame = snapToGridThreshold(rawTopFrame, GRID_SIZE, SNAP_THRESHOLD)
-      newTop = snappedTopFrame - margin.t
-    } else {
-      if (dir.includes('right')) {
-        const rawRight = startLeft + margin.l + startPlotW + dx
-        const snappedRight = snapToGridThreshold(rawRight, GRID_SIZE, SNAP_THRESHOLD)
-        const currentLeftFrame = startLeft + margin.l
-        const newPlotW = Math.max(minPlotW, snappedRight - currentLeftFrame)
-        newWidth = newPlotW + margin.l + margin.r
-      }
-
-      if (dir.includes('left')) {
-        const rawLeftFrame = startLeft + margin.l + dx
-        const snappedLeftFrame = snapToGridThreshold(rawLeftFrame, GRID_SIZE, SNAP_THRESHOLD)
-        const currentRightFrame = startLeft + margin.l + startPlotW
-        newLeft = snappedLeftFrame - margin.l
-        const newPlotW = Math.max(minPlotW, currentRightFrame - snappedLeftFrame)
-        newWidth = newPlotW + margin.l + margin.r
-      }
-
-      if (dir.includes('bottom')) {
-        const rawBottom = startTop + margin.t + startPlotH + dy
-        const snappedBottom = snapToGridThreshold(rawBottom, GRID_SIZE, SNAP_THRESHOLD)
-        const currentTopFrame = startTop + margin.t
-        const newPlotH = Math.max(minPlotH, snappedBottom - currentTopFrame)
-        newHeight = newPlotH + margin.t + margin.b
-      }
-
-      if (dir.includes('top')) {
-        const rawTopFrame = startTop + margin.t + dy
-        const snappedTopFrame = snapToGridThreshold(rawTopFrame, GRID_SIZE, SNAP_THRESHOLD)
-        const currentBottomFrame = startTop + margin.t + startPlotH
-        newTop = snappedTopFrame - margin.t
-        const newPlotH = Math.max(minPlotH, currentBottomFrame - snappedTopFrame)
-        newHeight = newPlotH + margin.t + margin.b
-      }
+    if (dir.includes('right')) {
+      const rawRight = startLeft + margin.l + startPlotW + dx
+      const snappedRight = snapToGridThreshold(rawRight, GRID_SIZE, SNAP_THRESHOLD)
+      const currentLeftFrame = startLeft + margin.l
+      const newPlotW = Math.max(minPlotW, snappedRight - currentLeftFrame)
+      newWidth = newPlotW + margin.l + margin.r
     }
 
-    svg.style.left = `${newLeft}px`
-    svg.style.top = `${newTop}px`
-    svg.style.width = `${newWidth}px`
-    svg.style.height = `${newHeight}px`
-    syncPlotOverlay(svg)
+    if (dir.includes('left')) {
+      const rawLeftFrame = startLeft + margin.l + dx
+      const snappedLeftFrame = snapToGridThreshold(rawLeftFrame, GRID_SIZE, SNAP_THRESHOLD)
+      const currentRightFrame = startLeft + margin.l + startPlotW
+      newLeft = snappedLeftFrame - margin.l
+      const newPlotW = Math.max(minPlotW, currentRightFrame - snappedLeftFrame)
+      newWidth = newPlotW + margin.l + margin.r
+    }
 
-    if (rafId) cancelAnimationFrame(rafId)
-    const currentDrag = activeDrag
-    rafId = requestAnimationFrame(() => {
-      if (!currentDrag) return
-      const ds = svgDataMap.get(currentDrag.svg)
-      const smpDoc = getPlotSmpDoc(currentDrag.svg)
+    if (dir.includes('bottom')) {
+      const rawBottom = startTop + margin.t + startPlotH + dy
+      const snappedBottom = snapToGridThreshold(rawBottom, GRID_SIZE, SNAP_THRESHOLD)
+      const currentTopFrame = startTop + margin.t
+      const newPlotH = Math.max(minPlotH, snappedBottom - currentTopFrame)
+      newHeight = newPlotH + margin.t + margin.b
+    }
 
-      const newPlotW = Math.max(10, newWidth - margin.l - margin.r)
-      const newPlotH = Math.max(10, newHeight - margin.t - margin.b)
+    if (dir.includes('top')) {
+      const rawTopFrame = startTop + margin.t + dy
+      const snappedTopFrame = snapToGridThreshold(rawTopFrame, GRID_SIZE, SNAP_THRESHOLD)
+      const currentBottomFrame = startTop + margin.t + startPlotH
+      newTop = snappedTopFrame - margin.t
+      const newPlotH = Math.max(minPlotH, currentBottomFrame - snappedTopFrame)
+      newHeight = newPlotH + margin.t + margin.b
+    }
 
-      if (smpDoc && currentDrag.initialItemPositions && smpDoc.legendItems) {
-        smpDoc.legendItems.forEach((item, idx) => {
-          const initPos = currentDrag.initialItemPositions?.[idx]
-          if (initPos) {
-            item.xNorm = Math.round((initPos.xPx / newPlotW) * 10000)
-            item.yNorm = Math.round((initPos.yPx / newPlotH) * 10000)
-            if (item.x2Norm !== undefined && initPos.x2Px !== undefined) {
-              item.x2Norm = Math.round((initPos.x2Px / newPlotW) * 10000)
-            }
-            if (item.y2Norm !== undefined && initPos.y2Px !== undefined) {
-              item.y2Norm = Math.round((initPos.y2Px / newPlotH) * 10000)
-            }
-          }
-        })
-      }
-
-      // Annotations are frame-relative mm; resizing the plot leaves them
-      // untouched (they scale with the frame).
-      syncDocGeometry(currentDrag.svg)
-
-      if (ds) drawPlot(currentDrag.svg, ds, newWidth, newHeight)
-      rafId = null
-    })
+    // Pure math only in the event handler; styles/redraw are deferred to a single
+    // rAF per frame (applyResizeFrame) so high-sampling-rate touch input stays
+    // smooth.
+    pendingResizeGeom = { svg, left: newLeft, top: newTop, width: newWidth, height: newHeight }
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => applyResizeFrame())
+    }
   }
 
   const handleDragEnd = () => {
@@ -673,14 +704,24 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     }
 
     if (activeDrag) {
-      const { svg } = activeDrag
+      const dragRef = activeDrag
       activeDrag = null
       document.body.style.userSelect = ''
-      const ds = svgDataMap.get(svg)
-      if (ds) {
-        const w = parseFloat(svg.style.width) || svg.getBoundingClientRect().width
-        const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
-        drawPlot(svg, ds, w, h)
+      // Flush any deferred geometry so the commit redraw sees the final size
+      // and the legend/annotation normalization is up to date.
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
+      if (pendingResizeGeom) {
+        applyResizeFrame(dragRef)
+      } else {
+        const ds = svgDataMap.get(dragRef.svg)
+        if (ds) {
+          const w = parseFloat(dragRef.svg.style.width) || dragRef.svg.getBoundingClientRect().width
+          const h = parseFloat(dragRef.svg.style.height) || dragRef.svg.getBoundingClientRect().height
+          drawPlot(dragRef.svg, ds, w, h)
+        }
       }
       wasDragging = true
     }
@@ -690,14 +731,17 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     }
   }
 
+  // Non-pointer drags (mouse border group-move, touch marquee-group move, transform
+  // drag) are driven by the legacy mouse/touch listeners. They only act when no
+  // pointer-captured drag is in progress (activePointerId === null).
   document.addEventListener('mousemove', (e: MouseEvent) => {
-    handleDragMove(e.clientX, e.clientY, e.shiftKey)
+    if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey)
   })
 
   document.addEventListener(
     'touchmove',
     (e: TouchEvent) => {
-      if (e.touches.length === 1 && (getActiveTransDrag() || activeGroupDrag || activeDrag)) {
+      if (activePointerId === null && e.touches.length === 1 && (getActiveTransDrag() || activeGroupDrag || activeDrag)) {
         e.preventDefault()
         const touch = e.touches[0]
         handleDragMove(touch.clientX, touch.clientY, e.shiftKey)
@@ -707,14 +751,63 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   )
 
   document.addEventListener('mouseup', () => {
-    handleDragEnd()
+    if (activePointerId === null) handleDragEnd()
   })
 
   document.addEventListener('touchend', () => {
-    handleDragEnd()
+    if (activePointerId === null) handleDragEnd()
   })
 
   document.addEventListener('touchcancel', () => {
-    handleDragEnd()
+    if (activePointerId === null) handleDragEnd()
+  })
+
+  // Handle-initiated drags (resize edge/corner + top-middle move zone) are owned by
+  // Pointer Events with setPointerCapture on the stable <svg> root. Because the root
+  // element is never removed by drawPlot()'s svg.replaceChildren() (only its children
+  // are), capturing on it keeps the pointer alive across the per-frame redraws that
+  // used to destroy the touch target and trigger a touchcancel — which previously
+  // killed the resize mid-gesture on touchscreens.
+  document.addEventListener('pointerdown', (e: PointerEvent) => {
+    if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
+    const target = e.target as SVGElement
+    const dir = target.getAttribute('data-dir')
+    const svg = target.closest<SVGSVGElement>('.plot-svg')
+    if (!dir || !svg) return
+    if (dir === 'move') {
+      startGroupDrag(e.clientX, e.clientY)
+    } else {
+      startPlotDrag(svg, dir, e.clientX, e.clientY)
+    }
+    activePointerId = e.pointerId
+    capturedSvg = svg
+    try {
+      svg.setPointerCapture(e.pointerId)
+    } catch {
+      // Capture may fail on some browsers; the legacy listeners are inactive for
+      // this gesture (activePointerId is set), so movement still flows via pointermove.
+    }
+    e.preventDefault()
+    e.stopPropagation()
+  })
+
+  document.addEventListener('pointermove', (e: PointerEvent) => {
+    if (activePointerId !== null && e.pointerId === activePointerId) {
+      handleDragMove(e.clientX, e.clientY, e.shiftKey)
+    }
+  })
+
+  document.addEventListener('pointerup', (e: PointerEvent) => {
+    if (activePointerId !== null && e.pointerId === activePointerId) {
+      handleDragEnd()
+      releaseCapturedPointer()
+    }
+  })
+
+  document.addEventListener('pointercancel', (e: PointerEvent) => {
+    if (activePointerId !== null && e.pointerId === activePointerId) {
+      handleDragEnd()
+      releaseCapturedPointer()
+    }
   })
 }

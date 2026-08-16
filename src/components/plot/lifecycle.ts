@@ -7,7 +7,7 @@ import { parseSmpContent } from '../../utils/smpParser.ts'
 import { globalDataManager } from './../DataManager.ts'
 import { drawPlot, updatePlotVisual } from './drawPlot.ts'
 import { isPropertyTabMode } from './transform.ts'
-import { startGroupDrag, startPlotDrag } from './drag.ts'
+import { startGroupDrag } from './drag.ts'
 import {
   isMultiSelected,
   setLastSelectedPlotSvg,
@@ -255,9 +255,6 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
       // Don't stopPropagation — MarqueeSelect will start marquee selection or point hit-test
       return
     }
-    startPlotDrag(svg, dir, e.clientX, e.clientY)
-    e.preventDefault()
-    e.stopPropagation()
   })
 }
 

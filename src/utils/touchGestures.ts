@@ -20,7 +20,6 @@ import {
   setObjectSelection,
   setSelectedPlotSvg,
   startGroupDrag,
-  startPlotDrag,
   hitTestAxisArea,
   hitTestGraph,
   isInsidePlotArea,
@@ -182,7 +181,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
       // Transform box / handles (Property tab mode): those overlay elements carry
       // their own touchstart handlers, so don't start hold / select gestures on
       // top of them.
-      if (target.closest('.ov-trans-box, [data-trans-dir]')) {
+      if (target.closest('.ov-trans-box, [data-trans-dir], [data-dir]')) {
         return
       }
 
@@ -213,14 +212,6 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
       isMarqueeSelecting = false
       isMarqueeExporting = false
       isGroupDragging = false
-
-      // Check if touching a resize handle directly
-      const resizeDir = target.getAttribute('data-dir')
-      const targetSvg = target.closest<SVGSVGElement>('.plot-svg')
-      if (resizeDir && targetSvg) {
-        startPlotDrag(targetSvg, resizeDir, touch.clientX, touch.clientY)
-        return
-      }
 
       // Start 500ms Long-Press Timer for Context Menu / Marquee Export
       clearHoldTimer()

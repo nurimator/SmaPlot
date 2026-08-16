@@ -581,13 +581,17 @@ body.os-mac .titlebar {
 .plot-svg .handle {
   fill: transparent;
   pointer-events: all;
+  /* Prevent the browser from claiming a scroll/pan gesture on the handle itself,
+     which would otherwise cancel the captured pointer mid-resize on touchscreens. */
+  touch-action: none;
 }
 
-.plot-svg .handle-top { cursor: move; }
+.plot-svg .handle-move { cursor: move; }
+.plot-svg .handle-top { cursor: n-resize; }
 .plot-svg .handle-bottom { cursor: ns-resize; }
-.plot-svg .handle-left { cursor: move; }
+.plot-svg .handle-left { cursor: ew-resize; }
 .plot-svg .handle-right { cursor: ew-resize; }
-.plot-svg .handle-top-left { cursor: move; }
+.plot-svg .handle-top-left { cursor: nwse-resize; }
 .plot-svg .handle-top-right { cursor: nesw-resize; }
 .plot-svg .handle-bottom-left { cursor: nesw-resize; }
 .plot-svg .handle-bottom-right { cursor: nwse-resize; }

@@ -225,8 +225,14 @@ export function drawPlot(
     const fw = plotW
     const fh = plotH
 
-    // Edges on plot frame
-    addHandle(fx + hs, fy - hs / 2, fw - 2 * hs, hs, 'top')
+    // Edges on plot frame. Top edge is split Sma4Win-style: the middle 25%–75%
+    // (plus the top-middle dot) is the MOVE zone; the remaining top quarters and
+    // every other edge/corner handle resize.
+    const topQuarterW = Math.max(1, fw * 0.25 - hs)
+    const moveZoneW = Math.max(1, fw * 0.5)
+    addHandle(fx + hs, fy - hs / 2, topQuarterW, hs, 'top')
+    addHandle(fx + fw * 0.25, fy - hs / 2, moveZoneW, hs, 'move')
+    addHandle(fx + fw * 0.75, fy - hs / 2, topQuarterW, hs, 'top')
     addHandle(fx + hs, fy + fh - hs / 2, fw - 2 * hs, hs, 'bottom')
     addHandle(fx - hs / 2, fy + hs, hs, fh - 2 * hs, 'left')
     addHandle(fx + fw - hs / 2, fy + hs, hs, fh - 2 * hs, 'right')
