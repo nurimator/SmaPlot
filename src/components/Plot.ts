@@ -353,9 +353,12 @@ interface GroupDragItem {
   startX2Norm?: number
   startY2Norm?: number
   targetType?: 'start' | 'end' | 'line'
+  geom?: Array<{ el: HTMLElement; left: number; top: number }>
 }
 
-let activeGroupDrag: { items: GroupDragItem[]; startX: number; startY: number } | null = null
+let activeGroupDrag:
+  | { items: GroupDragItem[]; startX: number; startY: number; lastDx?: number; lastDy?: number }
+  | null = null
 
 // Cached overlay elements (populated lazily)
 let _cachedTitleOverlay: HTMLElement | null = null
@@ -1257,8 +1260,26 @@ function buildGroupDragItems(selection: SelectableObject[]): GroupDragItem[] {
 }
 
 export function startGroupDrag(startX: number, startY: number): void {
+  const items = buildGroupDragItems(selectedObjects)
+
+  // Snapshot the selection-box overlay geometry so a live legend drag can move
+  // it with the group without any redraw. Only direct children of the overlay
+  // are moved — for rotated text the box/corners live inside .ov-rot-wrap, and
+  // moving that wrapper moves them too.
+  for (const item of items) {
+    if (item.kind !== 'legend') continue
+    const ov = getPlotOverlay(item.svg)
+    const geom: Array<{ el: HTMLElement; left: number; top: number }> = []
+    for (const child of Array.from(ov.children)) {
+      const el = child as HTMLElement
+      if (el.getAttribute('data-legend-item') !== String(item.itemIdx)) continue
+      geom.push({ el, left: parseFloat(el.style.left) || 0, top: parseFloat(el.style.top) || 0 })
+    }
+    if (geom.length > 0) item.geom = geom
+  }
+
   activeGroupDrag = {
-    items: buildGroupDragItems(selectedObjects),
+    items,
     startX,
     startY,
   }
@@ -1496,6 +1517,7 @@ interface ActiveTransDrag {
   plotW: number
   plotH: number
   margin: { l: number; r: number; t: number; b: number }
+  boxGeoms: Array<{ el: HTMLElement; left: number; top: number; width: number; height: number }>
 }
 
 let activeTransDrag: ActiveTransDrag | null = null
@@ -1510,7 +1532,8 @@ export function setPropertyDialogTarget(target: { svg: SVGSVGElement; dataset?: 
 }
 
 function startTransformDrag(
-  e: MouseEvent,
+  clientX: number,
+  clientY: number,
   svg: SVGSVGElement,
   dataset: Dataset,
   dir: 'box' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right',
@@ -1524,9 +1547,6 @@ function startTransformDrag(
   plotH: number,
   margin: { l: number; r: number; t: number; b: number }
 ): void {
-  e.stopPropagation()
-  e.preventDefault()
-
   const opts = dataset.options || {}
   const startXLinear = extractLinearParams(opts.xExpr || 'x', 'x')
   const startYLinear = extractLinearParams(opts.yExpr || 'y', 'y')
@@ -1543,12 +1563,33 @@ function startTransformDrag(
   const startYTransMin = Math.min(yTrans1, yTrans2)
   const startYTransMax = Math.max(yTrans1, yTrans2)
 
+  // Snapshot the pre-drag box/handle geometry (svg-relative px). The live
+  // affine transform is applied to these originals each move — reading the
+  // current style would compound the transform instead.
+  const boxGeoms: Array<{ el: HTMLElement; left: number; top: number; width: number; height: number }> = []
+  getPlotOverlay(svg)
+    .querySelectorAll<HTMLElement>('.ov-trans-box, .ov-trans-handle')
+    .forEach((el) => {
+      const left = parseFloat(el.style.left)
+      const top = parseFloat(el.style.top)
+      const width = parseFloat(el.style.width)
+      const height = parseFloat(el.style.height)
+      if (isNaN(left) || isNaN(top)) return
+      boxGeoms.push({
+        el,
+        left,
+        top,
+        width: isNaN(width) ? 0 : width,
+        height: isNaN(height) ? 0 : height,
+      })
+    })
+
   activeTransDrag = {
     svg,
     dataset,
     dir,
-    startX: e.clientX,
-    startY: e.clientY,
+    startX: clientX,
+    startY: clientY,
     xTransActive,
     yTransActive,
     startXLinear,
@@ -1568,9 +1609,97 @@ function startTransformDrag(
     plotW,
     plotH,
     margin,
+    boxGeoms,
   }
 
   document.body.style.userSelect = 'none'
+}
+
+// Live affine transform applied during a transform-box drag. The drag only ever
+// produces a linear expression (a*v + b) and the axis pixel mappings are linear
+// too, so the on-screen effect of the new expr is an affine map of the geometry
+// already on screen — applied with one SVG transform on the dataset's series
+// group plus a CSS transform on the trans box/handles. No data recompute and no
+// redraw until the drag ends, which keeps 60fps dragging even for huge datasets.
+// Returns false when the pre-drag expr is degenerate (constant), in which case
+// the caller falls back to a plain redraw per event.
+function applyTransDragVisual(
+  drag: ActiveTransDrag,
+  newAx: number,
+  newBx: number,
+  newAy: number,
+  newBy: number
+): boolean {
+  const {
+    svg,
+    dataset,
+    xTransActive,
+    yTransActive,
+    startXLinear,
+    startYLinear,
+    margin,
+    plotW,
+    plotH,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+  } = drag
+
+  let mx = 1
+  let my = 1
+  let kx = 0
+  let ky = 0
+
+  if (xTransActive) {
+    const aOld = startXLinear.a
+    if (Math.abs(aOld) < 1e-9) return false
+    mx = newAx / aOld
+    const c = newBx - mx * startXLinear.b
+    // sx(v) = margin.l + ((v - xMin) / (xMax - xMin)) * plotW, so the exact
+    // anchor is (1 - mx) * (margin.l - xMin * sx) + c * sx.
+    const sx = plotW / (xMax - xMin || 1)
+    kx = (1 - mx) * (margin.l - xMin * sx) + c * sx
+  }
+
+  if (yTransActive) {
+    const aOld = startYLinear.a
+    if (Math.abs(aOld) < 1e-9) return false
+    my = newAy / aOld
+    const c = newBy - my * startYLinear.b
+    // sy(v) = margin.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH, so the
+    // exact anchor is (1 - my) * (margin.t + plotH + yMin * sy) - c * sy.
+    const sy = plotH / (yMax - yMin || 1)
+    ky = (1 - my) * (margin.t + plotH + yMin * sy) - c * sy
+  }
+
+  if (mx !== 1 || my !== 1 || kx !== 0 || ky !== 0) {
+    const datasets = svgDataMap.get(svg) || []
+    const idx = datasets.indexOf(dataset)
+    if (idx >= 0) {
+      const dsGroup = svg.querySelector<SVGGElement>(`g[data-series="${idx}"]`)
+      if (dsGroup) {
+        if (kx !== 0 || ky !== 0) dsGroup.setAttribute('transform', `translate(${kx}, ${ky})`)
+        else dsGroup.removeAttribute('transform')
+        const scaleGroup = dsGroup.querySelector<SVGGElement>('g[data-scale-group]')
+        if (scaleGroup) {
+          if (mx !== 1 || my !== 1) scaleGroup.setAttribute('transform', `scale(${mx}, ${my})`)
+          else scaleGroup.removeAttribute('transform')
+        }
+      }
+    }
+
+    for (const g of drag.boxGeoms) {
+      g.el.style.left = `${mx * g.left + kx}px`
+      g.el.style.top = `${my * g.top + ky}px`
+      if (g.el.classList.contains('ov-trans-box')) {
+        g.el.style.width = `${mx * g.width}px`
+        g.el.style.height = `${my * g.height}px`
+      }
+    }
+  }
+
+  return true
 }
 
 function renderDatasetTransformOverlays(
@@ -1664,8 +1793,11 @@ function renderDatasetTransformOverlays(
 
     boxEl.addEventListener('mousedown', (e: MouseEvent) => {
       if (e.button !== 0) return
+      e.stopPropagation()
+      e.preventDefault()
       startTransformDrag(
-        e,
+        e.clientX,
+        e.clientY,
         svg,
         rawDs,
         'box',
@@ -1680,6 +1812,32 @@ function renderDatasetTransformOverlays(
         margin
       )
     })
+
+    boxEl.addEventListener(
+      'touchstart',
+      (e: TouchEvent) => {
+        if (e.touches.length !== 1) return
+        e.preventDefault()
+        e.stopPropagation()
+        startTransformDrag(
+          e.touches[0].clientX,
+          e.touches[0].clientY,
+          svg,
+          rawDs,
+          'box',
+          xTransActive,
+          yTransActive,
+          effXMin,
+          effXMax,
+          effYMin,
+          effYMax,
+          plotW,
+          plotH,
+          margin
+        )
+      },
+      { passive: false }
+    )
 
     ov.appendChild(boxEl)
 
@@ -1705,8 +1863,11 @@ function renderDatasetTransformOverlays(
 
       handle.addEventListener('mousedown', (e: MouseEvent) => {
         if (e.button !== 0) return
+        e.stopPropagation()
+        e.preventDefault()
         startTransformDrag(
-          e,
+          e.clientX,
+          e.clientY,
           svg,
           rawDs,
           dir,
@@ -1721,6 +1882,32 @@ function renderDatasetTransformOverlays(
           margin
         )
       })
+
+      handle.addEventListener(
+        'touchstart',
+        (e: TouchEvent) => {
+          if (e.touches.length !== 1) return
+          e.preventDefault()
+          e.stopPropagation()
+          startTransformDrag(
+            e.touches[0].clientX,
+            e.touches[0].clientY,
+            svg,
+            rawDs,
+            dir,
+            xTransActive,
+            yTransActive,
+            effXMin,
+            effXMax,
+            effYMin,
+            effYMax,
+            plotW,
+            plotH,
+            margin
+          )
+        },
+        { passive: false }
+      )
 
       ov.appendChild(handle)
     }
@@ -2481,7 +2668,7 @@ export function drawPlot(
         startX: e.clientX,
         startY: e.clientY,
       }
-      document.body.style.userSelect = 'none'
+document.body.style.userSelect = 'none'
     }
 
     const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
@@ -2914,6 +3101,10 @@ export function drawPlot(
 
       if (isSeriesLegendText(item.text)) {
         // Series Legend Box e.g. %01E KP\n%02E SG\n%03E GS  or  %01E%01N
+        const legGroup = createSVGElement('g')
+        legGroup.setAttribute('data-legend-item', String(itemIdx))
+        svg.appendChild(legGroup)
+
         const rawLines = item.text.split('\n')
         let legY = py
         rawLines.forEach((lineStr) => {
@@ -2956,7 +3147,7 @@ export function drawPlot(
           legLine.style.cursor = isSelected ? 'move' : 'pointer'
           legLine.addEventListener('mousedown', handleLegendMouseDown)
           legLine.addEventListener('dblclick', openTitleModal)
-          svg.appendChild(legLine)
+          legGroup.appendChild(legLine)
 
           // Draw legend marker symbol if set
           const plotType = ds?.options?.plotType || 'no_dot'
@@ -2977,7 +3168,7 @@ export function drawPlot(
               circle.style.cursor = isSelected ? 'move' : 'pointer'
               circle.addEventListener('mousedown', handleLegendMouseDown)
               circle.addEventListener('dblclick', openTitleModal)
-              svg.appendChild(circle)
+              legGroup.appendChild(circle)
             } else if (plotType === 'square' || plotType === 'filled_square') {
               const rect = createSVGElement('rect')
               rect.setAttribute('x', String(cx - r))
@@ -2990,7 +3181,7 @@ export function drawPlot(
               rect.style.cursor = isSelected ? 'move' : 'pointer'
               rect.addEventListener('mousedown', handleLegendMouseDown)
               rect.addEventListener('dblclick', openTitleModal)
-              svg.appendChild(rect)
+              legGroup.appendChild(rect)
             } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
               const poly = createSVGElement('polygon')
               const p1 = `${cx},${legY - r}`
@@ -3003,7 +3194,7 @@ export function drawPlot(
               poly.style.cursor = isSelected ? 'move' : 'pointer'
               poly.addEventListener('mousedown', handleLegendMouseDown)
               poly.addEventListener('dblclick', openTitleModal)
-              svg.appendChild(poly)
+              legGroup.appendChild(poly)
             } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
               const poly = createSVGElement('polygon')
               const p1 = `${cx},${legY - r}`
@@ -3017,7 +3208,7 @@ export function drawPlot(
               poly.style.cursor = isSelected ? 'move' : 'pointer'
               poly.addEventListener('mousedown', handleLegendMouseDown)
               poly.addEventListener('dblclick', openTitleModal)
-              svg.appendChild(poly)
+              legGroup.appendChild(poly)
             }
           }
 
@@ -3046,7 +3237,7 @@ export function drawPlot(
           legContainer.addEventListener('mousedown', handleLegendMouseDown)
           legContainer.addEventListener('dblclick', openTitleModal)
           legFo.appendChild(legContainer)
-          svg.appendChild(legFo)
+          legGroup.appendChild(legFo)
 
           legY += 11
         })
@@ -3092,7 +3283,10 @@ export function drawPlot(
         container.addEventListener('mousedown', handleLegendMouseDown)
         container.addEventListener('dblclick', openTitleModal)
         fo.appendChild(container)
-        svg.appendChild(fo)
+        const legGroup = createSVGElement('g')
+        legGroup.setAttribute('data-legend-item', String(itemIdx))
+        legGroup.appendChild(fo)
+        svg.appendChild(legGroup)
 
         if (isSelected) {
           const measuredW = container.offsetWidth || (rawStr.length * (fontSz * 0.5) + 10)
@@ -3115,6 +3309,7 @@ export function drawPlot(
 
           if (isRotated) {
             const rotWrap = createOverlayEl('ov-rot-wrap')
+            rotWrap.dataset.legendItem = String(itemIdx)
             rotWrap.style.left = `${renderPx}px`
             rotWrap.style.top = `${py}px`
             rotWrap.style.transform = `rotate(${item.rotation}deg)`
@@ -3126,6 +3321,7 @@ export function drawPlot(
           const offsetY = isRotated ? boxY - py : boxY
 
           const cyanBox = createOverlayEl('ov-box')
+          cyanBox.dataset.legendItem = String(itemIdx)
           cyanBox.style.left = `${offsetX}px`
           cyanBox.style.top = `${offsetY}px`
           cyanBox.style.width = `${boxW}px`
@@ -3142,6 +3338,7 @@ export function drawPlot(
           ]
           corners.forEach((c) => {
             const handle = createOverlayEl('ov-box-corner')
+            handle.dataset.legendItem = String(itemIdx)
             handle.style.left = `${c.x}px`
             handle.style.top = `${c.y}px`
             parentEl.appendChild(handle)
@@ -3158,6 +3355,7 @@ export function drawPlot(
         const ov = getPlotOverlay(svg)
 
         const cyanBox = createOverlayEl('ov-box')
+        cyanBox.dataset.legendItem = String(itemIdx)
         cyanBox.style.left = `${boxX}px`
         cyanBox.style.top = `${boxY}px`
         cyanBox.style.width = `${boxW}px`
@@ -3174,6 +3372,7 @@ export function drawPlot(
         ]
         corners.forEach((c) => {
           const handle = createOverlayEl('ov-box-corner')
+          handle.dataset.legendItem = String(itemIdx)
           handle.style.left = `${c.x}px`
           handle.style.top = `${c.y}px`
           ov.appendChild(handle)
@@ -3214,10 +3413,25 @@ export function drawPlot(
 
 
   // Render Data Series according to Property Visual Options
-  for (const ds of processedDatasets) {
+  for (let dIdx = 0; dIdx < processedDatasets.length; dIdx++) {
+    const ds = processedDatasets[dIdx]
     const opts = ds.options || {}
     const isShow = opts.show !== false
     if (!isShow) continue
+
+    // Per-dataset group so a live transform drag can move/scale a single
+    // series with one attribute change instead of a full redraw.
+    const dsGroup = createSVGElement('g')
+    dsGroup.setAttribute('data-series', String(dIdx))
+    seriesGroup.appendChild(dsGroup)
+
+    // Data-mapped geometry (bars, area fill, line path) lives in a nested group
+    // that receives the scale() part of the live transform; fixed-size symbols
+    // stay in dsGroup which only translates. vector-effect keeps strokes at
+    // constant screen width so a scaled curve never looks thick/thin.
+    const dsScaleGroup = createSVGElement('g')
+    dsScaleGroup.setAttribute('data-scale-group', '1')
+    dsGroup.appendChild(dsScaleGroup)
 
     const dsSx = opts.axisX === 'u' ? su : sx
     const dsSy = opts.axisY === 'r' ? sr : sy
@@ -3258,7 +3472,8 @@ export function drawPlot(
           bar.setAttribute('fill', paintColor)
           bar.setAttribute('stroke', strokeColor)
           bar.setAttribute('stroke-width', strokeWidth)
-          seriesGroup.appendChild(bar)
+          bar.setAttribute('vector-effect', 'non-scaling-stroke')
+          dsScaleGroup.appendChild(bar)
         }
       } else {
         // Draw Line Path / Face Area Fill
@@ -3280,7 +3495,7 @@ export function drawPlot(
             areaPath.setAttribute('fill', strokeColor)
             areaPath.setAttribute('fill-opacity', '0.35')
             areaPath.setAttribute('stroke', 'none')
-            seriesGroup.appendChild(areaPath)
+            dsScaleGroup.appendChild(areaPath)
           }
 
           // Top boundary curve line
@@ -3289,10 +3504,11 @@ export function drawPlot(
           path.setAttribute('fill', 'none')
           path.setAttribute('stroke', strokeColor)
           path.setAttribute('stroke-width', strokeWidth)
+          path.setAttribute('vector-effect', 'non-scaling-stroke')
           if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
           path.setAttribute('stroke-linejoin', 'round')
           path.setAttribute('stroke-linecap', 'round')
-          seriesGroup.appendChild(path)
+          dsScaleGroup.appendChild(path)
         }
 
         // Draw Dot / Symbol Markers based on exact Plot type shape with pitch interval
@@ -3310,7 +3526,7 @@ export function drawPlot(
               circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
               circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
               circle.setAttribute('stroke-width', '1')
-              seriesGroup.appendChild(circle)
+              dsGroup.appendChild(circle)
             } else if (plotType === 'square' || plotType === 'filled_square') {
               const rect = createSVGElement('rect')
               rect.setAttribute('x', String(px - dotSize))
@@ -3320,7 +3536,7 @@ export function drawPlot(
               rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
               rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
               rect.setAttribute('stroke-width', '1')
-              seriesGroup.appendChild(rect)
+              dsGroup.appendChild(rect)
             } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
               const poly = createSVGElement('polygon')
               const p1 = `${px},${py - dotSize}`
@@ -3330,7 +3546,7 @@ export function drawPlot(
               poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
               poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
               poly.setAttribute('stroke-width', '1')
-              seriesGroup.appendChild(poly)
+              dsGroup.appendChild(poly)
             } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
               const poly = createSVGElement('polygon')
               const p1 = `${px},${py - dotSize}`
@@ -3341,7 +3557,7 @@ export function drawPlot(
               poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
               poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
               poly.setAttribute('stroke-width', '1')
-              seriesGroup.appendChild(poly)
+              dsGroup.appendChild(poly)
             }
           }
         }
@@ -3807,6 +4023,47 @@ function snapToGridThreshold(val: number, step: number = 100, threshold: number 
   return val
 }
 
+// Coalesced per-frame visual sync for live drags (group move / transform drag).
+// Rebuilding the whole plot SVG synchronously on every mousemove/touchmove event
+// stutters badly on high-sampling-rate touchscreens, so all redraw + dialog-sync
+// work is deferred to a single requestAnimationFrame per animation frame.
+const pendingVisualRedraws = new Set<SVGSVGElement>()
+let pendingVisualRaf: number | null = null
+let pendingLegendSync: { svg: SVGSVGElement; itemIdx: number } | null = null
+let pendingAnnotationSync: { svg: SVGSVGElement; annotationIdx: number } | null = null
+
+function schedulePlotVisualSync(
+  svg: SVGSVGElement,
+  legendSync?: { svg: SVGSVGElement; itemIdx: number } | null,
+  annotationSync?: { svg: SVGSVGElement; annotationIdx: number } | null
+): void {
+  pendingVisualRedraws.add(svg)
+  if (legendSync) pendingLegendSync = legendSync
+  if (annotationSync) pendingAnnotationSync = annotationSync
+  if (pendingVisualRaf !== null) return
+  pendingVisualRaf = requestAnimationFrame(() => {
+    pendingVisualRaf = null
+    pendingVisualRedraws.forEach((s) => updatePlotVisual(s))
+    pendingVisualRedraws.clear()
+    if (pendingLegendSync) {
+      const { svg: ls, itemIdx } = pendingLegendSync
+      pendingLegendSync = null
+      const titleOverlayEl = getCachedTitleOverlay()
+      if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
+        showTitleDialog(titleOverlayEl, itemIdx, ls)
+      }
+    }
+    if (pendingAnnotationSync) {
+      const { svg: as, annotationIdx } = pendingAnnotationSync
+      pendingAnnotationSync = null
+      const arrowOverlayEl = getCachedArrowOverlay()
+      if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
+        showArrowDialog(arrowOverlayEl, annotationIdx, as)
+      }
+    }
+  })
+}
+
 // Global mousemove, mouseup, touchmove, and touchend listeners for resize with snap to grid.
 // onDragCommit is invoked after a resize/group-move finishes, letting the caller
 // (e.g. undo manager) record the mutation without Plot importing it.
@@ -3845,6 +4102,11 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       const deltaVy = -(dyPx / plotH) * (yMax - yMin)
 
       if (!dataset.options) dataset.options = {}
+
+      let curAx = startXLinear.a
+      let curBx = startXLinear.b
+      let curAy = startYLinear.a
+      let curBy = startYLinear.b
 
       // Handle Y transformation
       if (yTransActive) {
@@ -3887,6 +4149,9 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
         const propYInput = document.querySelector<HTMLInputElement>('#propYTransExpr')
         if (propYInput) propYInput.value = formattedY
+
+        curAy = newAy
+        curBy = newBy
       }
 
       // Handle X transformation
@@ -3930,9 +4195,14 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
         const propXInput = document.querySelector<HTMLInputElement>('#propXTransExpr')
         if (propXInput) propXInput.value = formattedX
+
+        curAx = newAx
+        curBx = newBx
       }
 
-      updatePlotVisual(svg)
+      if (!applyTransDragVisual(activeTransDrag, curAx, curBx, curAy, curBy)) {
+        schedulePlotVisualSync(svg)
+      }
       return
     }
 
@@ -3943,6 +4213,11 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       const dy = (clientY - dragRef.startY) / zoom
       const touchedSvgs = new Set<SVGSVGElement>()
 
+      // When only legend/text and plot objects are dragged, move the legend DOM
+      // directly (one translate attribute) instead of rebuilding the whole plot
+      // SVG per frame — full redraws stutter badly on touchscreens.
+      const liveLegendDrag = dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
+
       for (const item of dragRef.items) {
         if (item.kind === 'plot') {
           const snappedLeft = snapToGridThreshold(item.startLeft! + PLOT_MARGIN.l + dx, 100, 6) - PLOT_MARGIN.l
@@ -3951,16 +4226,29 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           item.svg.style.top = `${snappedTop}px`
           syncPlotOverlay(item.svg)
         } else if (item.kind === 'legend') {
-          const smpDoc = getPlotSmpDoc(item.svg)
-          const legendItem = smpDoc?.legendItems[item.itemIdx!]
-          if (!smpDoc || !legendItem) continue
-          const widthPx = parseFloat(item.svg.style.width) || 500
-          const heightPx = parseFloat(item.svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
-          legendItem.xNorm = Math.round(item.startXNorm! + (dx / plotW) * 10000)
-          legendItem.yNorm = Math.round(item.startYNorm! + (dy / plotH) * 10000)
-          touchedSvgs.add(item.svg)
+          if (liveLegendDrag) {
+            const legGroup = item.svg.querySelector<SVGGElement>(`g[data-legend-item="${item.itemIdx}"]`)
+            if (legGroup) legGroup.setAttribute('transform', `translate(${dx}, ${dy})`)
+            if (item.geom) {
+              for (const g of item.geom) {
+                g.el.style.left = `${g.left + dx}px`
+                g.el.style.top = `${g.top + dy}px`
+              }
+            }
+            dragRef.lastDx = dx
+            dragRef.lastDy = dy
+          } else {
+            const smpDoc = getPlotSmpDoc(item.svg)
+            const legendItem = smpDoc?.legendItems[item.itemIdx!]
+            if (!smpDoc || !legendItem) continue
+            const widthPx = parseFloat(item.svg.style.width) || 500
+            const heightPx = parseFloat(item.svg.style.height) || 350
+            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            legendItem.xNorm = Math.round(item.startXNorm! + (dx / plotW) * 10000)
+            legendItem.yNorm = Math.round(item.startYNorm! + (dy / plotH) * 10000)
+            touchedSvgs.add(item.svg)
+          }
         } else if (item.kind === 'annotation') {
           const smpDoc = getPlotSmpDoc(item.svg)
           const aLine = smpDoc?.annotationLines?.[item.annotationIdx!]
@@ -4044,23 +4332,34 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
         }
       }
 
-      for (const svg of touchedSvgs) {
-        updatePlotVisual(svg)
-      }
-
       // Keep the Title / Arrow dialogs in sync with the dragged object
-      const firstLegend = dragRef.items.find((it) => it.kind === 'legend')
-      if (firstLegend) {
+      if (liveLegendDrag) {
+        // Cheap live sync of the position fields; the full dialog rebuild and
+        // the single commit redraw happen on drag end.
         const titleOverlayEl = getCachedTitleOverlay()
         if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
-          showTitleDialog(titleOverlayEl, firstLegend.itemIdx!, firstLegend.svg)
+          const legendItem = dragRef.items.find((it) => it.kind === 'legend')
+          if (legendItem) {
+            const widthPx = parseFloat(legendItem.svg.style.width) || 500
+            const heightPx = parseFloat(legendItem.svg.style.height) || 350
+            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const posXEl = titleOverlayEl.querySelector<HTMLInputElement>('#titlePosX')
+            const posYEl = titleOverlayEl.querySelector<HTMLInputElement>('#titlePosY')
+            if (posXEl) posXEl.value = String(Math.round((legendItem.startXNorm! + (dx / plotW) * 10000) / 100))
+            if (posYEl) posYEl.value = String(Math.round((legendItem.startYNorm! + (dy / plotH) * 10000) / 100))
+          }
         }
-      }
-      const firstAnnotation = dragRef.items.find((it) => it.kind === 'annotation')
-      if (firstAnnotation) {
-        const arrowOverlayEl = getCachedArrowOverlay()
-        if (arrowOverlayEl && arrowOverlayEl.style.display !== 'none') {
-          showArrowDialog(arrowOverlayEl, firstAnnotation.annotationIdx!, firstAnnotation.svg)
+      } else {
+        const firstLegend = dragRef.items.find((it) => it.kind === 'legend')
+        const firstAnnotation = dragRef.items.find((it) => it.kind === 'annotation')
+        const legendSync = firstLegend ? { svg: firstLegend.svg, itemIdx: firstLegend.itemIdx! } : null
+        const annotationSync = firstAnnotation
+          ? { svg: firstAnnotation.svg, annotationIdx: firstAnnotation.annotationIdx! }
+          : null
+
+        for (const svg of touchedSvgs) {
+          schedulePlotVisualSync(svg, legendSync, annotationSync)
         }
       }
       return
@@ -4189,12 +4488,48 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   const handleDragEnd = () => {
     let wasDragging = false
     if (activeTransDrag) {
+      const { svg } = activeTransDrag
       activeTransDrag = null
       document.body.style.userSelect = ''
+      if (svgDataMap.get(svg)) {
+        updatePlotVisual(svg)
+      }
       wasDragging = true
     }
 
     if (activeGroupDrag) {
+      const dragRef = activeGroupDrag
+
+      // Commit live legend/text drags: write the final xNorm/yNorm, then one
+      // redraw resets the temporary group transform and selection overlays.
+      const liveLegendDrag =
+        dragRef.items.some((it) => it.kind === 'legend') &&
+        dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
+      if (liveLegendDrag) {
+        const committedSvgs = new Set<SVGSVGElement>()
+        for (const item of dragRef.items) {
+          if (item.kind !== 'legend') continue
+          const smpDoc = getPlotSmpDoc(item.svg)
+          const legendItem = smpDoc?.legendItems[item.itemIdx!]
+          if (!smpDoc || !legendItem) continue
+          const widthPx = parseFloat(item.svg.style.width) || 500
+          const heightPx = parseFloat(item.svg.style.height) || 350
+          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          legendItem.xNorm = Math.round(item.startXNorm! + ((dragRef.lastDx ?? 0) / plotW) * 10000)
+          legendItem.yNorm = Math.round(item.startYNorm! + ((dragRef.lastDy ?? 0) / plotH) * 10000)
+          committedSvgs.add(item.svg)
+        }
+        const firstLegend = dragRef.items.find((it) => it.kind === 'legend')
+        for (const svg of committedSvgs) {
+          updatePlotVisual(svg)
+          const titleOverlayEl = getCachedTitleOverlay()
+          if (titleOverlayEl && titleOverlayEl.style.display !== 'none' && firstLegend) {
+            showTitleDialog(titleOverlayEl, firstLegend.itemIdx!, svg)
+          }
+        }
+      }
+
       activeGroupDrag = null
       document.body.style.userSelect = ''
       wasDragging = true

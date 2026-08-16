@@ -1,7 +1,7 @@
 import './style.css'
 import { initTitlebar } from './components/Titlebar.ts'
-import { initMenubar } from './components/Menubar.ts'
-import { initToolbar } from './components/Toolbar.ts'
+import { initMenubar, closeAllMenuDropdowns } from './components/Menubar.ts'
+import { bindActionButtons, initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { initMarqueeExport } from './components/MarqueeExport.ts'
 import { initMarqueeSelect } from './components/MarqueeSelect.ts'
@@ -31,28 +31,30 @@ import {
   setTrimmingMode,
 } from './components/Plot.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
-import { initPropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
-import { initConfirmDialog, showConfirmDialog } from './components/ConfirmDialog.ts'
-import { initSaveAsDialog, showSaveAsDialog } from './components/SaveAsDialog.ts'
+import { initPropertyDialog, hidePropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
+import { initConfirmDialog, hideConfirmDialog, showConfirmDialog } from './components/ConfirmDialog.ts'
+import { initSaveAsDialog, hideSaveAsDialog, showSaveAsDialog } from './components/SaveAsDialog.ts'
 import {
   globalDataManager,
+  hideDataManagerDialog,
   initDataManagerDialog,
   showDataManagerDialog,
   showDataManagerForLegend,
 } from './components/DataManager.ts'
-import { initAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
-import { initTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
+import { initAxisDialog, hideAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
+import { initTitleDialog, hideTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import type { TitlePreset } from './components/TitleDialog.ts'
 import type { Dataset } from './types.ts'
-import { initArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
-import { initRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
-import { initColorPickerDialog } from './components/ColorPickerDialog.ts'
+import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
+import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
+import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
-import { ZOOM_BASE, initCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
+import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { initTouchGestures } from './utils/touchGestures.ts'
+import { initSheetSwipe } from './utils/sheetSwipe.ts'
 import { registerSW } from 'virtual:pwa-register'
 
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')
@@ -104,7 +106,7 @@ if (workspaceEl && graphAreaEl) {
       setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
     })
     zoomValueEl.addEventListener('click', () => {
-      setCanvasZoom(ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+      resetCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
     })
   }
 }
@@ -268,21 +270,25 @@ function openAxisTitleDialog(axis: 'x' | 'y' | 'u' | 'r'): void {
 }
 
 let trimmingActive = false
-const trimBtn = toolbarEl?.querySelector<HTMLElement>('.toolbar-btn[data-action="trimming"]')
+
+const updateTrimUI = (active: boolean) => {
+  document.querySelectorAll<HTMLElement>('[data-action="trimming"]').forEach((el) => {
+    el.classList.toggle('active', active)
+  })
+  graphAreaEl.classList.toggle('trimming-mode', active)
+}
 
 const exitTrimMode = () => {
   if (!trimmingActive) return
   trimmingActive = false
   setTrimmingMode(false)
-  trimBtn?.classList.remove('active')
-  graphAreaEl.classList.remove('trimming-mode')
+  updateTrimUI(false)
 }
 
 const toggleTrimMode = () => {
   trimmingActive = !trimmingActive
   setTrimmingMode(trimmingActive)
-  trimBtn?.classList.toggle('active', trimmingActive)
-  graphAreaEl.classList.toggle('trimming-mode', trimmingActive)
+  updateTrimUI(trimmingActive)
 }
 
 function updateRecentFilesMenu(): void {
@@ -425,44 +431,46 @@ if (menubarEl) {
   })
 }
 
+async function handleToolbarAction(action: string, title: string): Promise<void> {
+  if (action === 'trimming') {
+    toggleTrimMode()
+    return
+  }
+
+  // Any other toolbar action exits trimming mode (restoring marquee selection).
+  exitTrimMode()
+
+  if (action === 'undo') {
+    undo(graphAreaEl)
+  } else if (action === 'redo') {
+    redo(graphAreaEl)
+  } else if (action === 'delete') {
+    if (deleteSelectedObjects()) pushUndoState()
+  } else if (action === 'new') {
+    await handleNewProject()
+  } else if (action === 'open' || title === 'Open') {
+    if (globalFileInput) globalFileInput.click()
+  } else if (action === 'save' || title === 'Save') {
+    handleSaveProject()
+  } else if (action === 'text' || title === 'Text') {
+    showTitleDialog(titleOverlayEl)
+  } else if (action === 'rectangle' || title === 'Rectangle') {
+    showRectangleDialog(rectOverlayEl)
+  } else if (action === 'arrow' || title === 'Arrow') {
+    showArrowDialog(arrowOverlayEl)
+  } else if (action === 'chart' || title === 'Chart') {
+    showPropertyDialog(propOverlayEl)
+  } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
+    if (isReadValueOpen() && readValueOverlayEl) {
+      hideReadValueDialog(readValueOverlayEl)
+    } else {
+      handleReadValue()
+    }
+  }
+}
+
 if (toolbarEl) {
-  initToolbar(toolbarEl, async (action, title) => {
-    if (action === 'trimming') {
-      toggleTrimMode()
-      return
-    }
-
-    // Any other toolbar action exits trimming mode (restoring marquee selection).
-    exitTrimMode()
-
-    if (action === 'undo') {
-      undo(graphAreaEl)
-    } else if (action === 'redo') {
-      redo(graphAreaEl)
-    } else if (action === 'delete') {
-      if (deleteSelectedObjects()) pushUndoState()
-    } else if (action === 'new') {
-      await handleNewProject()
-    } else if (action === 'open' || title === 'Open') {
-      if (globalFileInput) globalFileInput.click()
-    } else if (action === 'save' || title === 'Save') {
-      handleSaveProject()
-    } else if (action === 'text' || title === 'Text') {
-      showTitleDialog(titleOverlayEl)
-    } else if (action === 'rectangle' || title === 'Rectangle') {
-      showRectangleDialog(rectOverlayEl)
-    } else if (action === 'arrow' || title === 'Arrow') {
-      showArrowDialog(arrowOverlayEl)
-    } else if (action === 'chart' || title === 'Chart') {
-      showPropertyDialog(propOverlayEl)
-    } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
-      if (isReadValueOpen() && readValueOverlayEl) {
-        hideReadValueDialog(readValueOverlayEl)
-      } else {
-        handleReadValue()
-      }
-    }
-  })
+  initToolbar(toolbarEl, handleToolbarAction)
 }
 
 // Global File Input Change Handler
@@ -852,7 +860,88 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   } else if (isCtrlOrCmd && e.key === '0') {
     e.preventDefault()
     if (workspaceEl && graphAreaEl) {
-      setCanvasZoom(ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
+      resetCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
     }
   }
+})
+
+// ── Mobile: header + footer bars reuse the shared toolbar action dispatch ──
+// Hidden on desktop via CSS; the listeners are harmless there.
+const mobileHeaderEl = document.querySelector<HTMLElement>('#mobileHeader')
+const mobileNavEl = document.querySelector<HTMLElement>('#mobileNav')
+
+if (mobileHeaderEl) {
+  initToolbar(mobileHeaderEl, handleToolbarAction)
+}
+if (mobileNavEl) {
+  bindActionButtons(mobileNavEl, handleToolbarAction)
+}
+
+// Burger menu: slides the menubar down as a drawer (mobile CSS) and reuses its
+// existing dropdown handling. The drawer closes after choosing an action or
+// when tapping anywhere outside it.
+const mobileMenuBtn = document.querySelector<HTMLButtonElement>('#mobileMenuBtn')
+if (mobileMenuBtn && menubarEl) {
+  const closeDrawer = () => {
+    menubarEl.classList.remove('menu-drawer-open')
+    // Reset any open accordions so the next open starts clean.
+    closeAllMenuDropdowns()
+  }
+
+  mobileMenuBtn.addEventListener('click', () => {
+    const isOpen = menubarEl.classList.contains('menu-drawer-open')
+    if (isOpen) {
+      closeDrawer()
+    } else {
+      menubarEl.classList.add('menu-drawer-open')
+    }
+  })
+
+  menubarEl.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    const item = target.closest('.dropdown-item')
+    if (!item) return
+    // Items inside an open submenu collapse the accordion but must NOT close
+    // the whole drawer (Menubar.ts already handles the action + collapse).
+    if (item.closest('.menu-submenu')) return
+    // The has-submenu row itself toggles the accordion — don't close drawer.
+    if (item.classList.contains('has-submenu')) return
+    closeDrawer()
+  })
+
+  document.addEventListener('click', (e) => {
+    if (!menubarEl.contains(e.target as Node) && !mobileMenuBtn.contains(e.target as Node)) {
+      closeDrawer()
+    }
+  })
+}
+
+// ── Mobile: sheet swipe-down / header-resize interactions ───────────────────
+// The mobile backdrop passes pointer events through (CSS: .modal-overlay has
+// pointer-events:none), so the workspace stays interactive while a sheet is
+// open — pan, pinch-zoom, read-value picking, and transform-box drags all keep
+// working behind the sheet. Sheets are dismissed via their close button, a
+// swipe-down on the sheet body, or dragging the header down until the sheet is
+// <=10% of the screen height. Closing goes through the same hide* helpers the
+// dialog buttons use, so dialog state (multi-select mode, read-value mode,
+// promises, etc.) is cleaned up — not just display.
+const dialogClosers: Array<{ overlay: HTMLElement; close: () => void }> = []
+const registerDialogCloser = (overlay: HTMLElement | null, close: (overlayEl: HTMLElement) => void): void => {
+  if (!overlay) return
+  dialogClosers.push({ overlay, close: () => close(overlay) })
+}
+registerDialogCloser(propOverlayEl, hidePropertyDialog)
+registerDialogCloser(dmOverlayEl, hideDataManagerDialog)
+registerDialogCloser(axisOverlayEl, hideAxisDialog)
+registerDialogCloser(titleOverlayEl, hideTitleDialog)
+registerDialogCloser(arrowOverlayEl, hideArrowDialog)
+registerDialogCloser(rectOverlayEl, hideRectangleDialog)
+registerDialogCloser(readValueOverlayEl, hideReadValueDialog)
+registerDialogCloser(colorPickerOverlayEl, hideColorPickerDialog)
+registerDialogCloser(saveAsOverlayEl, hideSaveAsDialog)
+registerDialogCloser(confirmOverlayEl, hideConfirmDialog)
+
+dialogClosers.forEach(({ overlay, close }) => {
+  const sheet = overlay.firstElementChild as HTMLElement | null
+  if (sheet) initSheetSwipe(sheet, close)
 })

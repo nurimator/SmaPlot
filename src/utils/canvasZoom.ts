@@ -28,8 +28,80 @@ export function getCanvasZoom(): number {
   return currentZoom
 }
 
+// Default/initial zoom. On mobile (<=640px) the whole 601x601 canvas plus the
+// surrounding grid margin is fitted into the viewport; desktop keeps ZOOM_BASE.
+export function getDefaultCanvasZoom(container: HTMLElement): number {
+  if (!window.matchMedia('(max-width: 640px)').matches) return ZOOM_BASE
+  const viewW = container.clientWidth || 800
+  const viewH = container.clientHeight || 600
+  return Math.min(viewW, viewH) / (GRID_CANVAS_SIZE + 2 * MAJOR_GRID_BLOCK)
+}
+
 export function getCanvasPan(): { panX: number; panY: number } {
   return { panX, panY }
+}
+
+let activeContainer: HTMLElement | null = null
+let activeGraphArea: HTMLElement | null = null
+let activeStatusEl: HTMLElement | null | undefined = null
+
+// Snapshot used by sheetSwipe-driven view adaptation: while a mobile sheet
+// opens/closes (or is dragged) the canvas zoom is scaled proportionally to
+// the viewport height so whatever canvas content is visible stays visible.
+let adaptSnapshotZoom = ZOOM_BASE
+let adaptSnapshotPanX = 0
+let adaptSnapshotPanY = 0
+let adaptSnapshotViewW = 0
+let adaptSnapshotViewH = 0
+
+/**
+ * Enable/disable the smooth canvas-transform transition used while a mobile
+ * sheet opens/closes. Kept OFF during sheet resize drags so the canvas follows
+ * the finger in realtime. No-op on desktop / wide viewports.
+ */
+export function setCanvasTransition(on: boolean): void {
+  if (!window.matchMedia('(max-width: 640px)').matches) return
+  if (activeGraphArea) {
+    activeGraphArea.style.transition = on ? 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)' : 'none'
+  }
+}
+
+/**
+ * Snapshot the current canvas view + viewport size. `adaptCanvasToHeight`
+ * then scales the zoom proportionally to the (changed) viewport height while
+ * keeping the canvas point at the viewport center fixed, so the visible
+ * canvas content is preserved. Call once at the start of a viewport change
+ * (drag start, sheet open/close) — never per frame, or the scaling compounds.
+ */
+export function snapshotCanvasAdapt(): void {
+  if (!activeContainer) return
+  adaptSnapshotZoom = currentZoom
+  adaptSnapshotPanX = panX
+  adaptSnapshotPanY = panY
+  adaptSnapshotViewW = activeContainer.clientWidth || 800
+  adaptSnapshotViewH = activeContainer.clientHeight || 600
+}
+
+/**
+ * Scale the canvas view from the snapshot into a viewport of the given
+ * height: zoom *= targetH / snapshotH, keeping the snapshot's viewport-center
+ * canvas point centered in the new viewport. May go below MIN_ZOOM so the
+ * visible content is preserved even on very small pushed viewports.
+ * No-op on desktop / wide viewports.
+ */
+export function adaptCanvasToHeight(targetH: number): void {
+  if (!window.matchMedia('(max-width: 640px)').matches) return
+  if (!activeContainer || !activeGraphArea || adaptSnapshotViewH <= 0) return
+  const nextZoom = Math.min(MAX_ZOOM, Math.max(0.1, adaptSnapshotZoom * (targetH / adaptSnapshotViewH)))
+  // The canvas point that sat at the snapshot viewport's center...
+  // (screen = canvas * zoom + pan, so canvas = (screen - pan) / zoom)
+  const centerX = (adaptSnapshotViewW / 2 - adaptSnapshotPanX) / adaptSnapshotZoom
+  const centerY = (adaptSnapshotViewH / 2 - adaptSnapshotPanY) / adaptSnapshotZoom
+  currentZoom = nextZoom
+  panX = adaptSnapshotViewW / 2 - centerX * nextZoom
+  panY = targetH / 2 - centerY * nextZoom
+  clampPan(activeContainer)
+  applyTransform(activeGraphArea, activeStatusEl)
 }
 
 export function calculateMinZoom(container: HTMLElement): number {
@@ -115,10 +187,18 @@ export function centerCanvas(
 ): void {
   const viewW = container.clientWidth || 800
   const viewH = container.clientHeight || 600
-  panX = Math.max(20, (viewW - GRID_CANVAS_SIZE * currentZoom) / 2)
-  panY = Math.max(20, (viewH - GRID_CANVAS_SIZE * currentZoom) / 2)
+  // True centering: the canvas center sits at the viewport center (the old
+  // 20px floor pinned the canvas to the top-left on narrow screens).
+  panX = (viewW - GRID_CANVAS_SIZE * currentZoom) / 2
+  panY = (viewH - GRID_CANVAS_SIZE * currentZoom) / 2
   clampPan(container)
   applyTransform(graphAreaEl, statusEl)
+}
+
+function resolveZoomContainer(workspaceOrContainer: HTMLElement): HTMLElement {
+  return workspaceOrContainer.classList.contains('workspace-grid')
+    ? workspaceOrContainer
+    : workspaceOrContainer.querySelector<HTMLElement>('.workspace-grid') || workspaceOrContainer
 }
 
 export function setCanvasZoom(
@@ -127,9 +207,7 @@ export function setCanvasZoom(
   graphAreaEl: HTMLElement,
   statusEl?: HTMLElement | null
 ): void {
-  const container = workspaceOrContainer.classList.contains('workspace-grid')
-    ? workspaceOrContainer
-    : workspaceOrContainer.querySelector<HTMLElement>('.workspace-grid') || workspaceOrContainer
+  const container = resolveZoomContainer(workspaceOrContainer)
 
   const viewW = container.clientWidth || 800
   const viewH = container.clientHeight || 600
@@ -150,6 +228,17 @@ export function setCanvasZoom(
   applyTransform(graphAreaEl, statusEl)
 }
 
+// Reset zoom to the platform default: fit-to-viewport on mobile, ZOOM_BASE on
+// desktop. Kept in one place so the initial load and every reset stay in sync.
+export function resetCanvasZoom(
+  workspaceOrContainer: HTMLElement,
+  graphAreaEl: HTMLElement,
+  statusEl?: HTMLElement | null
+): void {
+  const container = resolveZoomContainer(workspaceOrContainer)
+  setCanvasZoom(getDefaultCanvasZoom(container), container, graphAreaEl, statusEl)
+}
+
 export function initCanvasZoom(
   workspaceEl: HTMLElement,
   graphAreaEl: HTMLElement,
@@ -158,6 +247,16 @@ export function initCanvasZoom(
   const container = workspaceEl.classList.contains('workspace-grid')
     ? workspaceEl
     : workspaceEl.querySelector<HTMLElement>('.workspace-grid') || workspaceEl
+
+  activeContainer = container
+  activeGraphArea = graphAreaEl
+  activeStatusEl = statusEl ?? null
+
+  // Mobile starts at a fit-to-viewport zoom so the whole canvas is visible on
+  // load; desktop keeps the classic 100% (ZOOM_BASE) view.
+  if (window.matchMedia('(max-width: 640px)').matches) {
+    currentZoom = getDefaultCanvasZoom(container)
+  }
 
   // Initial centering
   centerCanvas(container, graphAreaEl, statusEl)

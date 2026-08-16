@@ -1,5 +1,6 @@
 import type { SmpLegendItem } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
+import { pushSheetHeight, unpushSheetHeight } from '../utils/sheetSwipe.ts'
 import { smpToUnicode, SYMBOL_ENTRIES } from '../utils/smpSymbolMapper.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
@@ -236,6 +237,19 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     mo.observe(dialogEl, { attributes: true, attributeFilter: ['style'] })
   }
 
+  // Mobile: the symbol panel is a bottom sheet too — reserve its height in the
+  // workspace push so it never covers the canvas.
+  if (symbolPanel) {
+    const symbolPushObserver = new MutationObserver(() => {
+      if (symbolPanel.style.display === 'flex') {
+        pushSheetHeight(symbolPanel.offsetHeight)
+      } else {
+        unpushSheetHeight()
+      }
+    })
+    symbolPushObserver.observe(symbolPanel, { attributes: true, attributeFilter: ['style'] })
+  }
+
   // Live input change listeners
   const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
   const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
@@ -376,7 +390,7 @@ export function showTitleDialog(
   autoGrowTextarea(strEl)
 
   const dialogEl = overlayEl.querySelector<HTMLElement>('#titleDialog')
-  if (dialogEl) {
+  if (dialogEl && !window.matchMedia('(max-width: 640px)').matches) {
     const dlgW = dialogEl.offsetWidth || 520
     const dlgH = dialogEl.offsetHeight || 350
     dialogEl.style.left = `${Math.max(20, (window.innerWidth - dlgW) / 2)}px`

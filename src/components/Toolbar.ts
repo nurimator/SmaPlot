@@ -12,6 +12,18 @@ export function initToolbar(
   })
 }
 
+/** Binds any `[data-action]` element to the shared action dispatcher. */
+export function bindActionButtons(
+  container: HTMLElement,
+  onActionClick: (action: string, title: string) => void
+): void {
+  container.querySelectorAll<HTMLElement>('[data-action]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      onActionClick(btn.getAttribute('data-action') || '', btn.getAttribute('title') || '')
+    })
+  })
+}
+
 export function setToolbarButtonActive(container: HTMLElement, action: string, active: boolean): void {
   const btn = container.querySelector<HTMLElement>(`[data-action="${action}"]`)
   if (btn) {

@@ -50,6 +50,9 @@ let isDraggingGraph = false
 let graphMouseDownListener: ((e: MouseEvent) => void) | null = null
 let graphMouseMoveListener: ((e: MouseEvent) => void) | null = null
 let graphMouseUpListener: (() => void) | null = null
+let graphTouchStartListener: ((e: TouchEvent) => void) | null = null
+let graphTouchMoveListener: ((e: TouchEvent) => void) | null = null
+let graphTouchEndListener: (() => void) | null = null
 let keydownListener: ((e: KeyboardEvent) => void) | null = null
 
 function updateFromPointerCoords(clientX: number, clientY: number): void {
@@ -514,6 +517,51 @@ export function showReadValueDialog(
   window.addEventListener('mousemove', graphMouseMoveListener)
   window.addEventListener('mouseup', graphMouseUpListener)
 
+  // Touch equivalents: taps already work through synthetic mouse events, but a
+  // finger drag only emits touchmove (no mousemove), so crossbar dragging needs
+  // dedicated non-passive touch listeners.
+  if (graphTouchStartListener) {
+    document.removeEventListener('touchstart', graphTouchStartListener)
+  }
+  if (graphTouchMoveListener) {
+    window.removeEventListener('touchmove', graphTouchMoveListener)
+  }
+  if (graphTouchEndListener) {
+    window.removeEventListener('touchend', graphTouchEndListener)
+  }
+  graphTouchStartListener = (e: TouchEvent) => {
+    if (!activeSvg || !activeDataset || overlayEl.style.display === 'none') return
+    if (e.touches.length !== 1) return
+    const target = e.target as HTMLElement
+    if (target.closest('.dialog-window')) return
+
+    const touchedSvg = target.closest('.plot-svg') as SVGSVGElement | null
+    if (touchedSvg !== activeSvg) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    isDraggingGraph = true
+    updateFromPointerCoords(e.touches[0].clientX, e.touches[0].clientY)
+  }
+
+  graphTouchMoveListener = (e: TouchEvent) => {
+    if (!isDraggingGraph) return
+    if (e.touches.length !== 1) {
+      isDraggingGraph = false
+      return
+    }
+    e.preventDefault()
+    updateFromPointerCoords(e.touches[0].clientX, e.touches[0].clientY)
+  }
+
+  graphTouchEndListener = () => {
+    isDraggingGraph = false
+  }
+
+  document.addEventListener('touchstart', graphTouchStartListener, { passive: false })
+  window.addEventListener('touchmove', graphTouchMoveListener, { passive: false })
+  window.addEventListener('touchend', graphTouchEndListener, { passive: true })
+
   // Attach keydown listener for keyboard arrow navigation
   if (keydownListener) {
     document.removeEventListener('keydown', keydownListener)
@@ -558,7 +606,7 @@ export function showReadValueDialog(
   // Display dialog centered on screen
   overlayEl.style.display = 'flex'
   const dialogEl = overlayEl.querySelector<HTMLElement>('#readValueDialog')
-  if (dialogEl) {
+  if (dialogEl && !window.matchMedia('(max-width: 640px)').matches) {
     const dialogW = dialogEl.offsetWidth || 320
     const dialogH = dialogEl.offsetHeight || 400
     const left = Math.max(10, Math.round((window.innerWidth - dialogW) / 2))
@@ -588,6 +636,18 @@ export function hideReadValueDialog(overlayEl: HTMLElement): void {
   if (graphMouseUpListener) {
     window.removeEventListener('mouseup', graphMouseUpListener)
     graphMouseUpListener = null
+  }
+  if (graphTouchStartListener) {
+    document.removeEventListener('touchstart', graphTouchStartListener)
+    graphTouchStartListener = null
+  }
+  if (graphTouchMoveListener) {
+    window.removeEventListener('touchmove', graphTouchMoveListener)
+    graphTouchMoveListener = null
+  }
+  if (graphTouchEndListener) {
+    window.removeEventListener('touchend', graphTouchEndListener)
+    graphTouchEndListener = null
   }
   if (keydownListener) {
     document.removeEventListener('keydown', keydownListener)

@@ -1,8 +1,22 @@
 import { makeDraggable } from '../utils/draggable.ts'
 
+let saveAsOverlayEl: HTMLElement | null = null
 let resolver: ((fileName: string | null) => void) | null = null
 
+function finish(result: string | null): void {
+  if (saveAsOverlayEl) saveAsOverlayEl.style.display = 'none'
+  const r = resolver
+  resolver = null
+  if (r) r(result)
+}
+
+export function hideSaveAsDialog(overlayEl: HTMLElement): void {
+  saveAsOverlayEl = overlayEl
+  finish(null)
+}
+
 export function initSaveAsDialog(overlayEl: HTMLElement): void {
+  saveAsOverlayEl = overlayEl
   const dialogEl = overlayEl.querySelector<HTMLElement>('#saveAsDialog')
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
   const inputEl = overlayEl.querySelector<HTMLInputElement>('#saveAsFileNameInput')
@@ -12,13 +26,6 @@ export function initSaveAsDialog(overlayEl: HTMLElement): void {
 
   if (dialogEl && headerEl) {
     makeDraggable(dialogEl, headerEl)
-  }
-
-  const finish = (result: string | null) => {
-    overlayEl.style.display = 'none'
-    const r = resolver
-    resolver = null
-    if (r) r(result)
   }
 
   const handleSave = () => {
@@ -51,6 +58,7 @@ export function initSaveAsDialog(overlayEl: HTMLElement): void {
 export function showSaveAsDialog(defaultName: string = 'Project.SMP'): Promise<string | null> {
   const overlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
   if (!overlayEl) return Promise.resolve(null)
+  saveAsOverlayEl = overlayEl
   const inputEl = overlayEl.querySelector<HTMLInputElement>('#saveAsFileNameInput')
   if (inputEl) {
     inputEl.value = defaultName

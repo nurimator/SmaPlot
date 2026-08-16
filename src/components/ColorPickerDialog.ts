@@ -147,6 +147,11 @@ let selectedCustomSlotIndex = 0
 let isDraggingSb = false
 let isDraggingHue = false
 
+export function hideColorPickerDialog(overlayEl: HTMLElement): void {
+  overlayEl.style.display = 'none'
+  activeOptions = null
+}
+
 export function initColorPickerDialog(overlayEl: HTMLElement): void {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#colorPickerDialog')
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
@@ -394,8 +399,7 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
 
   // Actions: OK, Cancel, Close
   const closeDialog = () => {
-    overlayEl.style.display = 'none'
-    activeOptions = null
+    hideColorPickerDialog(overlayEl)
   }
 
   okBtn?.addEventListener('click', () => {

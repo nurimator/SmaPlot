@@ -177,8 +177,10 @@ function formatNum(val: number): string {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#rectangleDialog')
   if (dialogEl) {
     dialogEl.style.display = ''
-    dialogEl.style.left = `${Math.max(20, (window.innerWidth - 380) / 2)}px`
-    dialogEl.style.top = `${Math.max(20, (window.innerHeight - 340) / 2)}px`
+    if (!window.matchMedia('(max-width: 640px)').matches) {
+      dialogEl.style.left = `${Math.max(20, (window.innerWidth - 380) / 2)}px`
+      dialogEl.style.top = `${Math.max(20, (window.innerHeight - 340) / 2)}px`
+    }
   }
   overlayEl.style.display = 'flex'
 }

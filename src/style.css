@@ -152,6 +152,13 @@ body.os-mac .titlebar {
   flex-shrink: 0;
 }
 
+/* Desktop: the drawer wrapper is transparent, so the menubar lays out its
+   menu items exactly as before. Mobile: it becomes the drawer layer that
+   casts its shadow onto the dropdown layer below it. */
+.menubar-drawer {
+  display: contents;
+}
+
 .menu-item {
   position: relative;
   padding: 2px 8px;
@@ -216,6 +223,15 @@ body.os-mac .titlebar {
 
 .dropdown-arrow {
   color: var(--slate-400);
+}
+
+.submenu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .menu-submenu {
@@ -934,6 +950,7 @@ body.os-mac .titlebar {
 }
 
 .icon-chart-dots { --icon-url: url('/icons/chart-dots.svg'); }
+.icon-menu { --icon-url: url('/icons/menu.svg'); }
 .icon-minus { --icon-url: url('/icons/minus.svg'); }
 .icon-plus { --icon-url: url('/icons/plus.svg'); }
 .icon-square { --icon-url: url('/icons/square.svg'); }
@@ -2273,6 +2290,1061 @@ body.shape-drawing * {
   100% {
     transform: scale(1);
     opacity: 0.6;
+  }
+}
+
+
+/* =========================================================
+   MOBILE STYLES — screens ≤ 640px
+   Bottom-sheet panel pattern for all floating dialogs.
+   Desktop layout is completely unaffected.
+   ========================================================= */
+
+@media (max-width: 640px) {
+
+  /* ── Root overrides for safe-area / rubber-band prevention ── */
+  html {
+    height: -webkit-fill-available;
+  }
+
+  body {
+    height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #app, .app {
+    height: 100dvh;
+  }
+
+  /* ── Hide desktop chrome that doesn't fit mobile ── */
+  .titlebar,
+  .menubar,
+  .statusbar,
+  .toolbar,
+  .scrollbar-v,
+  .scrollbar-h {
+    display: none !important;
+  }
+
+  /* ── Mobile header bar: burger + New/Open/Save/Undo/Redo/Delete ── */
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 48px;
+    padding: 0 6px;
+    background: #fff;
+    border-bottom: 1px solid var(--slate-200);
+    flex-shrink: 0;
+    z-index: 700;
+  }
+
+  .mobile-header-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    color: var(--slate-600);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .mobile-header-btn:active {
+    background: var(--slate-100);
+    color: var(--slate-900);
+  }
+
+  .mobile-header-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--slate-200);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  /* ── Burger menu: menubar slides down as a drawer ── */
+  .menubar.menu-drawer-open {
+    display: block !important;
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    z-index: 600;
+    animation: mobileMenuIn 0.18s ease forwards;
+  }
+
+  @keyframes mobileMenuIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Vertical menu list in the left 4/10 of the screen —
+     same look as the dropdown panel, only narrower */
+  .menubar.menu-drawer-open .menubar-drawer {
+    display: flex;
+    flex-direction: column;
+    width: 40%;
+    max-height: 60dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    padding: 4px;
+  }
+
+  .menubar.menu-drawer-open .menu-item {
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 10px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 0;
+  }
+
+  /* Right chevron on every menu row */
+  .menubar.menu-drawer-open .menu-item::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: var(--slate-400);
+    -webkit-mask: var(--icon-url) center / contain no-repeat;
+    mask: var(--icon-url) center / contain no-repeat;
+    --icon-url: url('/icons/chevron-right.svg');
+  }
+
+  /* Highlight the menu whose dropdown is open */
+  .menubar.menu-drawer-open .menu-item:has(.menu-dropdown.open) {
+    background: var(--sky-100);
+    color: var(--sky-600);
+  }
+
+  /* Dropdowns fill the right 6/10 of the screen, starting at the same top
+     boundary as the menu list (below the header bar). z-index -1 keeps the
+     dropdown painted under the menubar layer. */
+  .menubar.menu-drawer-open .menu-dropdown {
+    position: absolute;
+    top: 0;
+    left: 40%;
+    right: 0;
+    bottom: auto;
+    z-index: -1;
+    min-width: 0;
+    max-height: 60dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    animation: mobileMenuIn 0.18s ease forwards;
+  }
+
+  /* Touch-friendly dropdown items */
+  .menubar.menu-drawer-open .dropdown-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    min-height: 36px;
+    line-height: 1.2;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .menubar.menu-drawer-open .dropdown-separator {
+    margin: 4px 0;
+  }
+
+  /* ── Accordion for Clear Scale in mobile drawer ── */
+
+  /* Container: block layout so submenu expands downward; no padding so
+     the header and submenu items can be full-width flush rows. Suppress
+     the generic .dropdown-item:hover so the slate highlight doesn't bleed
+     across the whole block (header + submenu area combined). */
+  .menubar.menu-drawer-open .dropdown-item.has-submenu {
+    display: block;
+    padding: 0;
+    background: transparent !important;
+  }
+
+  /* Submenu header row: same sizing as a regular dropdown-item; highlighted
+     only on this row when open or when the user taps it. */
+  .menubar.menu-drawer-open .submenu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    min-height: 36px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+  }
+
+  .menubar.menu-drawer-open .submenu-header:hover,
+  .menubar.menu-drawer-open .submenu-header:active {
+    background: var(--slate-100);
+    color: var(--slate-900);
+  }
+
+  /* Header slate highlight when the accordion is open */
+  .menubar.menu-drawer-open .dropdown-item.has-submenu.open > .submenu-header {
+    background: var(--slate-100);
+  }
+
+  /* Submenu: in-flow block — no position, no border, no background box.
+     Explicitly set display:none here so the rule takes effect even when
+     the touch :hover pseudo-class sticks after a tap (see override below). */
+  .menubar.menu-drawer-open .menu-submenu {
+    display: none;
+    position: static;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Neutralise the global desktop hover-show rule — on touch, :hover sticks
+     after a tap and would keep the submenu visible even after .open is removed.
+     .open is the sole gatekeeper on mobile. */
+  .menubar.menu-drawer-open .dropdown-item.has-submenu:hover > .menu-submenu {
+    display: none;
+  }
+
+  /* Reveal the submenu only when .open is present */
+  .menubar.menu-drawer-open .dropdown-item.has-submenu.open > .menu-submenu {
+    display: block;
+    animation: mobileSubmenuIn 0.15s ease forwards;
+  }
+
+  /* Submenu items: flush full-width rows, same visual style as regular items,
+     slight indent to signal hierarchy without boxing them in. */
+  .menubar.menu-drawer-open .menu-submenu .dropdown-item {
+    padding-left: 28px;
+    min-height: 36px;
+    font-size: 13px;
+    white-space: normal;
+    text-align: left;
+  }
+
+  @keyframes mobileSubmenuIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Chevron: points right (→) when closed; rotates 90° to point down (↓) when open */
+  .menubar.menu-drawer-open .submenu-header .dropdown-arrow {
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .menubar.menu-drawer-open .dropdown-item.has-submenu.open > .submenu-header .dropdown-arrow {
+    transform: rotate(90deg);
+  }
+
+  .toolbar-btn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 6px;
+  }
+
+  .toolbar-btn .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ── Workspace fills remaining space ── */
+  .workspace {
+    flex: 1;
+    padding: 0;
+    min-height: 0;
+    /* Reserve bottom space for the mobile nav bar (56px). While a sheet is
+       open it covers the nav bar (both are fixed to the bottom, sheet wins
+       on z-index), so --sheet-h takes over and the workspace bottom edge
+       touches the sheet top edge. Driven by sheetSwipe.ts. */
+    padding-bottom: max(var(--sheet-h, 0px), 56px);
+    /* Smoothly animate the canvas squeeze when a sheet opens/closes (set
+       inline to 'none' while the sheet is being dragged/resized). */
+    transition: padding-bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .workspace-grid {
+    border-radius: 0;
+    border: none;
+  }
+
+  /* ── Mobile bottom navigation bar ── */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #ffffff;
+    border-top: 1px solid var(--slate-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 500;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -1px 8px rgba(15, 23, 42, 0.07);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    height: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--slate-500);
+    font-size: 10px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    border-radius: 8px;
+    padding: 4px 6px;
+  }
+
+  .mobile-nav-btn .icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-nav-btn:active,
+  .mobile-nav-btn.active {
+    color: var(--sky-600);
+    background-color: var(--sky-100);
+  }
+
+  .mobile-nav-label {
+    font-size: 9.5px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* ── Bottom Sheet: transparent overlay, and pointer events pass through so
+     the workspace behind a sheet keeps working (pan, pinch-zoom, read-value
+     picking, transform drags). ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  /* ── Bottom Sheet: all dialogs become compact sheet panels ── */
+  .property-dialog,
+  .data-manager-dialog,
+  .axis-dialog,
+  .title-dialog,
+  .arrow-dialog,
+  .rectangle-dialog,
+  .read-value-dialog,
+  .dialog-window,
+  .color-picker-dialog {
+    /* Override desktop absolute positioning */
+    position: relative !important;
+    /* Neutralize any inline left/top set by desktop centering JS */
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    /* Take the full viewport width */
+    width: 100% !important;
+    max-width: 100% !important;
+    /* Default height: 30% of the viewport; the header handle resizes it.
+       The workspace reserves this height via --sheet-h so the sheet PUSHES
+       the canvas instead of covering it. */
+    height: 30dvh;
+    min-height: auto;
+    max-height: 82dvh;
+    border-radius: 0 !important;
+    border: none !important;
+    border-top: 1px solid var(--slate-200) !important;
+    box-shadow:
+      0 -4px 32px rgba(15, 23, 42, 0.18),
+      0 -1px 0 rgba(15, 23, 42, 0.06) !important;
+    /* Slide up animation */
+    animation: mobileSheetSlideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+    /* Inner content must be scrollable */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes mobileSheetSlideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateY(0%);
+      opacity: 1;
+    }
+  }
+
+  /* ── Compact drag handle knob at the top of each sheet ── */
+  .dialog-header::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3.5px;
+    background: var(--slate-300);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .dialog-header {
+    position: relative;
+    padding: 12px 10px 4px 10px !important;
+    min-height: 28px;
+    cursor: ns-resize !important;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  .title-symbol-panel .dialog-header {
+    cursor: default !important;
+  }
+
+  .dialog-title {
+    font-size: 12px !important;
+    font-weight: 600;
+  }
+
+  .dialog-close-btn {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* ── Compact scrollable dialog body ── */
+  .dialog-content,
+  .data-manager-body,
+  .title-dialog-body,
+  .rect-dialog-body,
+  .arrow-dialog-body,
+  .color-picker-body,
+  .confirm-body {
+    padding: 8px 10px;
+    gap: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── Compact touch-friendly form controls inside sheets ── */
+  .form-select,
+  .form-input-num,
+  .form-input-text,
+  .btn,
+  .btn-sm {
+    height: 28px !important;
+    font-size: 11.5px !important;
+    padding: 0 6px !important;
+    border-radius: 4px;
+  }
+
+  .form-field-label,
+  .field-title,
+  .title-field-label,
+  .rect-field-label {
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .checkbox-label,
+  .radio-label {
+    font-size: 11.5px;
+    gap: 4px;
+    padding: 1px 0;
+  }
+
+  .checkbox-label input[type="checkbox"],
+  .radio-label input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ── Tab buttons — compact segmented bar ── */
+  .dialog-tabs {
+    padding: 2px 8px 0;
+    gap: 3px;
+  }
+
+  .tab-btn {
+    padding: 4px 10px;
+    font-size: 11.5px;
+    min-height: 28px;
+    border-radius: 5px 5px 0 0;
+  }
+
+  /* ── Dialog footer buttons ── */
+  .dialog-footer {
+    padding: 6px 10px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+  }
+
+  .dialog-footer .btn {
+    flex: 1;
+    height: 30px !important;
+    min-height: 30px !important;
+    font-size: 12px !important;
+    border-radius: 5px;
+  }
+
+  /* ── Property Dialog: compact layout ── */
+  .file-banner-row {
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+
+  .file-path-banner {
+    padding: 3px 6px;
+    font-size: 10.5px;
+    border-radius: 4px;
+  }
+
+  .banner-actions .btn {
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+  }
+
+  .prop-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 8px;
+  }
+
+  .prop-grid-3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px 6px;
+  }
+
+  .data-preview-box {
+    min-height: 60px;
+    max-height: 95px;
+    border-width: 1px;
+    font-size: 10px;
+  }
+
+  .preview-row {
+    padding: 1.5px 6px;
+    gap: 10px;
+    font-size: 10px;
+  }
+
+  .preview-row span {
+    min-width: 70px;
+  }
+
+  .vertical-radio-group {
+    padding: 3px 6px;
+    gap: 2px;
+    margin-top: 2px;
+    border-radius: 4px;
+  }
+
+  .color-picker-box {
+    height: 26px !important;
+  }
+
+  .trans-row {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  /* ── Title Dialog: compact layout ── */
+  .title-dialog-body {
+    padding: 8px 10px;
+    gap: 5px;
+  }
+
+  .title-form-row {
+    gap: 6px;
+  }
+
+  .title-textarea {
+    min-height: 36px;
+    padding: 4px 6px;
+    font-size: 11.5px;
+    border-radius: 4px;
+  }
+
+  .title-grid-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .title-col-left,
+  .title-col-right {
+    width: 100%;
+    gap: 5px;
+  }
+
+  .title-inline-group {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .title-alignment-fieldset {
+    padding: 3px 6px;
+    margin-top: 2px;
+    font-size: 10.5px;
+  }
+
+  .title-alignment-fieldset .radio-group-inline {
+    display: inline-flex;
+    gap: 8px;
+  }
+
+  .title-font-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr;
+    gap: 4px;
+  }
+
+  .title-button-matrix {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .title-button-matrix .btn {
+    height: 28px !important;
+    min-height: 28px !important;
+    font-size: 11px !important;
+    padding: 0 4px;
+  }
+
+  /* ── Title symbol panel: compact sheet on mobile ── */
+  .title-symbol-panel {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-height: 48dvh;
+    border-radius: 16px 16px 0 0;
+    animation: mobileSheetSlideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+
+  .title-symbol-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .title-symbol-cell {
+    height: 28px;
+    font-size: 14px;
+  }
+
+  /* ── Arrow Dialog: compact layout ── */
+  .arrow-dialog-body {
+    padding: 8px 10px !important;
+    gap: 5px !important;
+  }
+
+  .arrow-form-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr 1.4fr 1fr !important;
+    gap: 4px !important;
+    align-items: flex-end !important;
+  }
+
+  .arrow-xy-grid {
+    margin-top: 4px !important;
+  }
+
+  .arrow-xy-row {
+    gap: 6px !important;
+    margin-top: 2px !important;
+    font-size: 11px;
+  }
+
+  .arrow-xy-row .form-field-label {
+    width: 34px !important;
+    font-size: 10.5px;
+  }
+
+  .arrow-units-row {
+    margin-top: 4px !important;
+    gap: 6px !important;
+  }
+
+  .arrow-units-row .axis-fieldset {
+    padding: 3px 6px !important;
+    margin: 0 !important;
+    font-size: 10.5px;
+  }
+
+  .arrow-shape-row {
+    margin-top: 4px !important;
+    display: grid !important;
+    grid-template-columns: 2fr 1fr 1fr !important;
+    gap: 4px !important;
+  }
+
+  .arrow-button-row {
+    margin-top: 6px !important;
+    gap: 4px !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  .arrow-button-row .btn {
+    height: 28px !important;
+    min-height: 28px !important;
+    font-size: 11px !important;
+    padding: 0 2px !important;
+  }
+
+  /* ── Rectangle Dialog: compact layout ── */
+  .rect-dialog-body {
+    padding: 8px 10px !important;
+    gap: 5px !important;
+  }
+
+  .rect-coord-box {
+    padding: 4px 6px !important;
+  }
+
+  .rect-coord-grid {
+    grid-template-columns: 36px 1fr 1fr !important;
+    gap: 3px 6px !important;
+  }
+
+  .rect-props-grid {
+    gap: 4px !important;
+    padding: 0 !important;
+  }
+
+  .rect-prop-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .rect-field-group {
+    gap: 4px !important;
+  }
+
+  .rect-field-label.width-label {
+    width: 44px !important;
+    font-size: 10.5px !important;
+  }
+
+  .rect-actions {
+    margin-top: 4px !important;
+    padding-top: 4px !important;
+    gap: 4px !important;
+  }
+
+  .rect-btn-row {
+    gap: 4px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .rect-btn-row .btn {
+    height: 28px !important;
+    min-height: 28px !important;
+    font-size: 11px !important;
+    padding: 0 2px !important;
+  }
+
+  /* ── Color Picker Dialog: compact layout ── */
+  .color-picker-body {
+    flex-direction: column;
+    padding: 8px 10px;
+    gap: 5px;
+  }
+
+  .color-palette-section {
+    width: 100%;
+  }
+
+  .color-section-title {
+    font-size: 10.5px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .color-grid.basic-grid,
+  .color-grid.custom-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+  }
+
+  .color-swatch-box {
+    height: 18px;
+  }
+
+  #colorAddCustomBtn {
+    margin-top: 4px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    font-size: 11px !important;
+  }
+
+  .color-custom-section {
+    gap: 5px;
+  }
+
+  .color-picker-visuals {
+    gap: 6px;
+  }
+
+  .color-sb-box,
+  .color-hue-bar {
+    height: 100px !important;
+  }
+
+  .color-details-card {
+    padding: 4px 6px;
+    gap: 3px;
+  }
+
+  .color-top-bar {
+    padding-bottom: 3px;
+    gap: 6px;
+  }
+
+  .color-preview-swatch {
+    width: 48px;
+    height: 20px;
+  }
+
+  .color-hex-group .form-input-text {
+    height: 22px !important;
+    width: 68px !important;
+    font-size: 10px !important;
+  }
+
+  .color-channels-grid {
+    gap: 6px;
+  }
+
+  .color-channel-col {
+    gap: 2px;
+  }
+
+  .color-input-row {
+    gap: 2px;
+    font-size: 10.5px;
+  }
+
+  .color-input-label {
+    font-size: 10px;
+    min-width: 22px;
+  }
+
+  .color-channel-col .form-input-num {
+    width: 40px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+    padding: 0 3px !important;
+  }
+
+  /* ── Axis Dialog: compact layout ── */
+  .axis-scale-top-row {
+    margin-bottom: 3px;
+  }
+
+  .axis-tick-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+    font-size: 11px;
+    flex-wrap: nowrap;
+  }
+
+  .axis-tick-row .form-input-num {
+    width: 44px !important;
+  }
+
+  .axis-fieldset {
+    padding: 4px 6px;
+    margin-top: 3px;
+  }
+
+  .axis-fieldset legend {
+    font-size: 10.5px;
+    padding: 0 2px;
+  }
+
+  .axis-radio-grid {
+    gap: 3px 6px;
+    margin-top: 2px;
+  }
+
+  .axis-label-grid-2col {
+    gap: 4px;
+  }
+
+  /* ── Data Manager Dialog: compact layout ── */
+  .data-manager-body {
+    flex-direction: column;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .dm-list-box {
+    height: auto;
+    min-height: 90px;
+    max-height: 140px;
+  }
+
+  .dm-list-item {
+    padding: 4px 6px;
+    font-size: 11px;
+    min-height: 26px;
+  }
+
+  .dm-action-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .dm-btn-group,
+  .dm-btn-group-bottom {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .dm-action-btn {
+    height: 28px !important;
+    font-size: 11.5px !important;
+    flex: 1;
+    min-width: 60px;
+  }
+
+  /* ── Read Value Dialog: compact ── */
+  .read-value-dialog {
+    max-height: 72dvh;
+  }
+
+  /* ── Context menu ── */
+  .context-menu {
+    max-width: calc(100vw - 24px);
+  }
+
+  .context-menu-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 38px;
+  }
+
+  /* ── PWA update toast: sits above the mobile nav ── */
+  .pwa-update-toast {
+    bottom: calc(56px + env(safe-area-inset-bottom, 8px) + 8px);
+    max-width: calc(100vw - 32px);
+    width: auto;
+  }
+
+  /* ── Confirm Dialog: compact sheet ── */
+  .confirm-dialog {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 30dvh;
+    border-radius: 0 !important;
+    border: none !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: mobileSheetSlideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+  }
+
+  .confirm-body {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .confirm-footer {
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .confirm-footer .btn {
+    flex: 1;
+    height: 30px !important;
+    min-height: 30px !important;
+    font-size: 12px !important;
+  }
+
+  /* ── Save As: compact input ── */
+  #saveAsFileNameInput {
+    min-height: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+  }
+}
+
+/* Desktop: hide the mobile header + nav bars */
+@media (min-width: 641px) {
+  .mobile-header,
+  .mobile-nav {
+    display: none !important;
   }
 }
 

@@ -14,6 +14,12 @@ export function updateMenubarItemStates(container: HTMLElement): void {
   }
 }
 
+let _closeAllDropdowns: (() => void) | null = null
+
+export function closeAllMenuDropdowns(): void {
+  _closeAllDropdowns?.()
+}
+
 export function initMenubar(
   container: HTMLElement,
   onMenuClick: (action: string) => void
@@ -22,7 +28,9 @@ export function initMenubar(
 
   const closeAllDropdowns = () => {
     container.querySelectorAll('.menu-dropdown').forEach((d) => d.classList.remove('open'))
+    container.querySelectorAll('.dropdown-item.has-submenu.open').forEach((s) => s.classList.remove('open'))
   }
+  _closeAllDropdowns = closeAllDropdowns
 
   const refreshStates = () => {
     updateMenubarItemStates(container)
@@ -48,9 +56,17 @@ export function initMenubar(
           return
         }
         const action = dropdownItem.getAttribute('data-action') || ''
-        if (action && action !== 'clear_scale') {
-          closeAllDropdowns()
-          onMenuClick(action)
+        if (action) {
+          // Tapping an item inside an open submenu collapses just that
+          // accordion instead of closing the whole drawer.
+          if (dropdownItem.closest('.menu-submenu')) {
+            e.stopPropagation()
+            dropdownItem.closest('.dropdown-item.has-submenu')?.classList.remove('open')
+            onMenuClick(action)
+          } else if (action !== 'clear_scale') {
+            closeAllDropdowns()
+            onMenuClick(action)
+          }
         }
         return
       }

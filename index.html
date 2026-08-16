@@ -27,8 +27,24 @@
         </div>
       </header>
 
+      <!-- Mobile Header Bar (hidden on desktop via CSS) -->
+      <header class="mobile-header" id="mobileHeader">
+        <button class="mobile-header-btn" id="mobileMenuBtn" title="Menu" aria-label="Menu">
+          <span class="icon icon-menu"></span>
+        </button>
+        <div class="mobile-header-sep"></div>
+        <div class="toolbar-btn" title="New" data-action="new"><span class="icon icon-file-text"></span></div>
+        <div class="toolbar-btn" title="Open" data-action="open"><span class="icon icon-folder-open"></span></div>
+        <div class="toolbar-btn" title="Save" data-action="save"><span class="icon icon-device-floppy"></span></div>
+        <div class="mobile-header-sep"></div>
+        <div class="toolbar-btn" title="Undo" data-action="undo"><span class="icon icon-arrow-back-up"></span></div>
+        <div class="toolbar-btn" title="Redo" data-action="redo"><span class="icon icon-arrow-forward-up"></span></div>
+        <div class="toolbar-btn" title="Delete" data-action="delete"><span class="icon icon-trash"></span></div>
+      </header>
+
       <!-- Menu Bar -->
       <nav class="menubar">
+        <div class="menubar-drawer">
           <div class="menu-item" data-menu="file">
             File
             <div class="menu-dropdown">
@@ -95,8 +111,10 @@
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="clear_all_scale">Clear All Scale</div>
               <div class="dropdown-item has-submenu">
-                <span>Clear Scale</span>
-                <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                <div class="submenu-header">
+                  <span>Clear Scale</span>
+                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                </div>
                 <div class="menu-submenu">
                   <div class="dropdown-item" data-action="clear_scale_all">All</div>
                   <div class="dropdown-item" data-action="clear_scale_x">X-axis</div>
@@ -166,7 +184,8 @@
               <div class="dropdown-item" data-action="about">About<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
             </div>
           </div>
-        </nav>
+        </div>
+      </nav>
 
         <!-- Toolbar -->
         <div class="toolbar">
@@ -222,6 +241,30 @@
             <div class="scroll-btn scroll-btn-right" title="Scroll right"><span class="icon icon-chevron-right"></span></div>
           </div>
         </main>
+
+        <!-- Mobile Bottom Navigation Bar (hidden on desktop via CSS) -->
+        <nav class="mobile-nav" id="mobileNav" aria-label="Mobile Navigation">
+          <button class="mobile-nav-btn" title="Text" data-action="text" aria-label="Insert text">
+            <span class="icon icon-abc"></span>
+            <span class="mobile-nav-label">Text</span>
+          </button>
+          <button class="mobile-nav-btn" title="Rectangle" data-action="rectangle" aria-label="Insert rectangle">
+            <span class="icon icon-square"></span>
+            <span class="mobile-nav-label">Rectangle</span>
+          </button>
+          <button class="mobile-nav-btn" title="Arrow" data-action="arrow" aria-label="Insert arrow">
+            <span class="icon icon-arrow-down-left-circle"></span>
+            <span class="mobile-nav-label">Arrow</span>
+          </button>
+          <button class="mobile-nav-btn" title="Trimming" data-action="trimming" aria-label="Trimming">
+            <span class="icon icon-zoom-in"></span>
+            <span class="mobile-nav-label">Trim</span>
+          </button>
+          <button class="mobile-nav-btn" title="Read Value" data-action="read-value" aria-label="Read value">
+            <span class="icon icon-chart-dots"></span>
+            <span class="mobile-nav-label">Read</span>
+          </button>
+        </nav>
 
         <!-- Status Bar -->
         <footer class="statusbar">

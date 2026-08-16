@@ -9,6 +9,10 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
   handleEl.style.touchAction = 'none'
 
   const startDrag = (clientX: number, clientY: number, target: HTMLElement): boolean => {
+    // Mobile: dialogs are bottom sheets — not draggable (dismissed via backdrop tap / swipe-down)
+    if (window.matchMedia('(max-width: 640px)').matches) {
+      return false
+    }
     // Ignore clicks/touches on close button or other interactive controls inside header
     if (target.closest('.dialog-close-btn, button, input, select, textarea')) {
       return false

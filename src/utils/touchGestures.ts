@@ -25,6 +25,13 @@ import {
   hitTestGraph,
   isInsidePlotArea,
 } from '../components/Plot.ts'
+import {
+  beginTrim,
+  cancelTrim,
+  finishTrim,
+  isTrimDragging,
+  updateTrim,
+} from '../components/TrimMode.ts'
 
 export interface TouchGesturesOptions {
   workspaceEl: HTMLElement
@@ -82,6 +89,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
   let isMarqueeSelecting = false
   let isMarqueeExporting = false
   let isGroupDragging = false
+  let isTrimTouchActive = false   // true for the lifetime of a trim touch gesture
   let holdTimer: number | null = null
   let lastTouchEndTime = 0
 
@@ -111,6 +119,11 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
     hasMoved = false
     hasHoldDragged = false
     isGroupDragging = false
+    // Cancel any in-progress trim drag as well
+    if (isTrimTouchActive) {
+      isTrimTouchActive = false
+      cancelTrim()
+    }
     if (isMarqueeSelecting) {
       clearMarqueeSelectBox()
       isMarqueeSelecting = false
@@ -155,8 +168,26 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
         return
       }
 
-      // Check special interactive modes
-      if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode() || isShapeDrawing()) {
+      // ── Trim mode: delegate touch entirely here so there is only ONE
+      //   non-passive touchstart listener on workspaceEl.  Mixing passive +
+      //   non-passive listeners on the same element causes iOS Safari to silently
+      //   ignore preventDefault() from the non-passive one.
+      if (isTrimmingMode()) {
+        e.preventDefault()          // block native pan/scroll during trim drag
+        isTrimTouchActive = true
+        beginTrim(touch.clientX, touch.clientY)
+        return
+      }
+
+      // Transform box / handles (Property tab mode): those overlay elements carry
+      // their own touchstart handlers, so don't start hold / select gestures on
+      // top of them.
+      if (target.closest('.ov-trans-box, [data-trans-dir]')) {
+        return
+      }
+
+      // Other special modes — just bail out without interfering
+      if (isReadValueMode() || isPropertyTabMode() || isShapeDrawing()) {
         return
       }
 
@@ -200,12 +231,27 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
         showHoldIndicator(startClientX, startClientY)
       }, 500)
     },
-    { passive: true }
+    { passive: false }   // must be non-passive so e.preventDefault() works for trim
   )
 
   window.addEventListener(
     'touchmove',
     (e: TouchEvent) => {
+      // ── Trim drag in progress — must be checked before isTouchActive guard ──
+      if (isTrimTouchActive) {
+        if (e.touches.length === 1) {
+          e.preventDefault()   // prevent page scroll during trim drag
+          if (isTrimDragging()) {
+            updateTrim(e.touches[0].clientX, e.touches[0].clientY)
+          }
+        } else {
+          // Multi-finger while trimming → cancel
+          isTrimTouchActive = false
+          cancelTrim()
+        }
+        return
+      }
+
       if (!isTouchActive || e.touches.length !== 1) {
         if (e.touches.length > 1) cancelTouchGestures()
         return
@@ -245,13 +291,25 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
           }
         }
       } else {
-        // User held for 500ms (received haptic vibration) and is now dragging finger -> Marquee Export!
+        // User held for 500ms (received haptic vibration) and is now dragging finger.
+        // If the press started on an already-selected object, treat it as a group
+        // drag (same as an immediate drag) instead of a marquee export.
         if (dist >= 5) {
           hasHoldDragged = true
-          isMarqueeExporting = true
           removeHoldIndicator()
-          e.preventDefault()
-          updateMarqueeExportBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
+
+          if (!isGroupDragging && !isMarqueeExporting && hitsSelectedObject(startGraphX, startGraphY)) {
+            hasMoved = true
+            isGroupDragging = true
+            startGroupDrag(touch.clientX, touch.clientY)
+            return
+          }
+
+          if (!isGroupDragging) {
+            isMarqueeExporting = true
+            e.preventDefault()
+            updateMarqueeExportBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
+          }
         }
       }
     },
@@ -261,6 +319,14 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
   window.addEventListener(
     'touchend',
     () => {
+      // ── Trim drag ended — commit (or discard) and exit trim touch session ──
+      if (isTrimTouchActive) {
+        isTrimTouchActive = false
+        finishTrim()
+        lastTouchEndTime = Date.now()
+        return
+      }
+
       if (!isTouchActive) return
       clearHoldTimer()
       removeHoldIndicator()

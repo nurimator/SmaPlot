@@ -210,8 +210,10 @@ export function showArrowDialog(
   const dialogEl = overlayEl.querySelector<HTMLElement>('#arrowDialog')
   if (dialogEl) {
     dialogEl.style.display = ''
-    dialogEl.style.left = `${Math.max(20, (window.innerWidth - 480) / 2)}px`
-    dialogEl.style.top = `${Math.max(20, (window.innerHeight - 380) / 2)}px`
+    if (!window.matchMedia('(max-width: 640px)').matches) {
+      dialogEl.style.left = `${Math.max(20, (window.innerWidth - 480) / 2)}px`
+      dialogEl.style.top = `${Math.max(20, (window.innerHeight - 380) / 2)}px`
+    }
   }
   overlayEl.style.display = 'flex'
 }
