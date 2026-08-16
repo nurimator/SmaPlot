@@ -122,42 +122,68 @@ export function createSeriesSymbol(
   return null
 }
 
+export interface SeriesIconOptions {
+  color: string
+  lineWidthPx: number
+  lineType: string
+  plotType: string
+  dotColor: string
+  paintColor: string
+  size: number
+  markerCount?: number
+  viewBoxWidth?: number
+}
+
 // Legend-style series icon: line sample (color + dash pattern) with the plot
 // marker shape on top, mirroring the legend rendering in the plot. Purely
-// visual — not clickable.
-export function createSeriesIcon(ds: Dataset): SVGSVGElement {
+// visual — not clickable. Shared by the Data Manager series icon and the
+// Property dialog sample preview.
+export function createSeriesIconFromOpts(opts: SeriesIconOptions): SVGSVGElement {
+  const count = opts.markerCount ?? 1
+  const viewBoxWidth = opts.viewBoxWidth ?? 24
   const svg = createSVGElement('svg')
   svg.setAttribute('class', 'dm-series-icon')
-  svg.setAttribute('viewBox', '0 0 24 14')
+  svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} 14`)
   svg.setAttribute('aria-hidden', 'true')
 
-  const color = ds.options?.lineColor || ds.color || '#000000'
-  const cx = 12
   const cy = 7
 
-  const line = createSVGElement('line')
-  line.setAttribute('x1', '2')
-  line.setAttribute('y1', String(cy))
-  line.setAttribute('x2', '22')
-  line.setAttribute('y2', String(cy))
-  line.setAttribute('stroke', color)
-  const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
-  line.setAttribute('stroke-width', String(Math.max(1, Number((widthMm * 2).toFixed(2)))))
-  line.setAttribute('stroke-linecap', 'round')
+  if (opts.lineType !== 'no_line') {
+    const line = createSVGElement('line')
+    line.setAttribute('x1', '2')
+    line.setAttribute('y1', String(cy))
+    line.setAttribute('x2', String(viewBoxWidth - 2))
+    line.setAttribute('y2', String(cy))
+    line.setAttribute('stroke', opts.color)
+    line.setAttribute('stroke-width', String(opts.lineWidthPx))
+    line.setAttribute('stroke-linecap', 'round')
+    const dashArray = getLineDashArray(opts.lineType)
+    if (dashArray !== 'none') line.setAttribute('stroke-dasharray', dashArray)
+    svg.appendChild(line)
+  }
 
-  const lineType = ds.options?.lineType || 'solid'
-  const dashArray = getLineDashArray(lineType)
-  if (dashArray !== 'none') line.setAttribute('stroke-dasharray', dashArray)
-  svg.appendChild(line)
-
-  const plotType = ds.options?.plotType || 'no_dot'
-  if (plotType !== 'no_dot' && plotType !== 'none') {
-    const dotColor = ds.options?.dotColor || color
-    const paintColor = ds.options?.paintColor || '#ffffff'
-    const r = Math.min(5.5, Math.max(3, ds.options?.size || 3.5))
-    const symbol = createSeriesSymbol(plotType, cx, cy, r, dotColor, paintColor)
-    if (symbol) svg.appendChild(symbol)
+  if (opts.plotType !== 'no_dot' && opts.plotType !== 'none') {
+    const r = Math.min(5.5, Math.max(3, opts.size))
+    for (let i = 0; i < count; i++) {
+      const cx = (viewBoxWidth * (i + 1)) / (count + 1)
+      const symbol = createSeriesSymbol(opts.plotType, cx, cy, r, opts.dotColor, opts.paintColor)
+      if (symbol) svg.appendChild(symbol)
+    }
   }
 
   return svg
+}
+
+export function createSeriesIcon(ds: Dataset): SVGSVGElement {
+  const color = ds.options?.lineColor || ds.color || '#000000'
+  const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
+  return createSeriesIconFromOpts({
+    color,
+    lineWidthPx: Math.max(1, Number((widthMm * 2).toFixed(2))),
+    lineType: ds.options?.lineType || 'solid',
+    plotType: ds.options?.plotType || 'no_dot',
+    dotColor: ds.options?.dotColor || color,
+    paintColor: ds.options?.paintColor || '#ffffff',
+    size: ds.options?.size ?? 3.5,
+  })
 }

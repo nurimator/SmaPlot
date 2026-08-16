@@ -1787,11 +1787,9 @@ body.os-mac .titlebar {
   box-sizing: border-box;
 }
 
-.sample-line {
+.line-sample-preview-box .dm-series-icon {
   width: 100%;
-  height: 2px;
-  background-color: var(--emerald-500);
-  transition: all 0.15s ease;
+  height: 100%;
 }
 
 /* Plot Tab Controls */
@@ -3340,5 +3338,114 @@ body.shape-drawing * {
   .mobile-nav {
     display: none !important;
   }
+}
+
+/* ===== Custom Select (uniform dropdown popup, context-menu look) ===== */
+.custom-select-button {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  cursor: pointer;
+  text-align: left;
+  padding-right: 26px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.custom-select-button::after {
+  content: '';
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid var(--slate-500);
+  border-bottom: 1.6px solid var(--slate-500);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.custom-select-button.open {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.custom-select-popup {
+  position: fixed;
+  display: none;
+  background: #fff;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 4px 0;
+  z-index: 1010;
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-width: min(340px, calc(100vw - 16px));
+  box-sizing: border-box;
+}
+
+.custom-select-popup.open {
+  display: block;
+}
+
+.custom-select-popup::-webkit-scrollbar {
+  width: 10px;
+}
+
+.custom-select-popup::-webkit-scrollbar-track {
+  background-color: var(--slate-50);
+  border-radius: 0 8px 8px 0;
+}
+
+.custom-select-popup::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 2px;
+}
+
+.custom-select-popup::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.custom-select-item {
+  padding: 7px 12px;
+  cursor: default;
+  font-size: 13px;
+  color: var(--slate-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.1s;
+}
+
+.custom-select-symbol {
+  flex-shrink: 0;
+  display: block;
+  color: var(--slate-700);
+}
+
+.custom-select-button .custom-select-symbol {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.custom-select-item:hover,
+.custom-select-item.active {
+  background-color: var(--slate-100);
+  color: var(--slate-900);
+}
+
+.custom-select-item.selected {
+  color: var(--blue-600);
+  font-weight: 600;
 }
 

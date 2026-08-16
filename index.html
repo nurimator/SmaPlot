@@ -413,25 +413,25 @@
                   </div>
                 </div>
 
-                <!-- Row 1: Plot type & Line type (2-Column Grid) -->
+                <!-- Row 1: Marker type & Line type (2-Column Grid) -->
                 <div class="prop-grid-2col">
                   <div class="form-field-stacked">
-                    <label class="title-field-label" for="propPlotType">Plot type</label>
+                    <label class="title-field-label" for="propPlotType">Marker type</label>
                     <select id="propPlotType" class="form-select full-width">
                       <option value="no_dot" selected>No Dot</option>
-                      <option value="circle">circle</option>
-                      <option value="triangle">triangle</option>
-                      <option value="triangle_down">triangle down</option>
-                      <option value="square">square</option>
-                      <option value="diamond">diamond</option>
-                      <option value="plus">plus</option>
-                      <option value="cross">cross</option>
-                      <option value="star">star</option>
-                      <option value="filled_circle">filled circle</option>
-                      <option value="filled_triangle">filled triangle</option>
-                      <option value="filled_triangle_down">filled triangle down</option>
-                      <option value="filled_square">filled square</option>
-                      <option value="filled_diamond">filled diamond</option>
+                      <option value="circle" data-symbol="series">circle</option>
+                      <option value="triangle" data-symbol="series">triangle</option>
+                      <option value="triangle_down" data-symbol="series">triangle down</option>
+                      <option value="square" data-symbol="series">square</option>
+                      <option value="diamond" data-symbol="series">diamond</option>
+                      <option value="plus" data-symbol="series">plus</option>
+                      <option value="cross" data-symbol="series">cross</option>
+                      <option value="star" data-symbol="series">star</option>
+                      <option value="filled_circle" data-symbol="series">filled circle</option>
+                      <option value="filled_triangle" data-symbol="series">filled triangle</option>
+                      <option value="filled_triangle_down" data-symbol="series">filled triangle down</option>
+                      <option value="filled_square" data-symbol="series">filled square</option>
+                      <option value="filled_diamond" data-symbol="series">filled diamond</option>
                     </select>
                   </div>
                   <div class="form-field-stacked">
@@ -448,14 +448,14 @@
                   </div>
                 </div>
 
-                <!-- Row 2: 3-Column Color Pickers (Dot color, Paint, Line) -->
+                <!-- Row 2: 3-Column Color Pickers (Marker color, Marker fill, Line) -->
                 <div class="prop-grid-3col">
                   <div class="form-field-stacked">
-                    <label class="title-field-label">Dot color</label>
+                    <label class="title-field-label">Marker color</label>
                     <input type="color" id="propDotColor" value="#000000" class="color-picker-box full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="title-field-label">Symbol fill</label>
+                    <label class="title-field-label">Marker fill</label>
                     <input type="color" id="propPaintColor" value="#ffffff" class="color-picker-box full-width" />
                   </div>
                   <div class="form-field-stacked">
@@ -498,9 +498,7 @@
                   </div>
                   <div class="form-field-stacked">
                     <label class="title-field-label">Sample Preview</label>
-                    <div class="line-sample-preview-box" id="propLineSamplePreview">
-                      <div class="sample-line" id="sampleLineElement"></div>
-                    </div>
+                    <div class="line-sample-preview-box" id="propLineSamplePreview"></div>
                   </div>
                 </div>
 

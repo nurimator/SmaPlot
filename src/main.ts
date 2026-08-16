@@ -47,6 +47,7 @@ import type { TitlePreset } from './components/TitleDialog.ts'
 import type { Dataset } from './types.ts'
 import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
+import { initCustomSelects } from './components/CustomSelect.ts'
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
@@ -626,6 +627,9 @@ if (propOverlayEl) initPropertyDialog(propOverlayEl)
 if (axisOverlayEl) initAxisDialog(axisOverlayEl)
 const confirmOverlayEl = document.querySelector<HTMLElement>('#confirmOverlay')
 if (confirmOverlayEl) initConfirmDialog(confirmOverlayEl)
+
+// Uniform custom dropdowns for all form selects
+initCustomSelects()
 
 // Data Manager callback: when a file is selected, transition to Property modal.
 // The dialog only lists the datasets of the currently selected (or last

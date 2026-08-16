@@ -9,6 +9,7 @@ import {
 } from './plot/index.ts'
 import { globalDataManager } from './DataManager.ts'
 import { downloadFile, serializeSmpDoc } from '../utils/smpExporter.ts'
+import { createSeriesIconFromOpts } from './plot/symbols.ts'
 
 let currentActiveDataset: Dataset | undefined
 let currentTargetSvg: SVGSVGElement | null = null
@@ -152,36 +153,51 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     })
   })
 
-  // Real-time line sample preview box update in Plot tab
-  const sampleLine = overlayEl.querySelector<HTMLElement>('#sampleLineElement')
+  // Real-time sample preview box update in Plot tab
+  lineColor?.addEventListener('input', () => renderSamplePreview(overlayEl))
+  widthInput?.addEventListener('input', () => renderSamplePreview(overlayEl))
+  lineType?.addEventListener('change', () => renderSamplePreview(overlayEl))
+  plotType?.addEventListener('change', () => renderSamplePreview(overlayEl))
+  dotColor?.addEventListener('input', () => renderSamplePreview(overlayEl))
+  paintColor?.addEventListener('input', () => renderSamplePreview(overlayEl))
+  sizeInput?.addEventListener('input', () => renderSamplePreview(overlayEl))
 
-  const updateSampleLine = () => {
-    if (!sampleLine) return
-    const color = lineColor?.value || '#10b981'
-    const width = widthInput?.value || '1'
-    const currentLineType = lineType?.value || 'solid'
-
-    sampleLine.style.backgroundColor = color
-    sampleLine.style.height = `${Math.max(1, Math.round((parseFloat(width) || 1) * 2))}px`
-
-    if (currentLineType === 'no_line') {
-      sampleLine.style.display = 'none'
-    } else {
-      sampleLine.style.display = 'block'
-      if (currentLineType === 'dotted') {
-        sampleLine.style.borderStyle = 'dotted'
-      } else if (currentLineType === 'dash' || currentLineType === 'dashed' || currentLineType === 'dash_dot' || currentLineType === 'dash_dot_dot') {
-        sampleLine.style.borderStyle = 'dashed'
-      } else {
-        sampleLine.style.borderStyle = 'none'
-      }
-    }
+  // Re-fit the preview to the box width when the dialog is resized/opened.
+  const sampleContainer = overlayEl.querySelector<HTMLElement>('#propLineSamplePreview')
+  if (sampleContainer) {
+    const sampleObserver = new ResizeObserver(() => renderSamplePreview(overlayEl))
+    sampleObserver.observe(sampleContainer)
   }
+}
 
-  lineColor?.addEventListener('input', updateSampleLine)
-  widthInput?.addEventListener('input', updateSampleLine)
-  brushSelect?.addEventListener('change', updateSampleLine)
-  lineType?.addEventListener('change', updateSampleLine)
+// Sample preview icon: line sample (color + width + dash pattern) with the
+// marker shape on top, same style as the Data Manager series icon. Fills the
+// preview box width with 3 markers evenly spread.
+function renderSamplePreview(overlayEl: HTMLElement): void {
+  const container = overlayEl.querySelector<HTMLElement>('#propLineSamplePreview')
+  if (!container) return
+  const lineColor = overlayEl.querySelector<HTMLInputElement>('#propLineColor')
+  const widthInput = overlayEl.querySelector<HTMLInputElement>('#propWidthInput')
+  const lineType = overlayEl.querySelector<HTMLSelectElement>('#propLineType')
+  const plotType = overlayEl.querySelector<HTMLSelectElement>('#propPlotType')
+  const dotColor = overlayEl.querySelector<HTMLInputElement>('#propDotColor')
+  const paintColor = overlayEl.querySelector<HTMLInputElement>('#propPaintColor')
+  const sizeInput = overlayEl.querySelector<HTMLInputElement>('#propSizeInput')
+
+  const widthMm = parseFloat(widthInput?.value || '0.6') || 0.6
+  const icon = createSeriesIconFromOpts({
+    color: lineColor?.value || '#10b981',
+    lineWidthPx: Math.max(1, Math.round(widthMm * 2)),
+    lineType: lineType?.value || 'solid',
+    plotType: plotType?.value || 'no_dot',
+    dotColor: dotColor?.value || '#000000',
+    paintColor: paintColor?.value || '#ffffff',
+    size: parseFloat(sizeInput?.value || '3') || 3,
+    markerCount: 3,
+    viewBoxWidth: Math.max(72, container.clientWidth / 2),
+  })
+  container.innerHTML = ''
+  container.appendChild(icon)
 }
 
 function renderDatasetPreview(overlayEl: HTMLElement, dataset?: Dataset): void {
@@ -189,7 +205,6 @@ function renderDatasetPreview(overlayEl: HTMLElement, dataset?: Dataset): void {
   const xColSelect = overlayEl.querySelector<HTMLSelectElement>('#propXColumn')
   const yColSelect = overlayEl.querySelector<HTMLSelectElement>('#propYColumn')
   const lineColorInput = overlayEl.querySelector<HTMLInputElement>('#propLineColor')
-  const sampleLine = overlayEl.querySelector<HTMLElement>('#sampleLineElement')
 
   const fileBanner1 = overlayEl.querySelector('#propFilePathText')
   const fileBanner2 = overlayEl.querySelector('#propPlotFilePathText')
@@ -214,7 +229,6 @@ function renderDatasetPreview(overlayEl: HTMLElement, dataset?: Dataset): void {
 
   if (lineColorInput && dataset.color) {
     lineColorInput.value = dataset.color
-    if (sampleLine) sampleLine.style.backgroundColor = dataset.color
   }
 
   let maxCols = 2
@@ -367,6 +381,7 @@ export function showPropertyDialog(
     if (svg) updatePlotVisual(svg)
   }
   overlayEl.style.display = 'flex'
+  renderSamplePreview(overlayEl)
 }
 
 export function hidePropertyDialog(overlayEl: HTMLElement): void {
