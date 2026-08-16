@@ -18,6 +18,8 @@ interface SmpSeriesSpec {
   plotType?: string
   dotColor?: string
   markerSize?: number
+  fillColor?: string
+  fillLine?: string
   xExpr: string
   yExpr: string
   filePath?: string
@@ -263,13 +265,18 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             const symCode = parseInt(parts[1], 10)
             if (!isNaN(symCode)) {
               if (symCode === 1) plotType = 'filled_circle'
-              else if (symCode === 2) plotType = 'filled_square'
-              else if (symCode === 3) plotType = 'triangle'
-              else if (symCode === 4) plotType = 'filled_triangle'
-              else if (symCode === 5) plotType = 'circle'
+              else if (symCode === 2) plotType = 'circle'
+              else if (symCode === 3) plotType = 'filled_triangle'
+              else if (symCode === 4) plotType = 'triangle'
+              else if (symCode === 5) plotType = 'filled_square'
               else if (symCode === 6) plotType = 'square'
-              else if (symCode === 10) plotType = 'filled_diamond'
-              else if (symCode === 11) plotType = 'diamond'
+              else if (symCode === 7) plotType = 'filled_triangle_down'
+              else if (symCode === 8) plotType = 'triangle_down'
+              else if (symCode === 9) plotType = 'filled_diamond'
+              else if (symCode === 10) plotType = 'diamond'
+              else if (symCode === 11) plotType = 'plus'
+              else if (symCode === 12) plotType = 'cross'
+              else if (symCode === 41) plotType = 'star'
             }
           }
           if (parts.length >= 3) {
@@ -282,7 +289,18 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           }
           i++
         }
-        if (i < docLines.length) i++ // config 3
+        // Symbol fill color record: "0 0 1 0 0 0 <fillBGR> 5" (7th token).
+        let fillColor: string | undefined
+        let fillLine = ''
+        if (i < docLines.length) {
+          fillLine = docLines[i].trim()
+          const fillParts = fillLine.split(/\s+/)
+          if (fillParts.length >= 7) {
+            const fillInt = parseInt(fillParts[6], 10)
+            if (!isNaN(fillInt) && fillInt >= 0) fillColor = bgrToHex(fillInt)
+          }
+          i++
+        }
         let exprFlag = '0 0 0'
         if (i < docLines.length) {
           exprFlag = docLines[i].trim() || '0 0 0'
@@ -318,6 +336,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           plotType,
           dotColor,
           markerSize,
+          fillColor,
+          fillLine,
           xExpr,
           yExpr,
           filePath,
@@ -830,6 +850,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         smpSeriesStylePrefix: spec.stylePrefix,
         smpSeriesZerosLine: spec.zerosLine,
         smpSeriesFixed5: spec.fixed5,
+        smpSeriesFillLine: spec.fillLine,
         smpExprFlag: spec.exprFlag,
         options: {
           show: true,
@@ -839,7 +860,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           plotType: spec.plotType || 'no_dot',
           lineType: spec.lineType || 'solid',
           dotColor: spec.dotColor || spec.color,
-          paintColor: '#ffffff',
+          paintColor: spec.fillColor || '#ffffff',
           size: spec.markerSize || 3,
           xTransCheck: spec.xExpr !== 'x',
           xExpr: spec.xExpr,

@@ -17,6 +17,7 @@ export interface Dataset {
   smpSeriesStylePrefix?: number
   smpSeriesZerosLine?: string
   smpSeriesFixed5?: string
+  smpSeriesFillLine?: string
   smpExprFlag?: string
   options?: PlotVisualOptions
 }

@@ -120,8 +120,8 @@ function createSeriesIcon(ds: Dataset): SVGSVGElement {
       circle.setAttribute('cx', String(cx))
       circle.setAttribute('cy', String(cy))
       circle.setAttribute('r', String(r))
-      circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
-      circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
+      circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
+      circle.setAttribute('stroke', dotColor)
       circle.setAttribute('stroke-width', '1')
       svg.appendChild(circle)
     } else if (plotType === 'square' || plotType === 'filled_square') {
@@ -130,24 +130,73 @@ function createSeriesIcon(ds: Dataset): SVGSVGElement {
       rect.setAttribute('y', String(cy - r))
       rect.setAttribute('width', String(r * 2))
       rect.setAttribute('height', String(r * 2))
-      rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
-      rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
+      rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
+      rect.setAttribute('stroke', dotColor)
       rect.setAttribute('stroke-width', '1')
       svg.appendChild(rect)
     } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
       const poly = document.createElementNS(SVG_NS, 'polygon')
       poly.setAttribute('points', `${cx},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy + r}`)
-      poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
-      poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
+      poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
+      poly.setAttribute('stroke', dotColor)
+      poly.setAttribute('stroke-width', '1')
+      svg.appendChild(poly)
+    } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
+      const poly = document.createElementNS(SVG_NS, 'polygon')
+      poly.setAttribute('points', `${cx - r},${cy - r} ${cx + r},${cy - r} ${cx},${cy + r}`)
+      poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
+      poly.setAttribute('stroke', dotColor)
       poly.setAttribute('stroke-width', '1')
       svg.appendChild(poly)
     } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
       const poly = document.createElementNS(SVG_NS, 'polygon')
       poly.setAttribute('points', `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`)
-      poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
-      poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+      poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
+      poly.setAttribute('stroke', dotColor)
       poly.setAttribute('stroke-width', '1')
       svg.appendChild(poly)
+    } else if (plotType === 'star') {
+      const poly = document.createElementNS(SVG_NS, 'polygon')
+      const pts: string[] = []
+      for (let k = 0; k < 10; k++) {
+        const radius = k % 2 === 0 ? r : r * 0.45
+        const ang = -Math.PI / 2 + (k * Math.PI) / 5
+        pts.push(`${(cx + radius * Math.cos(ang)).toFixed(2)},${(cy + radius * Math.sin(ang)).toFixed(2)}`)
+      }
+      poly.setAttribute('points', pts.join(' '))
+      poly.setAttribute('fill', paintColor)
+      poly.setAttribute('stroke', dotColor)
+      poly.setAttribute('stroke-width', '1')
+      svg.appendChild(poly)
+    } else if (plotType === 'plus' || plotType === 'cross') {
+      const g = document.createElementNS(SVG_NS, 'g')
+      const l1 = document.createElementNS(SVG_NS, 'line')
+      const l2 = document.createElementNS(SVG_NS, 'line')
+      if (plotType === 'plus') {
+        l1.setAttribute('x1', String(cx - r))
+        l1.setAttribute('y1', String(cy))
+        l1.setAttribute('x2', String(cx + r))
+        l1.setAttribute('y2', String(cy))
+        l2.setAttribute('x1', String(cx))
+        l2.setAttribute('y1', String(cy - r))
+        l2.setAttribute('x2', String(cx))
+        l2.setAttribute('y2', String(cy + r))
+      } else {
+        l1.setAttribute('x1', String(cx - r))
+        l1.setAttribute('y1', String(cy - r))
+        l1.setAttribute('x2', String(cx + r))
+        l1.setAttribute('y2', String(cy + r))
+        l2.setAttribute('x1', String(cx - r))
+        l2.setAttribute('y1', String(cy + r))
+        l2.setAttribute('x2', String(cx + r))
+        l2.setAttribute('y2', String(cy - r))
+      }
+      for (const line of [l1, l2]) {
+        line.setAttribute('stroke', dotColor)
+        line.setAttribute('stroke-width', '1')
+        g.appendChild(line)
+      }
+      svg.appendChild(g)
     }
   }
 

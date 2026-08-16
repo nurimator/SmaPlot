@@ -54,7 +54,7 @@ const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
 const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
 const SERIES_SYMBOL_LINE = (sym: number, size: number, color: number): string => `1 ${sym} ${size} ${color}`
-const SERIES_FIXED_LINE_3 = '0 0 1 0 0 0 16777215 5'
+const SERIES_FILL_LINE = (fillBgr: number): string => `0 0 1 0 0 0 ${fillBgr} 5`
 const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 : 0} 0`
 const SERIES_ZEROS_LINE = '0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
 const SERIES_FIXED_LINE_5 = '1 40 0 300 1'
@@ -89,14 +89,19 @@ function formatFloatSci(val: number): string {
 
 function plotTypeToCode(pt?: string): number {
   switch (pt) {
-    case 'circle': return 5
     case 'filled_circle': return 1
+    case 'circle': return 2
+    case 'filled_triangle': return 3
+    case 'triangle': return 4
+    case 'filled_square': return 5
     case 'square': return 6
-    case 'filled_square': return 2
-    case 'triangle': return 3
-    case 'filled_triangle': return 4
-    case 'diamond': return 11
-    case 'filled_diamond': return 10
+    case 'filled_triangle_down': return 7
+    case 'triangle_down': return 8
+    case 'filled_diamond': return 9
+    case 'diamond': return 10
+    case 'plus': return 11
+    case 'cross': return 12
+    case 'star': return 41
     default: return 0
   }
 }
@@ -115,13 +120,14 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
+  const fillLine = ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX))
   return [
     `[${ds.smpSeriesName || `${cleanName}.txt`}]`,
     ds.filePath || `${SMP_FALLBACK_DIR}${cleanName}.txt`,
     SERIES_COUNT_LINE(pointCount),
     SERIES_STYLE_LINE(stylePrefix, bgrColor),
     SERIES_SYMBOL_LINE(symCode, sizeVal, dotColorBgr),
-    SERIES_FIXED_LINE_3,
+    fillLine,
     exprFlag,
     xExpr,
     yExpr,

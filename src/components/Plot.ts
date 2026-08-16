@@ -16,6 +16,17 @@ function createSVGElement<K extends keyof SVGElementTagNameMap>(tag: K): SVGElem
   return document.createElementNS(SVG_NS, tag) as SVGElementTagNameMap[K]
 }
 
+// 5-point star polygon centered at (cx,cy), point-up, outer radius r.
+function starPoints(cx: number, cy: number, r: number): string {
+  const pts: string[] = []
+  for (let k = 0; k < 10; k++) {
+    const radius = k % 2 === 0 ? r : r * 0.45
+    const ang = -Math.PI / 2 + (k * Math.PI) / 5
+    pts.push(`${(cx + radius * Math.cos(ang)).toFixed(2)},${(cy + radius * Math.sin(ang)).toFixed(2)}`)
+  }
+  return pts.join(' ')
+}
+
 export const PLOT_MARGIN = { l: 65, r: 25, t: 25, b: 55 }
 
 export const BORDER_TOL = 2 // px tolerance for clicking on plot frame border lines
@@ -3183,8 +3194,8 @@ document.body.style.userSelect = 'none'
               circle.setAttribute('cx', String(cx))
               circle.setAttribute('cy', String(legY))
               circle.setAttribute('r', String(r))
-              circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
-              circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
+              circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
+              circle.setAttribute('stroke', dotColor)
               circle.setAttribute('stroke-width', '1')
               circle.style.cursor = isSelected ? 'move' : 'pointer'
               circle.addEventListener('mousedown', handleLegendMouseDown)
@@ -3196,8 +3207,8 @@ document.body.style.userSelect = 'none'
               rect.setAttribute('y', String(legY - r))
               rect.setAttribute('width', String(r * 2))
               rect.setAttribute('height', String(r * 2))
-              rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
-              rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
+              rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
+              rect.setAttribute('stroke', dotColor)
               rect.setAttribute('stroke-width', '1')
               rect.style.cursor = isSelected ? 'move' : 'pointer'
               rect.addEventListener('mousedown', handleLegendMouseDown)
@@ -3209,8 +3220,21 @@ document.body.style.userSelect = 'none'
               const p2 = `${cx - r},${legY + r}`
               const p3 = `${cx + r},${legY + r}`
               poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-              poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
-              poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
+              poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
+              poly.setAttribute('stroke-width', '1')
+              poly.style.cursor = isSelected ? 'move' : 'pointer'
+              poly.addEventListener('mousedown', handleLegendMouseDown)
+              poly.addEventListener('dblclick', openTitleModal)
+              legGroup.appendChild(poly)
+            } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
+              const poly = createSVGElement('polygon')
+              const p1 = `${cx - r},${legY - r}`
+              const p2 = `${cx + r},${legY - r}`
+              const p3 = `${cx},${legY + r}`
+              poly.setAttribute('points', `${p1} ${p2} ${p3}`)
+              poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
               poly.setAttribute('stroke-width', '1')
               poly.style.cursor = isSelected ? 'move' : 'pointer'
               poly.addEventListener('mousedown', handleLegendMouseDown)
@@ -3223,13 +3247,55 @@ document.body.style.userSelect = 'none'
               const p3 = `${cx},${legY + r}`
               const p4 = `${cx - r},${legY}`
               poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
-              poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
-              poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
               poly.setAttribute('stroke-width', '1')
               poly.style.cursor = isSelected ? 'move' : 'pointer'
               poly.addEventListener('mousedown', handleLegendMouseDown)
               poly.addEventListener('dblclick', openTitleModal)
               legGroup.appendChild(poly)
+            } else if (plotType === 'star') {
+              const poly = createSVGElement('polygon')
+              poly.setAttribute('points', starPoints(cx, legY, r))
+              poly.setAttribute('fill', paintColor)
+              poly.setAttribute('stroke', dotColor)
+              poly.setAttribute('stroke-width', '1')
+              poly.style.cursor = isSelected ? 'move' : 'pointer'
+              poly.addEventListener('mousedown', handleLegendMouseDown)
+              poly.addEventListener('dblclick', openTitleModal)
+              legGroup.appendChild(poly)
+            } else if (plotType === 'plus' || plotType === 'cross') {
+              const g = createSVGElement('g')
+              const l1 = createSVGElement('line')
+              const l2 = createSVGElement('line')
+              if (plotType === 'plus') {
+                l1.setAttribute('x1', String(cx - r))
+                l1.setAttribute('y1', String(legY))
+                l1.setAttribute('x2', String(cx + r))
+                l1.setAttribute('y2', String(legY))
+                l2.setAttribute('x1', String(cx))
+                l2.setAttribute('y1', String(legY - r))
+                l2.setAttribute('x2', String(cx))
+                l2.setAttribute('y2', String(legY + r))
+              } else {
+                l1.setAttribute('x1', String(cx - r))
+                l1.setAttribute('y1', String(legY - r))
+                l1.setAttribute('x2', String(cx + r))
+                l1.setAttribute('y2', String(legY + r))
+                l2.setAttribute('x1', String(cx - r))
+                l2.setAttribute('y1', String(legY + r))
+                l2.setAttribute('x2', String(cx + r))
+                l2.setAttribute('y2', String(legY - r))
+              }
+              for (const line of [l1, l2]) {
+                line.setAttribute('stroke', dotColor)
+                line.setAttribute('stroke-width', '1')
+                g.appendChild(line)
+              }
+              g.style.cursor = isSelected ? 'move' : 'pointer'
+              g.addEventListener('mousedown', handleLegendMouseDown)
+              g.addEventListener('dblclick', openTitleModal)
+              legGroup.appendChild(g)
             }
           }
 
@@ -3544,8 +3610,8 @@ document.body.style.userSelect = 'none'
               circle.setAttribute('cx', String(px))
               circle.setAttribute('cy', String(py))
               circle.setAttribute('r', String(dotSize))
-              circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
-              circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
+              circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
+              circle.setAttribute('stroke', dotColor)
               circle.setAttribute('stroke-width', '1')
               dsGroup.appendChild(circle)
             } else if (plotType === 'square' || plotType === 'filled_square') {
@@ -3554,8 +3620,8 @@ document.body.style.userSelect = 'none'
               rect.setAttribute('y', String(py - dotSize))
               rect.setAttribute('width', String(dotSize * 2))
               rect.setAttribute('height', String(dotSize * 2))
-              rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
-              rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
+              rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
+              rect.setAttribute('stroke', dotColor)
               rect.setAttribute('stroke-width', '1')
               dsGroup.appendChild(rect)
             } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
@@ -3564,8 +3630,18 @@ document.body.style.userSelect = 'none'
               const p2 = `${px - dotSize},${py + dotSize}`
               const p3 = `${px + dotSize},${py + dotSize}`
               poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-              poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
-              poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
+              poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
+              poly.setAttribute('stroke-width', '1')
+              dsGroup.appendChild(poly)
+            } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
+              const poly = createSVGElement('polygon')
+              const p1 = `${px - dotSize},${py - dotSize}`
+              const p2 = `${px + dotSize},${py - dotSize}`
+              const p3 = `${px},${py + dotSize}`
+              poly.setAttribute('points', `${p1} ${p2} ${p3}`)
+              poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
               poly.setAttribute('stroke-width', '1')
               dsGroup.appendChild(poly)
             } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
@@ -3575,10 +3651,46 @@ document.body.style.userSelect = 'none'
               const p3 = `${px},${py + dotSize}`
               const p4 = `${px - dotSize},${py}`
               poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
-              poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
-              poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
+              poly.setAttribute('stroke', dotColor)
               poly.setAttribute('stroke-width', '1')
               dsGroup.appendChild(poly)
+            } else if (plotType === 'star') {
+              const poly = createSVGElement('polygon')
+              poly.setAttribute('points', starPoints(px, py, dotSize))
+              poly.setAttribute('fill', paintColor)
+              poly.setAttribute('stroke', dotColor)
+              poly.setAttribute('stroke-width', '1')
+              dsGroup.appendChild(poly)
+            } else if (plotType === 'plus' || plotType === 'cross') {
+              const g = createSVGElement('g')
+              const l1 = createSVGElement('line')
+              const l2 = createSVGElement('line')
+              if (plotType === 'plus') {
+                l1.setAttribute('x1', String(px - dotSize))
+                l1.setAttribute('y1', String(py))
+                l1.setAttribute('x2', String(px + dotSize))
+                l1.setAttribute('y2', String(py))
+                l2.setAttribute('x1', String(px))
+                l2.setAttribute('y1', String(py - dotSize))
+                l2.setAttribute('x2', String(px))
+                l2.setAttribute('y2', String(py + dotSize))
+              } else {
+                l1.setAttribute('x1', String(px - dotSize))
+                l1.setAttribute('y1', String(py - dotSize))
+                l1.setAttribute('x2', String(px + dotSize))
+                l1.setAttribute('y2', String(py + dotSize))
+                l2.setAttribute('x1', String(px - dotSize))
+                l2.setAttribute('y1', String(py + dotSize))
+                l2.setAttribute('x2', String(px + dotSize))
+                l2.setAttribute('y2', String(py - dotSize))
+              }
+              for (const line of [l1, l2]) {
+                line.setAttribute('stroke', dotColor)
+                line.setAttribute('stroke-width', '1')
+                g.appendChild(line)
+              }
+              dsGroup.appendChild(g)
             }
           }
         }
