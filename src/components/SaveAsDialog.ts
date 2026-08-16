@@ -55,7 +55,7 @@ export function initSaveAsDialog(overlayEl: HTMLElement): void {
   })
 }
 
-export function showSaveAsDialog(defaultName: string = 'Project.SMP'): Promise<string | null> {
+export function showSaveAsDialog(defaultName: string = 'untitled.SMP'): Promise<string | null> {
   const overlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
   if (!overlayEl) return Promise.resolve(null)
   saveAsOverlayEl = overlayEl

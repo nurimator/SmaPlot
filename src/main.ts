@@ -51,7 +51,7 @@ import { initColorPickerDialog, hideColorPickerDialog } from './components/Color
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
-import { getCurrentProjectFileName, setCurrentProjectFileName } from './utils/projectState.ts'
+import { getCurrentProjectFileName, isProjectUntitled, setCurrentProjectFileName, setProjectUntitled } from './utils/projectState.ts'
 import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { initTouchGestures } from './utils/touchGestures.ts'
@@ -126,9 +126,12 @@ function handleSaveProject(customFileName?: string): void {
     return
   }
 
-  const firstDocName = exportPlotToSmpDoc(svgs[0], 'PLOT1.SMP').name
-  const fallbackName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
-  const fileName = customFileName || getCurrentProjectFileName() || fallbackName
+  if (!customFileName && isProjectUntitled()) {
+    void handleSaveAsProject()
+    return
+  }
+
+  const fileName = customFileName || getCurrentProjectFileName()
 
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
@@ -157,7 +160,7 @@ async function handleSaveAsProject(): Promise<void> {
     return
   }
 
-  const defaultName = getCurrentProjectFileName() || 'Project.SMP'
+  const defaultName = getCurrentProjectFileName()
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
 
@@ -204,7 +207,8 @@ async function handleNewProject(): Promise<void> {
     if (choice === 'save') handleSaveProject()
   }
 
-  setCurrentProjectFileName('Project.SMP')
+  setCurrentProjectFileName('untitled.SMP')
+  setProjectUntitled(true)
   clearAllPlots(graphAreaEl)
   await createPlot(graphAreaEl, 40, 40, [])
 
@@ -674,21 +678,9 @@ function updateUndoRedoButtons(): void {
 subscribeUndoState(updateUndoRedoButtons)
 updateUndoRedoButtons()
 
-// Spawn initial plot window and load FTIR.SMP sample project
+// Spawn a fresh, untitled project on first launch
 async function initApp() {
-  try {
-    const res = await fetch('/dummy-data/project-file/FTIR.SMP')
-    if (res.ok) {
-      const buffer = await res.arrayBuffer()
-      const text = new TextDecoder('windows-1252').decode(buffer)
-      await loadSmpProject(graphAreaEl, text, 'FTIR.SMP')
-    } else {
-      await createPlot(graphAreaEl, 40, 40, [])
-    }
-  } catch (err) {
-    console.error('Could not load default FTIR.SMP project:', err)
-    await createPlot(graphAreaEl, 40, 40, [])
-  }
+  await handleNewProject()
   updateRecentFilesMenu()
   pushUndoState()
 }
