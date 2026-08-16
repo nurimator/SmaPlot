@@ -51,6 +51,7 @@ import { initColorPickerDialog, hideColorPickerDialog } from './components/Color
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
 import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
+import { getCurrentProjectFileName, setCurrentProjectFileName } from './utils/projectState.ts'
 import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { initTouchGestures } from './utils/touchGestures.ts'
@@ -74,8 +75,6 @@ const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverla
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
-
-let currentProjectFileName = 'FTIR.SMP'
 
 // Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
 if (workspaceEl && graphAreaEl) {
@@ -129,13 +128,13 @@ function handleSaveProject(customFileName?: string): void {
 
   const firstDocName = exportPlotToSmpDoc(svgs[0], 'PLOT1.SMP').name
   const fallbackName = firstDocName && firstDocName.toLowerCase().endsWith('.smp') ? firstDocName : 'Project.SMP'
-  const fileName = customFileName || currentProjectFileName || fallbackName
+  const fileName = customFileName || getCurrentProjectFileName() || fallbackName
 
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
   downloadFile(content, fileName)
 
-  currentProjectFileName = fileName
+  setCurrentProjectFileName(fileName)
   addRecentFile(fileName, content)
   updateRecentFilesMenu()
 
@@ -158,7 +157,7 @@ async function handleSaveAsProject(): Promise<void> {
     return
   }
 
-  const defaultName = currentProjectFileName || 'Project.SMP'
+  const defaultName = getCurrentProjectFileName() || 'Project.SMP'
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
 
@@ -171,7 +170,7 @@ async function handleSaveAsProject(): Promise<void> {
       return
     }
     const fileName = pickerResult
-    currentProjectFileName = fileName
+    setCurrentProjectFileName(fileName)
     addRecentFile(fileName, content)
     updateRecentFilesMenu()
 
@@ -205,7 +204,7 @@ async function handleNewProject(): Promise<void> {
     if (choice === 'save') handleSaveProject()
   }
 
-  currentProjectFileName = 'Project.SMP'
+  setCurrentProjectFileName('Project.SMP')
   clearAllPlots(graphAreaEl)
   await createPlot(graphAreaEl, 40, 40, [])
 
@@ -421,8 +420,6 @@ if (menubarEl) {
         return
       }
       await loadSmpProject(graphAreaEl, recent.content, recent.name)
-      currentProjectFileName = recent.name
-      addRecentFile(recent.name, recent.content)
       updateRecentFilesMenu()
       pushUndoState()
     } else if (action === 'property') {
@@ -489,8 +486,6 @@ if (globalFileInput) {
           const content = evt.target?.result as string
           if (content) {
             await loadSmpProject(graphAreaEl, content, file.name)
-            currentProjectFileName = file.name
-            addRecentFile(file.name, content)
             updateRecentFilesMenu()
             pushUndoState()
           }
@@ -687,7 +682,6 @@ async function initApp() {
       const buffer = await res.arrayBuffer()
       const text = new TextDecoder('windows-1252').decode(buffer)
       await loadSmpProject(graphAreaEl, text, 'FTIR.SMP')
-      addRecentFile('FTIR.SMP', text)
     } else {
       await createPlot(graphAreaEl, 40, 40, [])
     }
@@ -756,8 +750,6 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
         const content = evt.target?.result as string
         if (content) {
           await loadSmpProject(graphAreaEl, content, file.name)
-          currentProjectFileName = file.name
-          addRecentFile(file.name, content)
           updateRecentFilesMenu()
           pushUndoState()
         }

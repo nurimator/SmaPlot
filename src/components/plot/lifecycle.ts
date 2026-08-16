@@ -2,6 +2,7 @@ import type { Dataset } from '../../types.ts'
 import { parseDatasetContent } from '../../utils/dataset.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
 import { addRecentFile } from '../../utils/recentFiles.ts'
+import { setCurrentProjectFileName } from '../../utils/projectState.ts'
 import { parseSmpContent } from '../../utils/smpParser.ts'
 import { globalDataManager } from './../DataManager.ts'
 import { drawPlot, updatePlotVisual } from './drawPlot.ts'
@@ -128,6 +129,9 @@ export async function loadSmpProject(
 ): Promise<boolean> {
   const { smpMeta } = parseSmpContent(content, fileName)
   if (!smpMeta.docs || smpMeta.docs.length === 0) return false
+
+  setCurrentProjectFileName(fileName)
+  addRecentFile(fileName, content)
 
   clearAllPlots(graphArea)
 
