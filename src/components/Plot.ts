@@ -4389,10 +4389,10 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     let newHeight = startHeight
 
     const GRID_SIZE = 100 // Major grid step (100px per major grid square = 50 statusbar units)
-    const SNAP_THRESHOLD = 6 // Magnetic snap threshold (only snaps when within 6px of major grid lines)
+    const SNAP_THRESHOLD = 6 // Magnetic snap threshold (only snaps within 6px of major grid lines)
     const margin = PLOT_MARGIN
-    const minPlotW = 120
-    const minPlotH = 80
+    const minPlotW = GRID_SIZE / 2 // Minimum frame width = 0.5 major grid (50px)
+    const minPlotH = GRID_SIZE / 2 // Minimum frame height = 0.5 major grid (50px)
 
     const startPlotW = startWidth - margin.l - margin.r
     const startPlotH = startHeight - margin.t - margin.b

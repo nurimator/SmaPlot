@@ -555,8 +555,8 @@ body.os-mac .titlebar {
   display: block;
   width: 400px;
   height: 300px;
-  min-width: 200px;
-  min-height: 150px;
+  min-width: 0;
+  min-height: 0;
   background: transparent;
   z-index: 10;
   cursor: default;
