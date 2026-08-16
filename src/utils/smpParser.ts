@@ -496,8 +496,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++
           if (i < docLines.length) {
             const posParts = docLines[i].trim().split(/\s+/)
-            const xNorm = parseFloat(posParts[0])
-            const yNorm = parseFloat(posParts[1])
+            // Native Sma4Win stores legend text positions in 0.01 mm from the
+            // frame origin; convert to normalized 0-10000 frame-relative values.
+            const xNorm = Math.round((parseFloat(posParts[0]) / docWidth) * 10000)
+            const yNorm = Math.round((parseFloat(posParts[1]) / docHeight) * 10000)
             const posTail = posParts.slice(2).join(' ')
             i++
             if (i < docLines.length) {

@@ -353,9 +353,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   exportList.forEach((entry) => {
     if (entry.isRect) {
       lines.push('3')
-      if (entry.rawLine) {
-        lines.push(entry.rawLine)
-      } else if (entry.aLine) {
+      // The raw line is kept only when it matches the current norm values byte
+      // for byte; any edit (drag, dialog) is serialized from the norm fields.
+      let computed: string | null = null
+      if (entry.aLine) {
         const aLine = entry.aLine
         const x1Str = formatFloatSci(aLine.x1Norm)
         const y1Str = formatFloatSci(aLine.y1Norm)
@@ -368,25 +369,23 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         const roundXVal = Math.round((aLine.roundX ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
         const roundYVal = Math.round((aLine.roundY ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
         const styleNum = aLine.style === 'dashed' ? 2 : aLine.style === 'dotted' ? 3 : 1
-        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 ${shadeVal} ${shadeBgr} 3 ${thickVal} 1 ${faceBgr} ${roundXVal} ${roundYVal} ${styleNum} 30 100 0`)
+        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 ${shadeVal} ${shadeBgr} 3 ${thickVal} 1 ${faceBgr} ${roundXVal} ${roundYVal} ${styleNum} 30 100 0`
       } else if (entry.item) {
         const x1Str = formatFloatSci(entry.item.xNorm)
         const y1Str = formatFloatSci(entry.item.yNorm)
         const x2Str = formatFloatSci(entry.item.x2Norm ?? 0)
         const y2Str = formatFloatSci(entry.item.y2Norm ?? 0)
-        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
+        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`
       }
+      lines.push(entry.rawLine && computed !== null && computed === entry.rawLine ? entry.rawLine : (computed ?? entry.rawLine ?? ''))
       lines.push('')
     } else if (entry.isLine) {
       const aLine = entry.aLine
       const item = entry.item
       const itemType = aLine?.rawType || (aLine?.shape === 'dimension' ? '2' : '0')
       lines.push(itemType)
-      if (aLine?.rawLineStr) {
-        lines.push(aLine.rawLineStr)
-      } else if (item?.rawLine) {
-        lines.push(item.rawLine)
-      } else if (aLine) {
+      let computed: string | null = null
+      if (aLine) {
         const x1Str = formatFloatSci(aLine.x1Norm)
         const y1Str = formatFloatSci(aLine.y1Norm)
         const x2Str = formatFloatSci(aLine.x2Norm)
@@ -401,20 +400,24 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         const modeCode = aLine.arrowMode !== undefined ? aLine.arrowMode : (aLine.shape === 'arrow_start' ? 2 : aLine.shape === 'arrow_both' ? 3 : aLine.shape === 'line' || aLine.shape === 'dimension' ? 0 : 1)
         const spreadCode = Math.round(aLine.spread ?? 30)
         const shutCode = Math.round(aLine.shut ?? 100)
-        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} 0 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`)
+        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} 0 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`
       } else if (item) {
         const x1Str = formatFloatSci(item.xNorm)
         const y1Str = formatFloatSci(item.yNorm)
         const x2Str = formatFloatSci(item.x2Norm ?? 0)
         const y2Str = formatFloatSci(item.y2Norm ?? 0)
-        lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 500 0 0 300 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
+        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 500 0 0 300 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`
       }
+      const raw = aLine?.rawLineStr || item?.rawLine
+      lines.push(raw && computed !== null && computed === raw ? raw : (computed ?? raw ?? ''))
       lines.push('')
     } else if (entry.item) {
       const item = entry.item
       lines.push(String(item.legendType ?? DEFAULT_LEGEND_TYPE))
       const posTail = item.posTail || LEGEND_POS_TAIL
-      lines.push(`${Math.round(item.xNorm)} ${Math.round(item.yNorm)} ${posTail}`)
+      // xNorm/yNorm are frame-relative normalized 0-10000 values; native Sma4Win
+      // stores them as 0.01 mm from the frame origin, so scale by the frame size.
+      lines.push(`${Math.round((item.xNorm / 10000) * doc.width)} ${Math.round((item.yNorm / 10000) * doc.height)} ${posTail}`)
       // `text` is the canonical Unicode form. `rawText` is kept for rendering
       // parsed files and may already contain the SMP-encoded representation;
       // converting it again would corrupt the 2-byte symbol sequences.

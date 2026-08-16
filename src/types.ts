@@ -180,6 +180,5 @@ export interface ActiveDrag {
   startWidth: number
   startHeight: number
   initialItemPositions?: { xPx: number; yPx: number; x2Px?: number; y2Px?: number }[]
-  initialAnnotationPositions?: { useMm?: boolean; x1Norm?: number; y1Norm?: number; x2Norm?: number; y2Norm?: number; x1Px: number; y1Px: number; x2Px: number; y2Px: number }[]
 }
 

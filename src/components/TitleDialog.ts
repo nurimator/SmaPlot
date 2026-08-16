@@ -15,9 +15,9 @@ export interface TitlePreset {
   legendType?: number
   /** Stored rotation in degrees (-90 for vertical axis titles) */
   rotation: number
-  /** Horizontal position in mm (xNorm = posX * 100) */
+  /** Horizontal position in mm from the frame origin (converted to normalized xNorm on commit) */
   posX: number
-  /** Vertical position in mm (yNorm = posY * 100) */
+  /** Vertical position in mm from the frame origin (converted to normalized yNorm on commit) */
   posY: number
   fontSize: number
   fontFamily?: string
@@ -66,8 +66,10 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const text = smpToUnicode(rawText)
     const rotVal = parseInt(rotEl?.value || '0', 10)
     const rotation = rotVal === 90 ? -90 : rotVal
-    const xNorm = Math.round((parseFloat(posXEl?.value || '0') || 0) * 100)
-    const yNorm = Math.round((parseFloat(posYEl?.value || '0') || 0) * 100)
+    const docWidthMm = ((smpDoc.width || 10000) / 100) || 100
+    const docHeightMm = ((smpDoc.height || 10000) / 100) || 100
+    const xNorm = Math.round(((parseFloat(posXEl?.value || '0') || 0) / docWidthMm) * 10000)
+    const yNorm = Math.round(((parseFloat(posYEl?.value || '0') || 0) / docHeightMm) * 10000)
     const fontSize = parseInt(sizeEl?.value || '16', 10) || 16
     const fontFamily = fontEl?.value || 'Times New Roman'
     const fontWeight = styleEl?.value?.toLowerCase().includes('bold') ? 700 : 400
@@ -303,8 +305,12 @@ export function showTitleDialog(
         rotEl.value = rotValStr
       }
 
-      if (posXEl) posXEl.value = String(Math.round(item.xNorm / 100))
-      if (posYEl) posYEl.value = String(Math.round(item.yNorm / 100))
+      if (posXEl || posYEl) {
+        const docWidthMm = ((smpDoc.width || 10000) / 100) || 100
+        const docHeightMm = ((smpDoc.height || 10000) / 100) || 100
+        if (posXEl) posXEl.value = String(Math.round((item.xNorm / 10000) * docWidthMm))
+        if (posYEl) posYEl.value = String(Math.round((item.yNorm / 10000) * docHeightMm))
+      }
 
       if (sizeEl) {
         const sizeValStr = String(item.fontSize || 16)

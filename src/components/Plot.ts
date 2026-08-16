@@ -809,6 +809,27 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
   }
 }
 
+/** Update the live plot doc geometry from the SVG's current px box (same math as exportPlotToSmpDoc). */
+function syncDocGeometry(svg: SVGSVGElement): void {
+  const doc = svgSmpDocMap.get(svg)
+  if (!doc) return
+
+  const leftPx = parseFloat(svg.style.left) || 40
+  const topPx = parseFloat(svg.style.top) || 40
+  const widthPx = parseFloat(svg.style.width) || 500
+  const heightPx = parseFloat(svg.style.height) || 350
+
+  const frameLeft = leftPx + PLOT_MARGIN.l
+  const frameTop = topPx + PLOT_MARGIN.t
+  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+
+  doc.left = Math.round(frameLeft / SMP_SCALE)
+  doc.top = Math.round(frameTop / SMP_SCALE)
+  doc.width = Math.round(frameWidth / SMP_SCALE)
+  doc.height = Math.round(frameHeight / SMP_SCALE)
+}
+
 export function getActiveDrag(): ActiveDrag | null {
   return activeDrag
 }
@@ -3903,20 +3924,6 @@ export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, 
     x2Px: item.x2Norm !== undefined ? (item.x2Norm / 10000) * startPlotW : undefined,
     y2Px: item.y2Norm !== undefined ? (item.y2Norm / 10000) * startPlotH : undefined,
   }))
-  const initialAnnotationPositions = smpDoc?.annotationLines?.map((aLine) => {
-    const useMm = aLine.x1Norm > 100 || aLine.y1Norm > 100 || aLine.x1Norm < 0 || aLine.y1Norm < 0 || aLine.shape === 'rectangle' || aLine.shape === 'rect'
-    return {
-      useMm,
-      x1Norm: aLine.x1Norm,
-      y1Norm: aLine.y1Norm,
-      x2Norm: aLine.x2Norm,
-      y2Norm: aLine.y2Norm,
-      x1Px: useMm ? aLine.x1Norm : (aLine.x1Norm / 100) * startPlotW,
-      y1Px: useMm ? aLine.y1Norm : (aLine.y1Norm / 100) * startPlotH,
-      x2Px: useMm ? aLine.x2Norm : (aLine.x2Norm / 100) * startPlotW,
-      y2Px: useMm ? aLine.y2Norm : (aLine.y2Norm / 100) * startPlotH,
-    }
-  })
 
   activeDrag = {
     svg,
@@ -3928,7 +3935,6 @@ export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, 
     startWidth: curW,
     startHeight: curH,
     initialItemPositions,
-    initialAnnotationPositions,
   }
   document.body.style.userSelect = 'none'
 }
@@ -4344,10 +4350,17 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
             const heightPx = parseFloat(legendItem.svg.style.height) || 350
             const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
             const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const smpDoc = getPlotSmpDoc(legendItem.svg)
+            const docWidthMm = ((smpDoc?.width || 10000) / 100) || 100
+            const docHeightMm = ((smpDoc?.height || 10000) / 100) || 100
             const posXEl = titleOverlayEl.querySelector<HTMLInputElement>('#titlePosX')
             const posYEl = titleOverlayEl.querySelector<HTMLInputElement>('#titlePosY')
-            if (posXEl) posXEl.value = String(Math.round((legendItem.startXNorm! + (dx / plotW) * 10000) / 100))
-            if (posYEl) posYEl.value = String(Math.round((legendItem.startYNorm! + (dy / plotH) * 10000) / 100))
+            if (posXEl) {
+              posXEl.value = String(Math.round((((legendItem.startXNorm! + (dx / plotW) * 10000) / 10000) * docWidthMm)))
+            }
+            if (posYEl) {
+              posYEl.value = String(Math.round((((legendItem.startYNorm! + (dy / plotH) * 10000) / 10000) * docHeightMm)))
+            }
           }
         }
       } else {
@@ -4461,24 +4474,9 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
         })
       }
 
-      if (smpDoc && currentDrag.initialAnnotationPositions && smpDoc.annotationLines) {
-        smpDoc.annotationLines.forEach((aLine, idx) => {
-          const initPos = currentDrag.initialAnnotationPositions?.[idx]
-          if (initPos) {
-            if (initPos.useMm && initPos.x1Norm !== undefined && initPos.y1Norm !== undefined && initPos.x2Norm !== undefined && initPos.y2Norm !== undefined) {
-              aLine.x1Norm = initPos.x1Norm
-              aLine.y1Norm = initPos.y1Norm
-              aLine.x2Norm = initPos.x2Norm
-              aLine.y2Norm = initPos.y2Norm
-            } else {
-              aLine.x1Norm = (initPos.x1Px / newPlotW) * 100
-              aLine.y1Norm = (initPos.y1Px / newPlotH) * 100
-              aLine.x2Norm = (initPos.x2Px / newPlotW) * 100
-              aLine.y2Norm = (initPos.y2Px / newPlotH) * 100
-            }
-          }
-        })
-      }
+      // Annotations are frame-relative mm; resizing the plot leaves them
+      // untouched (they scale with the frame).
+      syncDocGeometry(currentDrag.svg)
 
       if (ds) drawPlot(currentDrag.svg, ds, newWidth, newHeight)
       rafId = null
