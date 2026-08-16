@@ -949,7 +949,7 @@ body.os-mac .titlebar {
   mask: var(--icon-url) center / contain no-repeat;
 }
 
-.icon-chart-dots { --icon-url: url('/icons/chart-dots.svg'); }
+.icon-photo-sensor-3 { --icon-url: url('/icons/photo-sensor-3.svg'); }
 .icon-menu { --icon-url: url('/icons/menu.svg'); }
 .icon-minus { --icon-url: url('/icons/minus.svg'); }
 .icon-plus { --icon-url: url('/icons/plus.svg'); }
