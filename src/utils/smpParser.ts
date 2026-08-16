@@ -261,6 +261,19 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         let markerSize = 3
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
+          // First token of the symbol line is the Sma4Win pen style code:
+          // 1=solid, 2=dash, 3=dot, 4=dash-dot, 5=dash-dot-dot, 6=face.
+          if (parts.length >= 1) {
+            const penCode = parseInt(parts[0], 10)
+            if (!isNaN(penCode)) {
+              if (penCode === 2) lineType = 'dash'
+              else if (penCode === 3) lineType = 'dotted'
+              else if (penCode === 4) lineType = 'dash_dot'
+              else if (penCode === 5) lineType = 'dash_dot_dot'
+              else if (penCode === 6) lineType = 'face'
+              else lineType = 'solid'
+            }
+          }
           if (parts.length >= 2) {
             const symCode = parseInt(parts[1], 10)
             if (!isNaN(symCode)) {

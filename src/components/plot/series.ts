@@ -36,10 +36,9 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const dotSize = opts.size || 3
     const plotType = opts.plotType || 'no_dot'
     const lineType = opts.lineType || 'solid'
-    const brush = opts.brush || opts.lineStyle || 'solid'
 
     // Line style dash array handling for exact Sma4Win line types
-    const dashArray = getLineDashArray(lineType, brush)
+    const dashArray = getLineDashArray(lineType)
 
     if (plotType === 'bar') {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))
@@ -76,7 +75,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
           const areaPath = createSVGElement('path')
           areaPath.setAttribute('d', areaPathD)
           areaPath.setAttribute('fill', strokeColor)
-          areaPath.setAttribute('fill-opacity', '0.35')
           areaPath.setAttribute('stroke', 'none')
           dsScaleGroup.appendChild(areaPath)
         }

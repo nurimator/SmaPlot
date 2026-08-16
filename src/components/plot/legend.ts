@@ -142,9 +142,8 @@ export function renderLegend(ctx: PlotRenderContext): void {
           const legWidthMm = ds?.options?.width ?? (ds?.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
           legLine.setAttribute('stroke-width', String(Math.max(0.4, Number((legWidthMm * scaleX).toFixed(2)))))
 
-          const brush = ds?.options?.brush || ds?.options?.lineStyle || 'solid'
           const lineType = ds?.options?.lineType || 'solid'
-          const dashArray = getLineDashArray(lineType, brush)
+          const dashArray = getLineDashArray(lineType)
           if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
 
           legLine.style.cursor = isSelected ? 'move' : 'pointer'

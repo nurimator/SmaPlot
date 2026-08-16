@@ -3,15 +3,15 @@ import { createSVGElement, starPoints } from './svg.ts'
 
 // Dash-array pattern shared by the data series, legend line samples, and the
 // Data Manager series icon. Returns 'none' when the line is solid.
-export function getLineDashArray(lineType: string | undefined, brush: string | undefined): string {
+export function getLineDashArray(lineType: string | undefined): string {
   let dashArray = 'none'
-  if (lineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
+  if (lineType === 'dotted') {
     dashArray = '2 2'
   } else if (lineType === 'dash_dot') {
     dashArray = '6 3 2 3'
   } else if (lineType === 'dash_dot_dot') {
     dashArray = '6 3 2 3 2 3'
-  } else if (brush === 'dash' || brush === 'dashed') {
+  } else if (lineType === 'dash' || lineType === 'dashed') {
     dashArray = '6 3'
   }
   return dashArray
@@ -145,9 +145,8 @@ export function createSeriesIcon(ds: Dataset): SVGSVGElement {
   line.setAttribute('stroke-width', String(Math.max(1, Number((widthMm * 2).toFixed(2)))))
   line.setAttribute('stroke-linecap', 'round')
 
-  const brush = ds.options?.brush || ds.options?.lineStyle || 'solid'
   const lineType = ds.options?.lineType || 'solid'
-  const dashArray = getLineDashArray(lineType, brush)
+  const dashArray = getLineDashArray(lineType)
   if (dashArray !== 'none') line.setAttribute('stroke-dasharray', dashArray)
   svg.appendChild(line)
 

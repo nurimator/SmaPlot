@@ -159,7 +159,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     if (!sampleLine) return
     const color = lineColor?.value || '#10b981'
     const width = widthInput?.value || '1'
-    const brush = brushSelect?.value || 'solid'
     const currentLineType = lineType?.value || 'solid'
 
     sampleLine.style.backgroundColor = color
@@ -169,9 +168,9 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
       sampleLine.style.display = 'none'
     } else {
       sampleLine.style.display = 'block'
-      if (currentLineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
+      if (currentLineType === 'dotted') {
         sampleLine.style.borderStyle = 'dotted'
-      } else if (currentLineType === 'dash_dot' || currentLineType === 'dash_dot_dot' || brush === 'dash' || brush === 'dashed') {
+      } else if (currentLineType === 'dash' || currentLineType === 'dashed' || currentLineType === 'dash_dot' || currentLineType === 'dash_dot_dot') {
         sampleLine.style.borderStyle = 'dashed'
       } else {
         sampleLine.style.borderStyle = 'none'
@@ -346,7 +345,8 @@ export function showPropertyDialog(
     if (sizeInput) sizeInput.value = String(existingOpts.size || 3)
     if (widthInput) widthInput.value = String(existingOpts.width ?? (dataset?.smpSeriesStylePrefix ? dataset.smpSeriesStylePrefix / 100 : 0.6))
     if (pitchInput) pitchInput.value = String(existingOpts.pitch || 1)
-    if (brushSelect) brushSelect.value = existingOpts.brush || 'filled'
+    const validBrushes = ['filled', 'empty', 'white', 'hatch1', 'hatch2', 'hatch3', 'hatch4', 'hatch5', 'hatch6']
+    if (brushSelect) brushSelect.value = validBrushes.includes(existingOpts.brush || '') ? existingOpts.brush! : 'filled'
 
     if (xTransCheck) xTransCheck.checked = !!existingOpts.xTransCheck
     if (xTransExpr) xTransExpr.value = existingOpts.xExpr || 'x'

@@ -53,7 +53,7 @@ const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
 // --- Series spec record lines ---------------------------------------------
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
 const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
-const SERIES_SYMBOL_LINE = (sym: number, size: number, color: number): string => `1 ${sym} ${size} ${color}`
+const SERIES_SYMBOL_LINE = (pen: number, sym: number, size: number, color: number): string => `${pen} ${sym} ${size} ${color}`
 const SERIES_FILL_LINE = (fillBgr: number): string => `0 0 1 0 0 0 ${fillBgr} 5`
 const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 : 0} 0`
 const SERIES_ZEROS_LINE = '0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
@@ -106,6 +106,18 @@ function plotTypeToCode(pt?: string): number {
   }
 }
 
+function lineTypeToCode(lt?: string): number {
+  switch (lt) {
+    case 'dash':
+    case 'dashed': return 2
+    case 'dotted': return 3
+    case 'dash_dot': return 4
+    case 'dash_dot_dot': return 5
+    case 'face': return 6
+    default: return 1
+  }
+}
+
 function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
   const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || COLOR_BLACK_HEX)
@@ -126,7 +138,7 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
     ds.filePath || `${SMP_FALLBACK_DIR}${cleanName}.txt`,
     SERIES_COUNT_LINE(pointCount),
     SERIES_STYLE_LINE(stylePrefix, bgrColor),
-    SERIES_SYMBOL_LINE(symCode, sizeVal, dotColorBgr),
+    SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
     fillLine,
     exprFlag,
     xExpr,
