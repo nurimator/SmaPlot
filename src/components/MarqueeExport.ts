@@ -1,5 +1,10 @@
 import { showContextMenu, hideContextMenu } from './ContextMenu.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
+import { getCurrentProjectFileName } from '../utils/projectState.ts'
+
+function getExportBaseName(): string {
+  return getCurrentProjectFileName().replace(/\.SMP$/i, '')
+}
 
 let activeMarqueeBox: HTMLElement | null = null
 let currentMarqueeBounds: { left: number; top: number; width: number; height: number } | null = null
@@ -237,6 +242,10 @@ export function downloadSvgFile(svgString: string, fileName = 'marquee-export.sv
   URL.revokeObjectURL(url)
 }
 
+function stripNonScalingStroke(svgString: string): string {
+  return svgString.replace(/\s*vector-effect="non-scaling-stroke"/g, '')
+}
+
 export async function downloadPngFile(
   svgString: string,
   width: number,
@@ -246,7 +255,9 @@ export async function downloadPngFile(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image()
-    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    // vector-effect keeps strokes at 1x screen width; when rasterizing at high
+    // scale they must scale with the image or the plot lines end up paper-thin.
+    const svgBlob = new Blob([stripNonScalingStroke(svgString)], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
     img.onload = () => {
       const canvas = document.createElement('canvas')
@@ -277,6 +288,55 @@ export async function downloadPngFile(
         URL.revokeObjectURL(pngUrl)
         resolve(true)
       }, 'image/png')
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(false)
+    }
+    img.src = url
+  })
+}
+
+export async function downloadJpgFile(
+  svgString: string,
+  width: number,
+  height: number,
+  fileName = 'marquee-export.jpg',
+  scale = 2
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const svgBlob = new Blob([stripNonScalingStroke(svgString)], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(width * scale))
+      canvas.height = Math.max(1, Math.round(height * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        resolve(false)
+        return
+      }
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          resolve(false)
+          return
+        }
+        const jpgUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = jpgUrl
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(jpgUrl)
+        resolve(true)
+      }, 'image/jpeg')
     }
     img.onerror = () => {
       URL.revokeObjectURL(url)
@@ -435,7 +495,7 @@ export function initMarqueeExport(
     if (!currentMarqueeBounds) return
     const { left, top, width, height } = currentMarqueeBounds
     const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
-    downloadSvgFile(svgCode, 'marquee-export.svg')
+    downloadSvgFile(svgCode, `${getExportBaseName()}.svg`)
     if (statusFileTextEl) {
       statusFileTextEl.textContent = 'SVG marquee selection exported!'
     }
@@ -448,9 +508,21 @@ export function initMarqueeExport(
     const { left, top, width, height } = currentMarqueeBounds
     const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
     // Scale 10: 1 canvas major grid (100 CSS px) -> 1000 PNG px (~960 DPI).
-    const success = await downloadPngFile(svgCode, width, height, 'marquee-export.png', 10)
+    const success = await downloadPngFile(svgCode, width, height, `${getExportBaseName()}.png`, 10)
     if (success && statusFileTextEl) {
       statusFileTextEl.textContent = 'PNG marquee selection exported!'
+    }
+    hideMarqueeExport(marqueeCtxMenuEl)
+  })
+
+  const exportJpgBtn = marqueeCtxMenuEl.querySelector('#marqueeExportJpgBtn') || marqueeCtxMenuEl.querySelector('[data-ctx="export_jpg_marquee"]')
+  exportJpgBtn?.addEventListener('click', async () => {
+    if (!currentMarqueeBounds) return
+    const { left, top, width, height } = currentMarqueeBounds
+    const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
+    const success = await downloadJpgFile(svgCode, width, height, `${getExportBaseName()}.jpg`, 10)
+    if (success && statusFileTextEl) {
+      statusFileTextEl.textContent = 'JPG marquee selection exported!'
     }
     hideMarqueeExport(marqueeCtxMenuEl)
   })
