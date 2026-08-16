@@ -17,11 +17,11 @@ export function generateMarqueeSvg(
   masterSvg.setAttribute('viewBox', `${mLeft} ${mTop} ${mWidth} ${mHeight}`)
   masterSvg.setAttribute('width', `${Math.round(mWidth)}`)
   masterSvg.setAttribute('height', `${Math.round(mHeight)}`)
-  masterSvg.setAttribute('shape-rendering', 'crispEdges')
+  masterSvg.setAttribute('shape-rendering', 'geometricPrecision')
 
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
   const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style')
-  styleEl.textContent = 'path, line, polyline, polygon, rect, circle, ellipse { shape-rendering: crispEdges; }'
+  styleEl.textContent = 'path, line, polyline, polygon, rect, circle, ellipse { shape-rendering: geometricPrecision; }'
   defs.appendChild(styleEl)
   masterSvg.appendChild(defs)
 
@@ -55,7 +55,7 @@ export function generateMarqueeSvg(
       clone.setAttribute('width', `${widthPx}`)
       clone.setAttribute('height', `${heightPx}`)
       clone.setAttribute('overflow', 'visible')
-      clone.setAttribute('shape-rendering', 'crispEdges')
+      clone.setAttribute('shape-rendering', 'geometricPrecision')
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
 
@@ -75,7 +75,7 @@ export function generateMarqueeSvg(
 
       const allShapes = clone.querySelectorAll('path, line, polyline, polygon, rect, circle, ellipse, g')
       allShapes.forEach((s) => {
-        s.setAttribute('shape-rendering', 'crispEdges')
+        s.setAttribute('shape-rendering', 'geometricPrecision')
       })
 
       const handles = clone.querySelectorAll('.handle, [data-dir]')
@@ -225,6 +225,67 @@ export async function copySvgToClipboard(svgString: string): Promise<boolean> {
   return false
 }
 
+export function downloadSvgFile(svgString: string, fileName = 'marquee-export.svg'): void {
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadPngFile(
+  svgString: string,
+  width: number,
+  height: number,
+  fileName = 'marquee-export.png',
+  scale = 2
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(width * scale))
+      canvas.height = Math.max(1, Math.round(height * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        resolve(false)
+        return
+      }
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          resolve(false)
+          return
+        }
+        const pngUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = pngUrl
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(pngUrl)
+        resolve(true)
+      }, 'image/png')
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(false)
+    }
+    img.src = url
+  })
+}
+
 export function hideMarqueeExport(marqueeCtxMenuEl?: HTMLElement | null): void {
   if (activeMarqueeBox) {
     activeMarqueeBox.remove()
@@ -365,6 +426,31 @@ export function initMarqueeExport(
     const success = await copySvgToClipboard(svgCode)
     if (success && statusFileTextEl) {
       statusFileTextEl.textContent = 'SVG marquee selection copied to clipboard!'
+    }
+    hideMarqueeExport(marqueeCtxMenuEl)
+  })
+
+  const exportSvgBtn = marqueeCtxMenuEl.querySelector('#marqueeExportSvgBtn') || marqueeCtxMenuEl.querySelector('[data-ctx="export_svg_marquee"]')
+  exportSvgBtn?.addEventListener('click', () => {
+    if (!currentMarqueeBounds) return
+    const { left, top, width, height } = currentMarqueeBounds
+    const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
+    downloadSvgFile(svgCode, 'marquee-export.svg')
+    if (statusFileTextEl) {
+      statusFileTextEl.textContent = 'SVG marquee selection exported!'
+    }
+    hideMarqueeExport(marqueeCtxMenuEl)
+  })
+
+  const exportPngBtn = marqueeCtxMenuEl.querySelector('#marqueeExportPngBtn') || marqueeCtxMenuEl.querySelector('[data-ctx="export_png_marquee"]')
+  exportPngBtn?.addEventListener('click', async () => {
+    if (!currentMarqueeBounds) return
+    const { left, top, width, height } = currentMarqueeBounds
+    const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
+    // Scale 10: 1 canvas major grid (100 CSS px) -> 1000 PNG px (~960 DPI).
+    const success = await downloadPngFile(svgCode, width, height, 'marquee-export.png', 10)
+    if (success && statusFileTextEl) {
+      statusFileTextEl.textContent = 'PNG marquee selection exported!'
     }
     hideMarqueeExport(marqueeCtxMenuEl)
   })
