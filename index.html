@@ -346,7 +346,7 @@
                 <div class="prop-grid-2col">
                   <!-- X(U) Column & Error Bar Radios -->
                   <div class="col-field-group">
-                    <label class="form-field-label">X(U) Column</label>
+                    <label class="title-field-label">X(U) Column</label>
                     <select id="propXColumn" class="form-select full-width">
                       <option value="1" selected>Col 1</option>
                       <option value="2">Col 2</option>
@@ -361,7 +361,7 @@
 
                   <!-- Y(R) Column & Error Bar Radios -->
                   <div class="col-field-group">
-                    <label class="form-field-label">Y(R) Column</label>
+                    <label class="title-field-label">Y(R) Column</label>
                     <select id="propYColumn" class="form-select full-width">
                       <option value="1">Col 1</option>
                       <option value="2" selected>Col 2</option>
@@ -406,7 +406,7 @@
                 <!-- Row 1: Plot type & Line type (2-Column Grid) -->
                 <div class="prop-grid-2col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label" for="propPlotType">Plot type</label>
+                    <label class="title-field-label" for="propPlotType">Plot type</label>
                     <select id="propPlotType" class="form-select full-width">
                       <option value="no_dot" selected>No Dot</option>
                       <option value="circle">circle</option>
@@ -420,7 +420,7 @@
                     </select>
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label" for="propLineType">Line type</label>
+                    <label class="title-field-label" for="propLineType">Line type</label>
                     <select id="propLineType" class="form-select full-width">
                       <option value="no_line">No Line</option>
                       <option value="solid" selected>Solid</option>
@@ -435,15 +435,15 @@
                 <!-- Row 2: 3-Column Color Pickers (Dot color, Paint, Line) -->
                 <div class="prop-grid-3col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Dot color</label>
+                    <label class="title-field-label">Dot color</label>
                     <input type="color" id="propDotColor" value="#000000" class="color-picker-box full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Paint</label>
+                    <label class="title-field-label">Paint</label>
                     <input type="color" id="propPaintColor" value="#ffffff" class="color-picker-box full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Line</label>
+                    <label class="title-field-label">Line</label>
                     <input type="color" id="propLineColor" value="#10b981" class="color-picker-box full-width" />
                   </div>
                 </div>
@@ -451,15 +451,15 @@
                 <!-- Row 3: 3-Column Numeric Inputs (Size, Width, Pitch) -->
                 <div class="prop-grid-3col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Size</label>
+                    <label class="title-field-label">Size</label>
                     <input type="number" id="propSizeInput" value="3" min="1" max="20" class="form-input-num full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Width</label>
+                    <label class="title-field-label">Width</label>
                     <input type="number" id="propWidthInput" value="0.6" min="0.1" max="20" step="0.1" class="form-input-num full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Pitch</label>
+                    <label class="title-field-label">Pitch</label>
                     <input type="number" id="propPitchInput" value="1" min="1" max="10" class="form-input-num full-width" />
                   </div>
                 </div>
@@ -467,7 +467,7 @@
                 <!-- Row 4: Brush & Line Sample Preview (2-Column Grid) -->
                 <div class="prop-grid-2col align-end">
                   <div class="form-field-stacked">
-                    <label class="form-field-label" for="propBrushSelect">Brush</label>
+                    <label class="title-field-label" for="propBrushSelect">Brush</label>
                     <select id="propBrushSelect" class="form-select full-width">
                       <option value="filled" selected>filled</option>
                       <option value="solid">solid</option>
@@ -476,7 +476,7 @@
                     </select>
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Sample Preview</label>
+                    <label class="title-field-label">Sample Preview</label>
                     <div class="line-sample-preview-box" id="propLineSamplePreview">
                       <div class="sample-line" id="sampleLineElement"></div>
                     </div>
@@ -578,21 +578,21 @@
                 </div>
                 <div class="prop-grid-2col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">From:</label>
+                    <label class="title-field-label">From:</label>
                     <input type="number" id="axisFrom" value="0" class="form-input-num full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Increment:</label>
+                    <label class="title-field-label">Increment:</label>
                     <input type="number" id="axisIncrement" value="20" class="form-input-num full-width" />
                   </div>
                 </div>
                 <div class="prop-grid-2col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">To:</label>
+                    <label class="title-field-label">To:</label>
                     <input type="number" id="axisTo" value="100" class="form-input-num full-width" />
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Division:</label>
+                    <label class="title-field-label">Division:</label>
                     <input type="number" id="axisDivision" value="5" min="1" max="20" class="form-input-num full-width" />
                   </div>
                 </div>
@@ -621,9 +621,9 @@
                   <div class="axis-tick-row">
                     <label class="checkbox-label"><input type="checkbox" id="axisMajorIn" checked /> in</label>
                     <label class="checkbox-label"><input type="checkbox" id="axisMajorOut" /> out</label>
-                    <label class="form-field-label" style="margin-left: 8px;">Color</label>
+                    <label class="title-field-label" style="margin-left: 8px;">Color</label>
                     <input type="color" id="axisMajorColor" value="#000000" class="color-picker-box" />
-                    <label class="form-field-label">width</label>
+                    <label class="title-field-label">width</label>
                     <input type="number" id="axisMajorWidth" value="0.4" step="0.1" class="form-input-num width-sm" />
                   </div>
                   <div class="axis-tick-row">
@@ -632,21 +632,21 @@
                       <option value="dashed" selected>Dashed</option>
                       <option value="dotted">Dotted</option>
                     </select>
-                    <label class="form-field-label">Pitch</label>
+                    <label class="title-field-label">Pitch</label>
                     <input type="number" id="axisMajorPitch" value="3" class="form-input-num width-sm" />
-                    <label class="form-field-label">length</label>
+                    <label class="title-field-label">length</label>
                     <input type="number" id="axisMajorLength" value="3" class="form-input-num width-sm" />
                   </div>
                   <div class="axis-tick-row">
                     <label class="checkbox-label"><input type="checkbox" id="axisDrawLimitation" /> draw limitation</label>
                   </div>
                   <div class="axis-tick-row">
-                    <span class="form-field-label">draw range(%)</span>
+                    <span class="title-field-label">draw range(%)</span>
                     <input type="number" id="axisRangeMin" value="0" class="form-input-num width-sm" /> -
                     <input type="number" id="axisRangeMax" value="100" class="form-input-num width-sm" />
                   </div>
                   <div class="axis-tick-row align-center">
-                    <span class="form-field-label">crossing point</span>
+                    <span class="title-field-label">crossing point</span>
                     <select id="axisCrossingPoint" class="form-select width-md">
                       <option value="auto" selected>Auto</option>
                       <option value="zero">Zero</option>
@@ -659,9 +659,9 @@
                   <div class="axis-tick-row">
                     <label class="checkbox-label"><input type="checkbox" id="axisMinorIn" checked /> in</label>
                     <label class="checkbox-label"><input type="checkbox" id="axisMinorOut" /> out</label>
-                    <label class="form-field-label" style="margin-left: 8px;">Color</label>
+                    <label class="title-field-label" style="margin-left: 8px;">Color</label>
                     <input type="color" id="axisMinorColor" value="#000000" class="color-picker-box" />
-                    <label class="form-field-label">width</label>
+                    <label class="title-field-label">width</label>
                     <input type="number" id="axisMinorWidth" value="0.4" step="0.1" class="form-input-num width-sm" />
                   </div>
                   <div class="axis-tick-row">
@@ -670,9 +670,9 @@
                       <option value="solid">Solid</option>
                       <option value="dashed">Dashed</option>
                     </select>
-                    <label class="form-field-label">Pitch</label>
+                    <label class="title-field-label">Pitch</label>
                     <input type="number" id="axisMinorPitch" value="3" class="form-input-num width-sm" />
-                    <label class="form-field-label">length</label>
+                    <label class="title-field-label">length</label>
                     <input type="number" id="axisMinorLength" value="1.5" step="0.5" class="form-input-num width-sm" />
                   </div>
                 </fieldset>
@@ -695,7 +695,7 @@
 
                 <div class="prop-grid-2col" style="margin-top: 8px;">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Font</label>
+                    <label class="title-field-label">Font</label>
                     <select id="axisFontFamily" class="form-select full-width">
                       <option value="Times New Roman" selected>Times New Roman</option>
                       <option value="Inter, sans-serif">Inter</option>
@@ -705,14 +705,14 @@
                     </select>
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Color</label>
+                    <label class="title-field-label">Color</label>
                     <input type="color" id="axisLabelColor" value="#000000" class="color-picker-box full-width" />
                   </div>
                 </div>
 
                 <div class="prop-grid-2col">
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Style</label>
+                    <label class="title-field-label">Style</label>
                     <select id="axisFontStyle" class="form-select full-width">
                       <option value="regular" selected>Regular</option>
                       <option value="bold">Bold</option>
@@ -720,30 +720,30 @@
                     </select>
                   </div>
                   <div class="form-field-stacked">
-                    <label class="form-field-label">Size</label>
+                    <label class="title-field-label">Size</label>
                     <input type="number" id="axisFontSize" value="24" min="6" max="72" class="form-input-num full-width" />
                   </div>
                 </div>
 
                 <div class="axis-tick-row" style="margin-top: 6px;">
-                  <span class="form-field-label">Shift</span>
-                  <span class="form-field-label" style="margin-left: 12px;">right</span>
+                  <span class="title-field-label">Shift</span>
+                  <span class="title-field-label" style="margin-left: 12px;">right</span>
                   <input type="number" id="axisShiftRight" value="0" class="form-input-num width-sm" />
-                  <span class="form-field-label">down</span>
+                  <span class="title-field-label">down</span>
                   <input type="number" id="axisShiftDown" value="1" class="form-input-num width-sm" />
                 </div>
                 <div class="axis-tick-row">
-                  <span class="form-field-label">label</span>
+                  <span class="title-field-label">label</span>
                   <input type="number" id="axisLabel1" value="1" class="form-input-num width-sm" />
-                  <span class="form-field-label">label</span>
+                  <span class="title-field-label">label</span>
                   <input type="number" id="axisLabel2" value="-1" class="form-input-num width-sm" />
-                  <span class="form-field-label">interval</span>
+                  <span class="title-field-label">interval</span>
                   <input type="number" id="axisInterval" value="1" class="form-input-num width-sm" />
                 </div>
                 <div class="axis-tick-row">
-                  <span class="form-field-label">figures</span>
+                  <span class="title-field-label">figures</span>
                   <input type="number" id="axisFigures" value="5" class="form-input-num width-sm" />
-                  <span class="form-field-label">decimals</span>
+                  <span class="title-field-label">decimals</span>
                   <input type="number" id="axisDecimals" value="5" class="form-input-num width-sm" />
                 </div>
               </div>
@@ -773,25 +773,25 @@
 
           <div class="title-grid-row">
             <div class="title-col-left">
-              <div class="title-inline-group">
+              <div class="title-checkbox-row">
+                <label class="checkbox-label"><input type="checkbox" id="titleHideBg" /> hide background</label>
+              </div>
+
+              <div class="title-inline-group" style="margin-top: 6px;">
                 <label for="titleRotate">Rotate</label>
-                <select id="titleRotate" class="form-select width-sm">
+                <select id="titleRotate" class="form-select" style="flex: 1; min-width: 0;">
                   <option value="0" selected>0</option>
                   <option value="90">90</option>
                   <option value="180">180</option>
                   <option value="270">270</option>
                 </select>
-                <span style="margin: 0 4px;">x</span>
-                <input type="number" id="titlePosX" class="form-input-num width-sm" value="0" />
               </div>
 
               <div class="title-inline-group" style="margin-top: 4px;">
-                <span style="margin-left: 54px; margin-right: 4px;">y</span>
-                <input type="number" id="titlePosY" class="form-input-num width-sm" value="0" />
-              </div>
-
-              <div class="title-checkbox-row" style="margin-top: 8px;">
-                <label class="checkbox-label"><input type="checkbox" id="titleHideBg" /> hide background</label>
+                <span>x</span>
+                <input type="number" id="titlePosX" class="form-input-num" style="flex: 1; min-width: 0;" value="0" />
+                <span>y</span>
+                <input type="number" id="titlePosY" class="form-input-num" style="flex: 1; min-width: 0;" value="0" />
               </div>
 
               <fieldset class="title-alignment-fieldset" style="margin-top: 6px;">
@@ -840,7 +840,7 @@
               <div class="title-font-grid" style="margin-top: 6px;">
                 <div class="form-field-stacked">
                   <label class="title-field-label">Style</label>
-                  <select id="titleStyle" class="form-select width-md">
+                  <select id="titleStyle" class="form-select" style="flex: 1; min-width: 0;">
                     <option value="Regular" selected>Regular</option>
                     <option value="Bold">Bold</option>
                     <option value="Italic">Italic</option>
@@ -849,7 +849,7 @@
                 </div>
                 <div class="form-field-stacked">
                   <label class="title-field-label">Color</label>
-                  <input type="color" id="titleColor" value="#000000" class="color-picker-box" />
+                  <input type="color" id="titleColor" value="#000000" class="color-picker-box full-width" />
                 </div>
               </div>
 
@@ -922,12 +922,12 @@
               <span style="margin-left: 28px;">Y</span>
             </div>
             <div class="arrow-xy-row" style="display: flex; align-items: center; gap: 8px;">
-              <span class="form-field-label" style="width: 42px;">Start</span>
+              <span class="title-field-label" style="width: 42px;">Start</span>
               <input type="number" id="arrowXStartInput" value="18" class="form-input-num width-sm" />
               <input type="number" id="arrowYStartInput" value="92" class="form-input-num width-sm" />
             </div>
             <div class="arrow-xy-row" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-              <span class="form-field-label" style="width: 42px;">End</span>
+              <span class="title-field-label" style="width: 42px;">End</span>
               <input type="number" id="arrowXEndInput" value="18" class="form-input-num width-sm" />
               <input type="number" id="arrowYEndInput" value="20" class="form-input-num width-sm" />
             </div>
@@ -1062,7 +1062,7 @@
           
           <!-- Data Point Index Status -->
           <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 0;">
-            <span class="form-field-label">Data Point Index</span>
+            <span class="title-field-label">Data Point Index</span>
             <span style="font-size: 12px; font-weight: 600; color: var(--slate-800);" id="rvIndexVal">1/100</span>
           </div>
 
