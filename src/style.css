@@ -1040,10 +1040,9 @@ body.os-mac .titlebar {
   font-weight: 600;
 }
 
-.dm-line-indicator {
-  width: 16px;
-  height: 3px;
-  border-radius: 2px;
+.dm-series-icon {
+  width: 24px;
+  height: 14px;
   flex-shrink: 0;
 }
 

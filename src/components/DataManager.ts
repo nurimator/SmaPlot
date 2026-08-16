@@ -1,6 +1,5 @@
 import type { Dataset } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
-import { openColorPicker } from './ColorPickerDialog.ts'
 
 export class DataManager {
   private datasets: Dataset[] = []
@@ -25,13 +24,6 @@ export class DataManager {
   public removeDataset(index: number): void {
     if (index >= 0 && index < this.datasets.length) {
       this.datasets.splice(index, 1)
-      this.notify()
-    }
-  }
-
-  public updateDatasetColor(index: number, color: string): void {
-    if (this.datasets[index]) {
-      this.datasets[index].color = color
       this.notify()
     }
   }
@@ -77,6 +69,91 @@ function refreshDataManagerList(): void {
   })
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+// Legend-style series icon: line sample (color + dash pattern) with the plot
+// marker shape on top, mirroring the legend rendering in Plot.ts. Purely
+// visual — not clickable.
+function createSeriesIcon(ds: Dataset): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('class', 'dm-series-icon')
+  svg.setAttribute('viewBox', '0 0 24 14')
+  svg.setAttribute('aria-hidden', 'true')
+
+  const color = ds.options?.lineColor || ds.color || '#000000'
+  const cx = 12
+  const cy = 7
+
+  const line = document.createElementNS(SVG_NS, 'line')
+  line.setAttribute('x1', '2')
+  line.setAttribute('y1', String(cy))
+  line.setAttribute('x2', '22')
+  line.setAttribute('y2', String(cy))
+  line.setAttribute('stroke', color)
+  const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
+  line.setAttribute('stroke-width', String(Math.max(1, Number((widthMm * 2).toFixed(2)))))
+  line.setAttribute('stroke-linecap', 'round')
+
+  const brush = ds.options?.brush || ds.options?.lineStyle || 'solid'
+  const lineType = ds.options?.lineType || 'solid'
+  let dashArray = 'none'
+  if (lineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
+    dashArray = '2 2'
+  } else if (lineType === 'dash_dot') {
+    dashArray = '6 3 2 3'
+  } else if (lineType === 'dash_dot_dot') {
+    dashArray = '6 3 2 3 2 3'
+  } else if (brush === 'dash' || brush === 'dashed') {
+    dashArray = '6 3'
+  }
+  if (dashArray !== 'none') line.setAttribute('stroke-dasharray', dashArray)
+  svg.appendChild(line)
+
+  const plotType = ds.options?.plotType || 'no_dot'
+  if (plotType !== 'no_dot' && plotType !== 'none') {
+    const dotColor = ds.options?.dotColor || color
+    const paintColor = ds.options?.paintColor || '#ffffff'
+    const r = Math.min(5.5, Math.max(3, ds.options?.size || 3.5))
+
+    if (plotType === 'circle' || plotType === 'filled_circle') {
+      const circle = document.createElementNS(SVG_NS, 'circle')
+      circle.setAttribute('cx', String(cx))
+      circle.setAttribute('cy', String(cy))
+      circle.setAttribute('r', String(r))
+      circle.setAttribute('fill', plotType === 'filled_circle' ? dotColor : 'none')
+      circle.setAttribute('stroke', plotType === 'filled_circle' ? paintColor : dotColor)
+      circle.setAttribute('stroke-width', '1')
+      svg.appendChild(circle)
+    } else if (plotType === 'square' || plotType === 'filled_square') {
+      const rect = document.createElementNS(SVG_NS, 'rect')
+      rect.setAttribute('x', String(cx - r))
+      rect.setAttribute('y', String(cy - r))
+      rect.setAttribute('width', String(r * 2))
+      rect.setAttribute('height', String(r * 2))
+      rect.setAttribute('fill', plotType === 'filled_square' ? dotColor : 'none')
+      rect.setAttribute('stroke', plotType === 'filled_square' ? paintColor : dotColor)
+      rect.setAttribute('stroke-width', '1')
+      svg.appendChild(rect)
+    } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
+      const poly = document.createElementNS(SVG_NS, 'polygon')
+      poly.setAttribute('points', `${cx},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy + r}`)
+      poly.setAttribute('fill', plotType === 'filled_triangle' ? dotColor : 'none')
+      poly.setAttribute('stroke', plotType === 'filled_triangle' ? paintColor : dotColor)
+      poly.setAttribute('stroke-width', '1')
+      svg.appendChild(poly)
+    } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
+      const poly = document.createElementNS(SVG_NS, 'polygon')
+      poly.setAttribute('points', `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`)
+      poly.setAttribute('fill', plotType === 'filled_diamond' ? dotColor : 'none')
+      poly.setAttribute('stroke', plotType === 'filled_diamond' ? paintColor : dotColor)
+      poly.setAttribute('stroke-width', '1')
+      svg.appendChild(poly)
+    }
+  }
+
+  return svg
+}
+
 export function renderDataManagerListBox(
   listBoxEl: HTMLElement,
   datasets: Dataset[],
@@ -99,24 +176,8 @@ export function renderDataManagerListBox(
     item.className = `dm-list-item${idx === 0 ? ' selected' : ''}`
     const identifier = ds.filePath || ds.fileName || `${ds.name}.txt`
     item.setAttribute('data-filename', identifier)
-    item.setAttribute('data-color', ds.color)
 
-    const indicator = document.createElement('span')
-    indicator.className = 'dm-line-indicator'
-    indicator.style.backgroundColor = ds.color
-    indicator.style.cursor = 'pointer'
-    indicator.title = 'Click to customize color'
-    indicator.addEventListener('click', (e) => {
-      e.stopPropagation()
-      openColorPicker({
-        initialColor: ds.color,
-        onSelect: (newColor) => {
-          globalDataManager.updateDatasetColor(idx, newColor)
-          indicator.style.backgroundColor = newColor
-          item.setAttribute('data-color', newColor)
-        },
-      })
-    })
+    const indicator = createSeriesIcon(ds)
 
     const text = document.createElement('span')
     text.className = 'dm-item-text'
