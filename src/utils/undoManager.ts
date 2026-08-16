@@ -105,7 +105,7 @@ export function captureWorkspaceSnapshot(): WorkspaceSnapshot {
 
 // Snapshot is only pushed when the digest differs from the top of the stack, so
 // no-op interactions (e.g. a handle click without movement) don't create phantom
-// undo steps. Keep captureWorkspaceDigest in Plot.ts in sync when adding mutators.
+// undo steps. Keep captureWorkspaceDigest in plot/smpDoc.ts in sync when adding mutators.
 export function pushUndoState(): void {
   if (isApplyingState) return
   const digest = captureWorkspaceDigest()

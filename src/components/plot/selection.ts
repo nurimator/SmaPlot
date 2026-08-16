@@ -48,13 +48,6 @@ export function setLastSelectedPlotSvg(svg: SVGSVGElement | null): void {
   lastSelectedPlotSvg = svg
 }
 
-export function getLastSelectedPlotSvg(): SVGSVGElement | null {
-  if (lastSelectedPlotSvg && document.body.contains(lastSelectedPlotSvg)) {
-    return lastSelectedPlotSvg
-  }
-  return null
-}
-
 export function getSelectedPlotSvg(): SVGSVGElement | null {
   if (selectedPlotSvg && document.body.contains(selectedPlotSvg)) {
     return selectedPlotSvg

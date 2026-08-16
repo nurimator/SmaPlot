@@ -1,28 +1,6 @@
 import type { Dataset } from '../../types.ts'
 import { evaluateMathExpr } from '../../utils/dataset.ts'
 
-export interface PlotVisualOptions {
-  show?: boolean
-  lineStyle?: string
-  plotType?: string
-  lineType?: string
-  dotColor?: string
-  paintColor?: string
-  lineColor?: string
-  size?: number
-  width?: number
-  pitch?: number
-  brush?: string
-  xTransCheck?: boolean
-  xExpr?: string
-  yTransCheck?: boolean
-  yExpr?: string
-  xColumn?: number
-  yColumn?: number
-  axisX?: 'x' | 'u'
-  axisY?: 'y' | 'r'
-}
-
 // Cache of column-mapped + math-transformed coordinates per dataset.
 // Redraws only recompute when the relevant options change.
 const processedCache = new WeakMap<Dataset, { key: string; x: number[]; y: number[] }>()

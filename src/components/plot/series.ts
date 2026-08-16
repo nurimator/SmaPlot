@@ -1,5 +1,6 @@
 import { createSVGElement, starPoints } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
+import { getLineDashArray } from './symbols.ts'
 
 export function renderSeries(ctx: PlotRenderContext): void {
   const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr } = ctx
@@ -38,16 +39,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const brush = opts.brush || opts.lineStyle || 'solid'
 
     // Line style dash array handling for exact Sma4Win line types
-    let dashArray = 'none'
-    if (lineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
-      dashArray = '2 2'
-    } else if (lineType === 'dash_dot') {
-      dashArray = '6 3 2 3'
-    } else if (lineType === 'dash_dot_dot') {
-      dashArray = '6 3 2 3 2 3'
-    } else if (brush === 'dash' || brush === 'dashed') {
-      dashArray = '6 3'
-    }
+    const dashArray = getLineDashArray(lineType, brush)
 
     if (plotType === 'bar') {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))

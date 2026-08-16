@@ -1,4 +1,4 @@
-import type { Dataset } from '../types.ts'
+import type { Dataset, PlotVisualOptions } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import {
   exportPlotToSmpDoc,
@@ -6,7 +6,6 @@ import {
   getSelectedPlotSvg,
   setPropertyDialogTarget,
   updatePlotVisual,
-  type PlotVisualOptions,
 } from './plot/index.ts'
 import { globalDataManager } from './DataManager.ts'
 import { downloadFile, serializeSmpDoc } from '../utils/smpExporter.ts'

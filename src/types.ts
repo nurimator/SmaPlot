@@ -1,4 +1,24 @@
-import type { PlotVisualOptions } from './components/plot/index.ts'
+export interface PlotVisualOptions {
+  show?: boolean
+  lineStyle?: string
+  plotType?: string
+  lineType?: string
+  dotColor?: string
+  paintColor?: string
+  lineColor?: string
+  size?: number
+  width?: number
+  pitch?: number
+  brush?: string
+  xTransCheck?: boolean
+  xExpr?: string
+  yTransCheck?: boolean
+  yExpr?: string
+  xColumn?: number
+  yColumn?: number
+  axisX?: 'x' | 'u'
+  axisY?: 'y' | 'r'
+}
 
 export interface Dataset {
   name: string

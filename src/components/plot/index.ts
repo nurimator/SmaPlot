@@ -10,7 +10,6 @@ export {
   getRawDatasetCoords,
   isSeriesLegendText,
 } from './dataset.ts'
-export type { PlotVisualOptions } from './dataset.ts'
 export { drawPlot, updatePlotVisual } from './drawPlot.ts'
 export {
   buildGroupDragItems,
@@ -27,8 +26,6 @@ export {
   addDatasetToPlot,
   clearAllPlots,
   createPlot,
-  getBoxCount,
-  getDatasets,
   loadSmpProject,
   removeDatasetFromAllPlots,
   removeDatasetFromPlot,
@@ -41,7 +38,6 @@ export {
   clearObjectSelection,
   deleteSelectedObjects,
   getExplicitSelectedPlotSvg,
-  getLastSelectedPlotSvg,
   getMultiSelectedSvgs,
   getPlotSvgFromElement,
   getSelectedAnnotationIndex,

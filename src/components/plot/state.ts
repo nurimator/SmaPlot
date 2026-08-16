@@ -28,14 +28,6 @@ export function resetBoxCount(): void {
   boxCount = 0
 }
 
-export function getBoxCount(): number {
-  return boxCount
-}
-
-export function getDatasets(): Dataset[] {
-  return allDatasets
-}
-
 export function getPlotOverlay(svg: SVGSVGElement): HTMLDivElement {
   let overlay = svgOverlayMap.get(svg)
   // Re-create if the cached overlay is no longer connected (e.g. removed from the

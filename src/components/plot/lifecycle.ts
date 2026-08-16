@@ -20,6 +20,7 @@ import {
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import { makeDefaultPlotDoc, getSvgRectForSmpDoc, setPlotSmpDoc, setPlotSmpMeta } from './smpDoc.ts'
 import { createSVGElement, hitsRectBorder, PLOT_MARGIN } from './svg.ts'
+import { datasetIdentifier } from './dataset.ts'
 import {
   activeSvgs,
   allDatasets,
@@ -31,8 +32,6 @@ import {
   svgOverlayMap,
   svgSmpDocMap,
 } from './state.ts'
-
-export { getBoxCount, getDatasets } from './state.ts'
 
 export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   const currentDatasets = svgDataMap.get(svg) || []
@@ -63,10 +62,6 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
     }
     autoScaleSvgs.delete(svg)
   }
-}
-
-function datasetIdentifier(ds: Dataset): string {
-  return ds.filePath || ds.fileName || `${ds.name}.txt`
 }
 
 export function removeDatasetFromPlot(svg: SVGSVGElement, identifier: string): void {

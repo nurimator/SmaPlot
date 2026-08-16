@@ -2,6 +2,7 @@ import { renderSmpTextToHtml } from '../../utils/smpSymbolMapper.ts'
 import { isSeriesLegendText } from './dataset.ts'
 import { createOverlayEl, createSVGElement, starPoints } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
+import { getLineDashArray } from './symbols.ts'
 import { getPlotOverlay } from './state.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import {
@@ -143,16 +144,7 @@ export function renderLegend(ctx: PlotRenderContext): void {
 
           const brush = ds?.options?.brush || ds?.options?.lineStyle || 'solid'
           const lineType = ds?.options?.lineType || 'solid'
-          let dashArray = 'none'
-          if (lineType === 'dotted' || brush === 'dot' || brush === 'dotted') {
-            dashArray = '2 2'
-          } else if (lineType === 'dash_dot') {
-            dashArray = '6 3 2 3'
-          } else if (lineType === 'dash_dot_dot') {
-            dashArray = '6 3 2 3 2 3'
-          } else if (brush === 'dash' || brush === 'dashed') {
-            dashArray = '6 3'
-          }
+          const dashArray = getLineDashArray(lineType, brush)
           if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
 
           legLine.style.cursor = isSelected ? 'move' : 'pointer'

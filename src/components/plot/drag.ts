@@ -2,7 +2,7 @@ import type { ActiveDrag } from '../../types.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
 import { formatLinearExpr } from './dataset.ts'
 import { getPlotSmpDoc, syncDocGeometry } from './smpDoc.ts'
-import { PLOT_MARGIN } from './svg.ts'
+import { PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
 import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
 import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag } from './transform.ts'
 import { updatePlotVisual, drawPlot } from './drawPlot.ts'
@@ -165,14 +165,6 @@ export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, 
     initialItemPositions,
   }
   document.body.style.userSelect = 'none'
-}
-
-function snapToGridThreshold(val: number, step: number = 100, threshold: number = 6): number {
-  const nearest = Math.round(val / step) * step
-  if (Math.abs(val - nearest) <= threshold) {
-    return nearest
-  }
-  return val
 }
 
 // Coalesced per-frame visual sync for live drags (group move / transform drag).
