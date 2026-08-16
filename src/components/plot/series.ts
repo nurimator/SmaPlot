@@ -38,7 +38,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const lineType = opts.lineType || 'solid'
 
     // Line style dash array handling for exact Sma4Win line types
-    const dashArray = getLineDashArray(lineType)
+    const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth))
 
     if (plotType === 'bar') {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))

@@ -214,12 +214,17 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aLineStyle = aLine.style || 'solid'
 
       let dashArray = 'none'
+      // Round caps paint aStrokeW/2 beyond each dash end, which would shrink
+      // the visual gap as the stroke thickens. Compensate so dash lengths and
+      // gaps stay constant — width only affects the stroke thickness.
+      const dashPair = (on: number, gap: number): string =>
+        `${Math.max(0.5, on - aStrokeW).toFixed(1)} ${Math.max(0.5, gap + aStrokeW).toFixed(1)}`
       if (aLineStyle === 'dashed') {
-        dashArray = `${Math.max(2, Number((1.5 * scaleX).toFixed(1)))} ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))}`
+        dashArray = dashPair(1.5 * scaleX, 1.5 * scaleX)
       } else if (aLineStyle === 'dotted') {
-        dashArray = `0.1 ${Math.max(4, Number((4.5 * scaleX).toFixed(1)))}`
+        dashArray = `0.1 ${(Math.max(4, 4.5 * scaleX) + aStrokeW).toFixed(1)}`
       } else if (aLineStyle === 'dash_dot') {
-        dashArray = `${Math.max(3, Number((3.0 * scaleX).toFixed(1)))} ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))} 0.1 ${Math.max(2, Number((1.5 * scaleX).toFixed(1)))}`
+        dashArray = `${dashPair(3.0 * scaleX, 1.5 * scaleX)} 0.1 ${(Math.max(2, 1.5 * scaleX) + aStrokeW).toFixed(1)}`
       }
 
       const isDimension = aLine.shape === 'dimension' || aLine.rawType === '2'
@@ -372,6 +377,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         l.setAttribute('y2', String(y2))
         l.setAttribute('stroke', aColor)
         l.setAttribute('stroke-width', String(aStrokeW))
+        l.setAttribute('stroke-linecap', 'round')
         if (dashArray !== 'none') l.setAttribute('stroke-dasharray', dashArray)
         l.style.cursor = 'pointer'
         l.addEventListener('mousedown', handleMouseDown('line'))

@@ -3,18 +3,23 @@ import { createSVGElement, starPoints } from './svg.ts'
 
 // Dash-array pattern shared by the data series, legend line samples, and the
 // Data Manager series icon. Returns 'none' when the line is solid.
-export function getLineDashArray(lineType: string | undefined): string {
-  let dashArray = 'none'
-  if (lineType === 'dotted') {
-    dashArray = '2 2'
-  } else if (lineType === 'dash_dot') {
-    dashArray = '6 3 2 3'
-  } else if (lineType === 'dash_dot_dot') {
-    dashArray = '6 3 2 3 2 3'
-  } else if (lineType === 'dash' || lineType === 'dashed') {
-    dashArray = '6 3'
+// Round/square stroke caps paint strokeWidth/2 beyond each dash end, which
+// would shrink the visual gap as the line thickens. Passing the stroke width
+// compensates so dash lengths and gaps stay constant — width only affects
+// the stroke thickness (perpendicular), never the pattern along the line.
+export function getLineDashArray(lineType: string | undefined, strokeWidth = 0): string {
+  if (lineType === 'dotted') return dashedPair(2, 2, strokeWidth)
+  if (lineType === 'dash_dot') return `${dashedPair(6, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)}`
+  if (lineType === 'dash_dot_dot') {
+    return `${dashedPair(6, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)}`
   }
-  return dashArray
+  if (lineType === 'dash' || lineType === 'dashed') return dashedPair(6, 3, strokeWidth)
+  return 'none'
+}
+
+function dashedPair(on: number, gap: number, strokeWidth: number): string {
+  if (strokeWidth <= 0) return `${on} ${gap}`
+  return `${Math.max(0.5, on - strokeWidth).toFixed(1)} ${Math.max(0.5, gap + strokeWidth).toFixed(1)}`
 }
 
 // Marker symbol for one data point. Shared by the plot data series, the legend
@@ -157,7 +162,7 @@ export function createSeriesIconFromOpts(opts: SeriesIconOptions): SVGSVGElement
     line.setAttribute('stroke', opts.color)
     line.setAttribute('stroke-width', String(opts.lineWidthPx))
     line.setAttribute('stroke-linecap', 'round')
-    const dashArray = getLineDashArray(opts.lineType)
+    const dashArray = getLineDashArray(opts.lineType, opts.lineWidthPx)
     if (dashArray !== 'none') line.setAttribute('stroke-dasharray', dashArray)
     svg.appendChild(line)
   }

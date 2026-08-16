@@ -124,13 +124,17 @@ export function renderLegend(ctx: PlotRenderContext): void {
           if (!head) return
           const idx = parseInt(head[1], 10) - 1
           const ds = processedDatasets[idx]
-          const color = ds?.options?.lineColor || ds?.color || '#000000'
 
           // %nN is dataset n name; %nE corresponds to graphic style of dataset n (removed from text)
           const labelText = lineStr
             .replace(/%(\d+)N/g, (_m, n) => processedDatasets[parseInt(n, 10) - 1]?.name || `Series ${n}`)
             .replace(/%(\d+)E/g, '')
             .trim()
+
+          // Deleted dataset: keep the label but skip the line sample & marker
+          // (no black fallback line), preserving the line's vertical space.
+          if (ds) {
+          const color = ds.options?.lineColor || ds.color || '#000000'
 
           // Draw legend line sample
           const legLine = createSVGElement('line')
@@ -140,10 +144,12 @@ export function renderLegend(ctx: PlotRenderContext): void {
           legLine.setAttribute('y2', String(legY))
           legLine.setAttribute('stroke', color)
           const legWidthMm = ds?.options?.width ?? (ds?.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
-          legLine.setAttribute('stroke-width', String(Math.max(0.4, Number((legWidthMm * scaleX).toFixed(2)))))
+          const legStrokeW = Math.max(0.4, Number((legWidthMm * scaleX).toFixed(2)))
+          legLine.setAttribute('stroke-width', String(legStrokeW))
+          legLine.setAttribute('stroke-linecap', 'round')
 
           const lineType = ds?.options?.lineType || 'solid'
-          const dashArray = getLineDashArray(lineType)
+          const dashArray = getLineDashArray(lineType, legStrokeW)
           if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
 
           legLine.style.cursor = isSelected ? 'move' : 'pointer'
@@ -267,6 +273,7 @@ export function renderLegend(ctx: PlotRenderContext): void {
               g.addEventListener('dblclick', openTitleModal)
               legGroup.appendChild(g)
             }
+          }
           }
 
           // Draw legend text next to icon (foreignObject + renderSmpTextToHtml)
