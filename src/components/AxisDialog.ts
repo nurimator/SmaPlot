@@ -1,7 +1,7 @@
 import type { SmpAxisSpec } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { computeAutoStep } from '../utils/scale.ts'
-import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
 type AxisTarget = 'x' | 'y' | 'u' | 'r'

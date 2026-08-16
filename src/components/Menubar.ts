@@ -1,4 +1,4 @@
-import { canClearAxis } from './Plot.ts'
+import { canClearAxis } from './plot/index.ts'
 
 export function updateMenubarItemStates(container: HTMLElement): void {
   const uItem = container.querySelector<HTMLElement>('[data-action="clear_scale_u"]')

@@ -1,5 +1,5 @@
 import type { SmpLineAnnotation } from '../types.ts'
-import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 import { beginShapeDraw } from './ShapeDraw.ts'
 import { makeDraggable } from '../utils/draggable.ts'

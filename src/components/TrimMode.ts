@@ -1,4 +1,4 @@
-import { activeSvgs, ensureSmpDoc, getSelectedPlotSvg, isTrimmingMode, PLOT_MARGIN, setSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { activeSvgs, ensureSmpDoc, getSelectedPlotSvg, isTrimmingMode, PLOT_MARGIN, setSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 
 interface PlotFrame {

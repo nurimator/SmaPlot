@@ -29,7 +29,7 @@ import {
   setObjectSelection,
   setSelectedPlotSvg,
   setTrimmingMode,
-} from './components/Plot.ts'
+} from './components/plot/index.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, hidePropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
 import { initConfirmDialog, hideConfirmDialog, showConfirmDialog } from './components/ConfirmDialog.ts'

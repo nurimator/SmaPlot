@@ -1,4 +1,4 @@
-import { PLOT_MARGIN, getPlotSmpDoc, updatePlotVisual } from './Plot.ts'
+import { PLOT_MARGIN, getPlotSmpDoc, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 import type { SmpLineAnnotation } from '../types.ts'
 

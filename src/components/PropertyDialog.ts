@@ -7,7 +7,7 @@ import {
   setPropertyDialogTarget,
   updatePlotVisual,
   type PlotVisualOptions,
-} from './Plot.ts'
+} from './plot/index.ts'
 import { globalDataManager } from './DataManager.ts'
 import { downloadFile, serializeSmpDoc } from '../utils/smpExporter.ts'
 

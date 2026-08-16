@@ -1,4 +1,4 @@
-import type { PlotVisualOptions } from './components/Plot.ts'
+import type { PlotVisualOptions } from './components/plot/index.ts'
 
 export interface Dataset {
   name: string

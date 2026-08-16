@@ -24,7 +24,7 @@ import {
   hitTestAxisArea,
   hitTestGraph,
   isInsidePlotArea,
-} from '../components/Plot.ts'
+} from '../components/plot/index.ts'
 import {
   beginTrim,
   cancelTrim,

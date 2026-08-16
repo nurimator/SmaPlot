@@ -2,7 +2,7 @@ import type { SmpLegendItem } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { pushSheetHeight, unpushSheetHeight } from '../utils/sheetSwipe.ts'
 import { smpToUnicode, SYMBOL_ENTRIES } from '../utils/smpSymbolMapper.ts'
-import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './Plot.ts'
+import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null

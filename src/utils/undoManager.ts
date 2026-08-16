@@ -12,8 +12,8 @@ import {
   svgSmpDocMap,
   svgSmpMetaMap,
   wirePlotInteractions,
-} from '../components/Plot.ts'
-import type { SelectableObject } from '../components/Plot.ts'
+} from '../components/plot/index.ts'
+import type { SelectableObject } from '../components/plot/index.ts'
 import { globalDataManager } from '../components/DataManager.ts'
 import type { Dataset, SmpMetadata, SmpPlotDoc } from '../types.ts'
 

@@ -1,5 +1,5 @@
 import type { Dataset } from '../types.ts'
-import { getPlotLimits, getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar, setReadValueMode } from './Plot.ts'
+import { getPlotLimits, getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar, setReadValueMode } from './plot/index.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 
 export function formatScientific(val: number): string {
