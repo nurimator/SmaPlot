@@ -65,7 +65,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     let arrowMode = 1
     if (shape === 'arrow_start') arrowMode = 2
     else if (shape === 'arrow_both') arrowMode = 3
-    else if (shape === 'line' || shape === 'measure_line') arrowMode = 0
+    else if (shape === 'line') arrowMode = 0
     const spread = parseFloat(spreadEl?.value || '30') || 30
     const shut = parseFloat(shutEl?.value || '100') || 100
     const unitX = (unitXEl?.value as 'mm' | 'xa' | 'ua') || 'mm'
