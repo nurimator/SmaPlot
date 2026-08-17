@@ -228,13 +228,13 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     }
 
     if (axis?.rawFontExtra) {
-      const fontSz = Math.round((axis?.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
+      const fontSz = Math.round((axis?.fontSize || 24) * MM_TO_SMP)
       const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
       const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
       lines.push(`-${fontSz} 0 0 0 ${weight} ${isItalic} 0 0 ${axis.rawFontExtra}`)
     } else {
       const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
-      const fontSz = Math.round((axis?.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
+      const fontSz = Math.round((axis?.fontSize || 24) * MM_TO_SMP)
       const startVal = `-${fontSz}`
       const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
       const extraVal = (idx === 0 || idx === 1) ? AXIS_FONT_EXTRA[0] : AXIS_FONT_EXTRA[1]
@@ -268,8 +268,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     lines.push('')
   }
 
-  const uIsCommon = doc.commonWithU !== false && doc.axisX.isCommon !== false
-  const axisTopExport: SmpAxisSpec = uIsCommon
+  const uIsSynced = doc.syncWithU !== false && doc.axisX.isSynced !== false
+  const axisTopExport: SmpAxisSpec = uIsSynced
     ? {
         ...(doc.axisTop || doc.axisX),
         min: doc.axisX.min,
@@ -281,8 +281,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       }
     : (doc.axisTop || doc.axisX)
 
-  const rIsCommon = doc.commonWithR !== false && doc.axisY.isCommon !== false
-  const axisRightExport: SmpAxisSpec = rIsCommon
+  const rIsSynced = doc.syncWithR !== false && doc.axisY.isSynced !== false
+  const axisRightExport: SmpAxisSpec = rIsSynced
     ? {
         ...(doc.axisRight || doc.axisY),
         min: doc.axisY.min,

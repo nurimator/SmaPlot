@@ -208,11 +208,11 @@ export function finishTrim(): void {
   ay.min = newYMin
   ay.max = newYMax
 
-  if (doc.commonWithU !== false && doc.axisTop) {
+  if (doc.syncWithU !== false && doc.axisTop) {
     doc.axisTop.min = newXMin
     doc.axisTop.max = newXMax
   }
-  if (doc.commonWithR !== false && doc.axisRight) {
+  if (doc.syncWithR !== false && doc.axisRight) {
     doc.axisRight.min = newYMin
     doc.axisRight.max = newYMax
   }

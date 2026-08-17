@@ -102,8 +102,8 @@ export interface SmpAxisSpec {
   shiftRight?: number
   shiftDown?: number
 
-  // Common with opposite axis
-  isCommon?: boolean
+   // Synced with opposite axis
+  isSynced?: boolean
 
   // Native Sma4Win metadata preservation
   rawFixedTail?: string
@@ -154,8 +154,8 @@ export interface SmpPlotDoc {
   axisY: SmpAxisSpec
   axisTop?: SmpAxisSpec
   axisRight?: SmpAxisSpec
-  commonWithU?: boolean
-  commonWithR?: boolean
+  syncWithU?: boolean
+  syncWithR?: boolean
   legendItems: SmpLegendItem[]
   annotationLines?: SmpLineAnnotation[]
   othersZerosLine?: string

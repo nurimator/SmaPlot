@@ -128,19 +128,31 @@ export function drawPlot(
   const scaleX = plotW / (docWidthMm || 100)
   const scaleY = plotH / (docHeightMm || 100)
 
-  // Outer plot frame
+  // Plot frame. Each side IS its axis line, so it is drawn only when that axis is
+  // "drawn" (the Draw checkbox / showTicks in the Scale tab). Unchecking Draw on an
+  // axis hides both its ticks and its axis line; the Label tab still controls labels.
   const frameWidthMm = smpDoc?.frameWidth ?? 0.4
   const frameStrokeWidth = Math.max(0.4, Number((frameWidthMm * scaleX).toFixed(2)))
   const frameColor = smpDoc?.frameColor || '#000000'
-  const frame = createSVGElement('rect')
-  frame.setAttribute('x', String(margin.l))
-  frame.setAttribute('y', String(margin.t))
-  frame.setAttribute('width', String(plotW))
-  frame.setAttribute('height', String(plotH))
-  frame.setAttribute('fill', 'none')
-  frame.setAttribute('stroke', frameColor)
-  frame.setAttribute('stroke-width', String(frameStrokeWidth))
-  svg.appendChild(frame)
+  const drawEdge = (x1: number, y1: number, x2: number, y2: number) => {
+    const edge = createSVGElement('line')
+    edge.setAttribute('x1', String(x1))
+    edge.setAttribute('y1', String(y1))
+    edge.setAttribute('x2', String(x2))
+    edge.setAttribute('y2', String(y2))
+    edge.setAttribute('stroke', frameColor)
+    edge.setAttribute('stroke-width', String(frameStrokeWidth))
+    edge.setAttribute('stroke-linecap', 'butt')
+    svg.appendChild(edge)
+  }
+  const showXTicks = smpDoc?.axisX.showTicks !== false
+  const showYTicks = smpDoc?.axisY.showTicks !== false
+  const showUTicks = smpDoc?.axisTop?.showTicks ?? showXTicks
+  const showRTicks = smpDoc?.axisRight?.showTicks ?? showYTicks
+  if (showYTicks) drawEdge(margin.l, margin.t, margin.l, margin.t + plotH) // left (Y)
+  if (showUTicks) drawEdge(margin.l, margin.t, margin.l + plotW, margin.t) // top (U)
+  if (showXTicks) drawEdge(margin.l, margin.t + plotH, margin.l + plotW, margin.t + plotH) // bottom (X)
+  if (showRTicks) drawEdge(margin.l + plotW, margin.t, margin.l + plotW, margin.t + plotH) // right (R)
 
   // ----------------------------------------------------
   // SVG CLIP-PATH & PLOT CONTAINER (Clips series & annotations within box)
@@ -165,8 +177,8 @@ export function drawPlot(
   // ----------------------------------------------------
   // 4-AXIS INSIDE/OUTSIDE TICKS & LABELS ENGINE
   // ----------------------------------------------------
-  const commonWithU = smpDoc ? (smpDoc.commonWithU !== false && smpDoc.axisX.isCommon !== false) : true
-  const commonWithR = smpDoc ? (smpDoc.commonWithR !== false && smpDoc.axisY.isCommon !== false) : true
+  const syncWithU = smpDoc ? (smpDoc.syncWithU !== false && smpDoc.axisX.isSynced !== false) : true
+  const syncWithR = smpDoc ? (smpDoc.syncWithR !== false && smpDoc.axisY.isSynced !== false) : true
 
   const ctx: PlotRenderContext = {
     svg,
@@ -193,8 +205,8 @@ export function drawPlot(
     yStep,
     autoSubDivsX,
     autoSubDivsY,
-    commonWithU,
-    commonWithR,
+    syncWithU,
+    syncWithR,
     datasets,
     processedDatasets,
     seriesGroup,

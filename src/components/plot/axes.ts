@@ -58,8 +58,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const xShiftRight = smpDoc?.axisX.shiftRight || 0
   const xShiftDown = smpDoc?.axisX.shiftDown || 0
 
-  const showXLabels = smpDoc?.axisX.showLabels !== false
   const showXTicks = smpDoc?.axisX.showTicks !== false
+  const showXLabels = showXTicks && (smpDoc?.axisX.showLabels !== false)
 
   const xMajIn = smpDoc?.axisX.majorIn ?? (smpDoc?.axisX.insideTicks !== false)
   const xMajOut = smpDoc?.axisX.majorOut ?? false
@@ -161,7 +161,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   let showUTicks = smpDoc?.axisTop?.showTicks ?? showXTicks
   let showULabels = false
 
-  if (!ctx.commonWithU && smpDoc?.axisTop) {
+  if (!ctx.syncWithU && smpDoc?.axisTop) {
     uMin = smpDoc.axisTop.min ?? 0
     uMax = smpDoc.axisTop.max ?? 100
     uStep = Math.abs(smpDoc.axisTop.step || 0)
@@ -175,7 +175,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uMajorTicks = getMajorTicks(uMin, uMax, uStep)
     uMinorTicks = getMinorTicks(uMin, uMax, uStep, subDivsU, uMajorTicks)
     showUTicks = smpDoc.axisTop.showTicks !== false
-    showULabels = smpDoc.axisTop.showLabels !== false
+    showULabels = showUTicks && (smpDoc.axisTop.showLabels !== false)
   }
 
   const su = (v: number) => margin.l + ((v - uMin) / (uMax - uMin)) * plotW
@@ -291,8 +291,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const yShiftRight = smpDoc?.axisY.shiftRight || 0
   const yShiftDown = smpDoc?.axisY.shiftDown || 0
 
-  const showYLabels = smpDoc?.axisY.showLabels !== false
   const showYTicks = smpDoc?.axisY.showTicks !== false
+  const showYLabels = showYTicks && (smpDoc?.axisY.showLabels !== false)
 
   const yMajIn = smpDoc?.axisY.majorIn ?? (smpDoc?.axisY.insideTicks !== false)
   const yMajOut = smpDoc?.axisY.majorOut ?? false
@@ -393,7 +393,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   let showRTicks = smpDoc?.axisRight?.showTicks ?? showYTicks
   let showRLabels = false
 
-  if (!ctx.commonWithR && smpDoc?.axisRight) {
+  if (!ctx.syncWithR && smpDoc?.axisRight) {
     rMin = smpDoc.axisRight.min ?? 0
     rMax = smpDoc.axisRight.max ?? 100
     rStep = Math.abs(smpDoc.axisRight.step || 0)
@@ -407,7 +407,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rMajorTicks = getMajorTicks(rMin, rMax, rStep)
     rMinorTicks = getMinorTicks(rMin, rMax, rStep, subDivsR, rMajorTicks)
     showRTicks = smpDoc.axisRight.showTicks !== false
-    showRLabels = smpDoc.axisRight.showLabels !== false
+    showRLabels = showRTicks && (smpDoc.axisRight.showLabels !== false)
   }
 
   const sr = (v: number) => margin.t + plotH - ((v - rMin) / (rMax - rMin)) * plotH

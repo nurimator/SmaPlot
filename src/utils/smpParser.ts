@@ -885,13 +885,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       allDatasets.push(ds)
     })
 
-    const isUCommon = !axisTop || (
+    const isUSynced = !axisTop || (
       axisTop.min === axisX.min &&
       axisTop.max === axisX.max &&
       axisTop.step === axisX.step &&
       axisTop.showLabels === false
     )
-    const isRCommon = !axisRight || (
+    const isRSynced = !axisRight || (
       axisRight.min === axisY.min &&
       axisRight.max === axisY.max &&
       axisRight.step === axisY.step &&
@@ -899,18 +899,18 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     )
 
     if (!axisTop) {
-      axisTop = { ...axisX, showLabels: false, isCommon: true }
+      axisTop = { ...axisX, showLabels: false, isSynced: true }
     } else {
-      axisTop.isCommon = isUCommon
+      axisTop.isSynced = isUSynced
     }
-    axisX.isCommon = isUCommon
+    axisX.isSynced = isUSynced
 
     if (!axisRight) {
-      axisRight = { ...axisY, showLabels: false, isCommon: true }
+      axisRight = { ...axisY, showLabels: false, isSynced: true }
     } else {
-      axisRight.isCommon = isRCommon
+      axisRight.isSynced = isRSynced
     }
-    axisY.isCommon = isRCommon
+    axisY.isSynced = isRSynced
 
     docs.push({
       name: docBlock.name,
@@ -928,8 +928,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       axisY,
       axisTop,
       axisRight,
-      commonWithU: isUCommon,
-      commonWithR: isRCommon,
+      syncWithU: isUSynced,
+      syncWithR: isRSynced,
       legendItems,
       annotationLines,
       othersZerosLine,

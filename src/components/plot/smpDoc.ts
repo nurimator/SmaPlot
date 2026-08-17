@@ -118,8 +118,8 @@ export function captureWorkspaceDigest(): string {
           axisY: doc.axisY,
           axisTop: doc.axisTop || null,
           axisRight: doc.axisRight || null,
-          commonWithU: doc.commonWithU ?? true,
-          commonWithR: doc.commonWithR ?? true,
+          syncWithU: doc.syncWithU ?? true,
+          syncWithR: doc.syncWithR ?? true,
           legendItems: doc.legendItems.map((item) => ({
             type: item.type || null,
             text: item.text,
@@ -198,6 +198,7 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     showLabels: true,
     insideTicks: true,
     fontFamily: 'Inter, sans-serif',
+    fontSize: 24,
     fontWeight: 400,
   }
 
@@ -211,22 +212,23 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     showLabels: true,
     insideTicks: true,
     fontFamily: 'Inter, sans-serif',
+    fontSize: 24,
     fontWeight: 400,
   }
 
-  const commonWithU = existingDoc?.commonWithU ?? (existingDoc?.axisTop ? existingDoc.axisTop.isCommon !== false : true)
-  const commonWithR = existingDoc?.commonWithR ?? (existingDoc?.axisRight ? existingDoc.axisRight.isCommon !== false : true)
+  const syncWithU = existingDoc?.syncWithU ?? (existingDoc?.axisTop ? existingDoc.axisTop.isSynced !== false : true)
+  const syncWithR = existingDoc?.syncWithR ?? (existingDoc?.axisRight ? existingDoc.axisRight.isSynced !== false : true)
 
   const axisTop: SmpAxisSpec = existingDoc?.axisTop || {
     ...axisX,
-    showLabels: !commonWithU,
-    isCommon: commonWithU,
+    showLabels: !syncWithU,
+    isSynced: syncWithU,
   }
 
   const axisRight: SmpAxisSpec = existingDoc?.axisRight || {
     ...axisY,
-    showLabels: !commonWithR,
-    isCommon: commonWithR,
+    showLabels: !syncWithR,
+    isSynced: syncWithR,
   }
 
   return {
@@ -240,8 +242,8 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     axisY,
     axisTop,
     axisRight,
-    commonWithU,
-    commonWithR,
+    syncWithU,
+    syncWithR,
     legendItems: existingDoc?.legendItems || [],
     annotationLines: existingDoc?.annotationLines || [],
     xLabel: existingDoc?.xLabel,
@@ -289,6 +291,7 @@ export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
     showLabels: true,
     insideTicks: true,
     fontFamily: 'Inter, sans-serif',
+    fontSize: 24,
     fontWeight: 400,
   })
   if (!doc.axisX) {
@@ -297,17 +300,17 @@ export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
   if (!doc.axisY) {
     doc.axisY = makeAxis(base?.yMin ?? 0, base?.yMax ?? 10)
   }
-  if (doc.commonWithU === undefined) {
-    doc.commonWithU = doc.axisTop ? doc.axisTop.isCommon !== false : true
+  if (doc.syncWithU === undefined) {
+    doc.syncWithU = doc.axisTop ? doc.axisTop.isSynced !== false : true
   }
-  if (doc.commonWithR === undefined) {
-    doc.commonWithR = doc.axisRight ? doc.axisRight.isCommon !== false : true
+  if (doc.syncWithR === undefined) {
+    doc.syncWithR = doc.axisRight ? doc.axisRight.isSynced !== false : true
   }
   if (!doc.axisTop) {
-    doc.axisTop = { ...doc.axisX, showLabels: !doc.commonWithU, isCommon: doc.commonWithU }
+    doc.axisTop = { ...doc.axisX, showLabels: !doc.syncWithU, isSynced: doc.syncWithU }
   }
   if (!doc.axisRight) {
-    doc.axisRight = { ...doc.axisY, showLabels: !doc.commonWithR, isCommon: doc.commonWithR }
+    doc.axisRight = { ...doc.axisY, showLabels: !doc.syncWithR, isSynced: doc.syncWithR }
   }
   return doc
 }
@@ -377,15 +380,15 @@ export function getTargetPlotSvgs(specificSvg?: SVGSVGElement | null): SVGSVGEle
 export function hasIndependentUAxis(svg: SVGSVGElement): boolean {
   const doc = svgSmpDocMap.get(svg)
   if (!doc) return false
-  const common = doc.commonWithU !== false && doc.axisX.isCommon !== false && (!doc.axisTop || doc.axisTop.isCommon !== false)
-  return !common
+  const synced = doc.syncWithU !== false && doc.axisX.isSynced !== false && (!doc.axisTop || doc.axisTop.isSynced !== false)
+  return !synced
 }
 
 export function hasIndependentRAxis(svg: SVGSVGElement): boolean {
   const doc = svgSmpDocMap.get(svg)
   if (!doc) return false
-  const common = doc.commonWithR !== false && doc.axisY.isCommon !== false && (!doc.axisRight || doc.axisRight.isCommon !== false)
-  return !common
+  const synced = doc.syncWithR !== false && doc.axisY.isSynced !== false && (!doc.axisRight || doc.axisRight.isSynced !== false)
+  return !synced
 }
 
 export function canClearAxis(kind: 'u' | 'r', specificSvg?: SVGSVGElement | null): boolean {
@@ -441,7 +444,7 @@ export function clearPlotScale(
         const autoX = computeAutoStep(xMin, xMax)
         doc.axisX.step = autoX.increment
         doc.axisX.subDivs = autoX.division
-        if (doc.commonWithU !== false && doc.axisTop) {
+        if (doc.syncWithU !== false && doc.axisTop) {
           doc.axisTop.min = doc.axisX.min
           doc.axisTop.max = doc.axisX.max
           doc.axisTop.step = doc.axisX.step
@@ -457,7 +460,7 @@ export function clearPlotScale(
         const autoY = computeAutoStep(yMin, yMax)
         doc.axisY.step = autoY.increment
         doc.axisY.subDivs = autoY.division
-        if (doc.commonWithR !== false && doc.axisRight) {
+        if (doc.syncWithR !== false && doc.axisRight) {
           doc.axisRight.min = doc.axisY.min
           doc.axisRight.max = doc.axisY.max
           doc.axisRight.step = doc.axisY.step

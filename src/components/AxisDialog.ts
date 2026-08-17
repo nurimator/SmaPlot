@@ -9,6 +9,36 @@ type AxisTarget = 'x' | 'y' | 'u' | 'r'
 let currentAxisTarget: AxisTarget = 'x'
 let currentTargetSvg: SVGSVGElement | null = null
 
+// In synced/linked mode a pair (X<->U, Y<->R) behaves as a single axis: scale AND
+// tick appearance (Draw included) are shared, so whichever side the user edits is
+// mirrored onto its partner. Labels are deliberately excluded — the secondary axis
+// keeps them hidden while synced (handled by the caller).
+function syncAxisPair(source: SmpAxisSpec, target: SmpAxisSpec): void {
+  target.min = source.min
+  target.max = source.max
+  target.step = source.step
+  target.subDivs = source.subDivs
+  target.autoStep = source.autoStep
+
+  target.showTicks = source.showTicks
+  target.showSubTicks = source.showSubTicks
+  target.insideTicks = source.insideTicks
+
+  target.majorIn = source.majorIn
+  target.majorOut = source.majorOut
+  target.majorLength = source.majorLength
+  target.majorWidth = source.majorWidth
+  target.majorColor = source.majorColor
+  target.majorStyle = source.majorStyle
+
+  target.minorIn = source.minorIn
+  target.minorOut = source.minorOut
+  target.minorLength = source.minorLength
+  target.minorWidth = source.minorWidth
+  target.minorColor = source.minorColor
+  target.minorStyle = source.minorStyle
+}
+
 export function initAxisDialog(overlayEl: HTMLElement): void {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#axisDialog')
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
@@ -29,7 +59,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisTo = overlayEl.querySelector<HTMLInputElement>('#axisTo')
   const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
   const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
-  const axisCommon = overlayEl.querySelector<HTMLInputElement>('#axisCommon')
+  const axisSync = overlayEl.querySelector<HTMLInputElement>('#axisSync')
 
   // Tick Tab Elements
   const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
@@ -68,12 +98,12 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
       targetSpec = smpDoc.axisY
     } else if (currentAxisTarget === 'u') {
       if (!smpDoc.axisTop) {
-        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isCommon: smpDoc.commonWithU !== false }
+        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
       }
       targetSpec = smpDoc.axisTop
     } else {
       if (!smpDoc.axisRight) {
-        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isCommon: smpDoc.commonWithR !== false }
+        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isSynced: smpDoc.syncWithR !== false }
       }
       targetSpec = smpDoc.axisRight
     }
@@ -126,58 +156,40 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisShiftRight && axisShiftRight.value !== '') targetSpec.shiftRight = parseFloat(axisShiftRight.value) || 0
     if (axisShiftDown && axisShiftDown.value !== '') targetSpec.shiftDown = parseFloat(axisShiftDown.value) || 0
 
-    // Common linking logic:
+    // Linked (synced) axis logic:
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
-      const isCommon = axisCommon ? axisCommon.checked : true
-      smpDoc.commonWithU = isCommon
-      smpDoc.axisX.isCommon = isCommon
+      const isSynced = axisSync ? axisSync.checked : true
+      smpDoc.syncWithU = isSynced
+      smpDoc.axisX.isSynced = isSynced
       if (!smpDoc.axisTop) {
-        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !isCommon, isCommon }
+        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !isSynced, isSynced }
       }
-      smpDoc.axisTop.isCommon = isCommon
+      smpDoc.axisTop.isSynced = isSynced
 
-      if (isCommon) {
+      if (isSynced) {
         if (currentAxisTarget === 'x') {
-          smpDoc.axisTop.min = smpDoc.axisX.min
-          smpDoc.axisTop.max = smpDoc.axisX.max
-          smpDoc.axisTop.step = smpDoc.axisX.step
-          smpDoc.axisTop.subDivs = smpDoc.axisX.subDivs
-          smpDoc.axisTop.autoStep = smpDoc.axisX.autoStep
-          smpDoc.axisTop.showLabels = false
+          syncAxisPair(smpDoc.axisX, smpDoc.axisTop)
         } else {
-          smpDoc.axisX.min = smpDoc.axisTop.min
-          smpDoc.axisX.max = smpDoc.axisTop.max
-          smpDoc.axisX.step = smpDoc.axisTop.step
-          smpDoc.axisX.subDivs = smpDoc.axisTop.subDivs
-          smpDoc.axisX.autoStep = smpDoc.axisTop.autoStep
-          smpDoc.axisTop.showLabels = false
+          syncAxisPair(smpDoc.axisTop, smpDoc.axisX)
         }
+        smpDoc.axisTop.showLabels = false
       }
     } else if (currentAxisTarget === 'y' || currentAxisTarget === 'r') {
-      const isCommon = axisCommon ? axisCommon.checked : true
-      smpDoc.commonWithR = isCommon
-      smpDoc.axisY.isCommon = isCommon
+      const isSynced = axisSync ? axisSync.checked : true
+      smpDoc.syncWithR = isSynced
+      smpDoc.axisY.isSynced = isSynced
       if (!smpDoc.axisRight) {
-        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !isCommon, isCommon }
+        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !isSynced, isSynced }
       }
-      smpDoc.axisRight.isCommon = isCommon
+      smpDoc.axisRight.isSynced = isSynced
 
-      if (isCommon) {
+      if (isSynced) {
         if (currentAxisTarget === 'y') {
-          smpDoc.axisRight.min = smpDoc.axisY.min
-          smpDoc.axisRight.max = smpDoc.axisY.max
-          smpDoc.axisRight.step = smpDoc.axisY.step
-          smpDoc.axisRight.subDivs = smpDoc.axisY.subDivs
-          smpDoc.axisRight.autoStep = smpDoc.axisY.autoStep
-          smpDoc.axisRight.showLabels = false
+          syncAxisPair(smpDoc.axisY, smpDoc.axisRight)
         } else {
-          smpDoc.axisY.min = smpDoc.axisRight.min
-          smpDoc.axisY.max = smpDoc.axisRight.max
-          smpDoc.axisY.step = smpDoc.axisRight.step
-          smpDoc.axisY.subDivs = smpDoc.axisRight.subDivs
-          smpDoc.axisY.autoStep = smpDoc.axisRight.autoStep
-          smpDoc.axisRight.showLabels = false
+          syncAxisPair(smpDoc.axisRight, smpDoc.axisY)
         }
+        smpDoc.axisRight.showLabels = false
       }
     }
 
@@ -196,7 +208,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
   // Real-time update listeners for all controls
   const allControls = [
-    axisDraw, axisFrom, axisTo, axisDivision, axisCommon,
+    axisDraw, axisFrom, axisTo, axisDivision, axisSync,
     axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
     axisMinorIn, axisMinorOut, axisMinorColor, axisMinorWidth, axisMinorStyle, axisMinorLength,
     axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown
@@ -259,12 +271,12 @@ export function showAxisDialog(
   if (titleEl) {
     titleEl.textContent = `${axisType.toUpperCase()}-axis`
   }
-  const commonLabelEl = overlayEl.querySelector<HTMLElement>('#axisCommonLabel')
-  if (commonLabelEl) {
-    if (axisType === 'x') commonLabelEl.textContent = 'Common with U-axis'
-    else if (axisType === 'u') commonLabelEl.textContent = 'Common with X-axis'
-    else if (axisType === 'y') commonLabelEl.textContent = 'Common with R-axis'
-    else commonLabelEl.textContent = 'Common with Y-axis'
+  const syncLabelEl = overlayEl.querySelector<HTMLElement>('#axisSyncLabel')
+  if (syncLabelEl) {
+    if (axisType === 'x') syncLabelEl.textContent = 'Sync with U-axis'
+    else if (axisType === 'u') syncLabelEl.textContent = 'Sync with X-axis'
+    else if (axisType === 'y') syncLabelEl.textContent = 'Sync with R-axis'
+    else syncLabelEl.textContent = 'Sync with Y-axis'
   }
 
   // Populate values from active plot's SmpDoc
@@ -273,30 +285,30 @@ export function showAxisDialog(
     const smpDoc = getPlotSmpDoc(svg)
     if (smpDoc) {
       let spec: SmpAxisSpec
-      let isCommon: boolean
+      let isSynced: boolean
 
       if (axisType === 'x') {
         spec = smpDoc.axisX
-        isCommon = smpDoc.commonWithU !== false && smpDoc.axisX.isCommon !== false
+        isSynced = smpDoc.syncWithU !== false && smpDoc.axisX.isSynced !== false
       } else if (axisType === 'y') {
         spec = smpDoc.axisY
-        isCommon = smpDoc.commonWithR !== false && smpDoc.axisY.isCommon !== false
+        isSynced = smpDoc.syncWithR !== false && smpDoc.axisY.isSynced !== false
       } else if (axisType === 'u') {
         if (!smpDoc.axisTop) {
-          smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isCommon: smpDoc.commonWithU !== false }
+          smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
         }
         spec = smpDoc.axisTop
-        isCommon = smpDoc.commonWithU !== false && smpDoc.axisTop.isCommon !== false
+        isSynced = smpDoc.syncWithU !== false && smpDoc.axisTop.isSynced !== false
       } else {
         if (!smpDoc.axisRight) {
-          smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isCommon: smpDoc.commonWithR !== false }
+          smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isSynced: smpDoc.syncWithR !== false }
         }
         spec = smpDoc.axisRight
-        isCommon = smpDoc.commonWithR !== false && smpDoc.axisRight.isCommon !== false
+        isSynced = smpDoc.syncWithR !== false && smpDoc.axisRight.isSynced !== false
       }
 
       const axisDraw = overlayEl.querySelector<HTMLInputElement>('#axisDraw')
-      const axisCommon = overlayEl.querySelector<HTMLInputElement>('#axisCommon')
+      const axisSync = overlayEl.querySelector<HTMLInputElement>('#axisSync')
       const axisFrom = overlayEl.querySelector<HTMLInputElement>('#axisFrom')
       const axisTo = overlayEl.querySelector<HTMLInputElement>('#axisTo')
       const axisAutoStep = overlayEl.querySelector<HTMLInputElement>('#axisAutoStep')
@@ -325,7 +337,7 @@ export function showAxisDialog(
       const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
       const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
 
-      if (axisCommon) axisCommon.checked = isCommon
+      if (axisSync) axisSync.checked = isSynced
       if (axisDraw) axisDraw.checked = spec.showTicks !== false
       if (axisFrom) axisFrom.value = String(spec.min)
       if (axisTo) axisTo.value = String(spec.max)

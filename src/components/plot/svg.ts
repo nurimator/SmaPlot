@@ -87,8 +87,8 @@ export interface PlotRenderContext {
   yStep: number
   autoSubDivsX: number | null
   autoSubDivsY: number | null
-  commonWithU: boolean
-  commonWithR: boolean
+  syncWithU: boolean
+  syncWithR: boolean
   datasets: Dataset[]
   processedDatasets: Dataset[]
   seriesGroup: SVGGElement
