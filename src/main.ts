@@ -28,6 +28,10 @@ import {
   removeDatasetFromPlot,
   setObjectSelection,
   setSelectedPlotSvg,
+  setSelectedLegendIndex,
+  setSelectedAnnotationIndex,
+  getPlotSmpDoc,
+  updatePlotVisual,
   setTrimmingMode,
 } from './components/plot/index.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
@@ -55,7 +59,7 @@ import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/s
 import { getCurrentProjectFileName, isProjectUntitled, setCurrentProjectFileName, setProjectUntitled } from './utils/projectState.ts'
 import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
-import { initTouchGestures } from './utils/touchGestures.ts'
+import { initTouchGestures, wasTouchInteractionRecent } from './utils/touchGestures.ts'
 import { initSheetSwipe } from './utils/sheetSwipe.ts'
 import { registerSW } from 'virtual:pwa-register'
 
@@ -560,6 +564,11 @@ let lastPlotClickTime = 0
 let lastPlotClickSvg: SVGSVGElement | null = null
 graphAreaEl.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return
+  // Touch input synthesizes mousedown/click events; the touch double-tap path in
+  // touchGestures.ts already opens the correct panel, so skip this mouse-based
+  // double-click detection right after a touch gesture (prevents e.g. Data Manager
+  // opening instead of a legend/annotation panel).
+  if (wasTouchInteractionRecent()) return
   if (isReadValueMode() || isPropertyTabMode()) return
   const target = e.target as HTMLElement
   if (target.closest('[data-dir]')) return
@@ -619,6 +628,26 @@ if (marqueeCtxMenuEl) {
     onDoubleTapAxis: (axis, svg) => showAxisDialog(axisOverlayEl, axis, svg),
     onDoubleTapGraph: (dataset, svg) => showPropertyDialog(propOverlayEl, dataset as string | Dataset, svg),
     onDoubleTapPlot: () => showDataManagerDialog(dmOverlayEl),
+    onDoubleTapLegend: (svg, itemIdx) => {
+      setSelectedPlotSvg(svg)
+      setSelectedLegendIndex(itemIdx)
+      setSelectedAnnotationIndex(-1)
+      updatePlotVisual(svg)
+      showTitleDialog(titleOverlayEl, itemIdx, svg)
+    },
+    onDoubleTapAnnotation: (svg, annotationIdx) => {
+      setSelectedPlotSvg(svg)
+      setSelectedAnnotationIndex(annotationIdx)
+      setSelectedLegendIndex(-1)
+      updatePlotVisual(svg)
+      const smpDoc = getPlotSmpDoc(svg)
+      const aLine = smpDoc?.annotationLines?.[annotationIdx]
+      if (aLine && (aLine.shape === 'rectangle' || aLine.shape === 'rect')) {
+        showRectangleDialog(rectOverlayEl, annotationIdx, svg)
+      } else if (aLine) {
+        showArrowDialog(arrowOverlayEl, annotationIdx, svg)
+      }
+    },
   })
 }
 

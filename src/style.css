@@ -568,6 +568,15 @@ body.os-mac .titlebar {
   touch-action: none;
 }
 
+/* Child SVG elements (text/rect/path/line/poly…) inside a plot do not inherit
+   touch-action, so a touch that starts on them can be flagged non-cancelable by
+   the browser. Force them non-cancelable so custom drag handlers can preventDefault
+   without triggering the "Ignored attempt to cancel a touchmove" intervention. */
+.plot-svg *,
+.plot-overlay * {
+  touch-action: none;
+}
+
 .plot-svg:focus,
 .plot-svg:focus-visible {
   outline: none;

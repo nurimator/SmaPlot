@@ -742,7 +742,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     'touchmove',
     (e: TouchEvent) => {
       if (activePointerId === null && e.touches.length === 1 && (getActiveTransDrag() || activeGroupDrag || activeDrag)) {
-        e.preventDefault()
+        if (e.cancelable) e.preventDefault()
         const touch = e.touches[0]
         handleDragMove(touch.clientX, touch.clientY, e.shiftKey)
       }

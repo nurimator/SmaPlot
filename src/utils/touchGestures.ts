@@ -2,6 +2,7 @@ import { getCanvasZoom } from './canvasZoom.ts'
 import {
   clearMarqueeSelectBox,
   handleSelectClickOrTap,
+  hitTestPoint,
   hitsSelectedObject,
   updateMarqueeSelectBox,
 } from '../components/MarqueeSelect.ts'
@@ -40,9 +41,24 @@ export interface TouchGesturesOptions {
   onDoubleTapAxis?: (axis: 'x' | 'y' | 'u' | 'r', svg: SVGSVGElement) => void
   onDoubleTapGraph?: (dataset: unknown, svg: SVGSVGElement) => void
   onDoubleTapPlot?: (svg: SVGSVGElement) => void
+  onDoubleTapLegend?: (svg: SVGSVGElement, itemIdx: number) => void
+  onDoubleTapAnnotation?: (svg: SVGSVGElement, annotationIdx: number) => void
 }
 
 let holdIndicatorEl: HTMLElement | null = null
+
+// Timestamp of the most recent touch end/cancel. Used by `main.ts` to suppress
+// its own mouse-based double-click handling for a short window after a touch
+// gesture, since touch input also synthesizes mousedown/click events that would
+// otherwise open the wrong panel (e.g. Data Manager instead of a legend/annotation dialog).
+let lastTouchEndTime = 0
+
+// True while we are still within the post-touch grace window. `main.ts` calls
+// this from its graphArea mousedown double-click handler so a touch double-tap
+// is not also interpreted as a mouse double-click.
+export function wasTouchInteractionRecent(graceMs = 800): boolean {
+  return Date.now() - lastTouchEndTime < graceMs
+}
 
 function showHoldIndicator(clientX: number, clientY: number): void {
   removeHoldIndicator()
@@ -79,6 +95,8 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
     onDoubleTapAxis,
     onDoubleTapGraph,
     onDoubleTapPlot,
+    onDoubleTapLegend,
+    onDoubleTapAnnotation,
   } = options
 
   let isTouchActive = false
@@ -90,7 +108,6 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
   let isGroupDragging = false
   let isTrimTouchActive = false   // true for the lifetime of a trim touch gesture
   let holdTimer: number | null = null
-  let lastTouchEndTime = 0
 
   let startClientX = 0
   let startClientY = 0
@@ -231,7 +248,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
       // ── Trim drag in progress — must be checked before isTouchActive guard ──
       if (isTrimTouchActive) {
         if (e.touches.length === 1) {
-          e.preventDefault()   // prevent page scroll during trim drag
+          if (e.cancelable) e.preventDefault()   // prevent page scroll during trim drag
           if (isTrimDragging()) {
             updateTrim(e.touches[0].clientX, e.touches[0].clientY)
           }
@@ -277,7 +294,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
           }
 
           if (isMarqueeSelecting) {
-            e.preventDefault()
+            if (e.cancelable) e.preventDefault()
             updateMarqueeSelectBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
           }
         }
@@ -298,7 +315,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
 
           if (!isGroupDragging) {
             isMarqueeExporting = true
-            e.preventDefault()
+            if (e.cancelable) e.preventDefault()
             updateMarqueeExportBox(graphAreaEl, startGraphX, startGraphY, currentGraphX, currentGraphY)
           }
         }
@@ -358,7 +375,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
       // Rule 4: Tapped quickly without drag and without hold
       if (!hasMoved) {
         const now = Date.now()
-        const targetSvg = initialTarget?.closest<SVGSVGElement>('.plot-svg')
+        const targetSvg = getPlotSvgFromElement(initialTarget as Element | null)
 
         if (targetSvg && now - lastTapTime < 350 && lastTapSvg === targetSvg) {
           // Double Tap on Plot
@@ -366,19 +383,37 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
           lastTapSvg = null
           setSelectedPlotSvg(targetSvg)
 
-          // Check Axis area
+          // Legend / annotation (point hit-test against selectable objects) → their dialogs.
+          // Touch input never emits a native dblclick, so we detect the object geometrically
+          // and invoke the same desktop handlers via dedicated callbacks.
+          // Checked FIRST because on mouse, per-element dblclick handlers (with stopPropagation)
+          // take priority over the graphArea axis/graph detection — replicate that priority here.
+          const hit = hitTestPoint(startGraphX, startGraphY)
+          if (hit && hit.kind === 'legend' && onDoubleTapLegend) {
+            onDoubleTapLegend(hit.svg, hit.itemIdx ?? -1)
+            return
+          }
+          if (hit && hit.kind === 'annotation' && onDoubleTapAnnotation) {
+            onDoubleTapAnnotation(hit.svg, hit.annotationIdx ?? -1)
+            return
+          }
+
+          // Axis band (geometric) → Axis dialog
           const axisDir = hitTestAxisArea(targetSvg, startClientX, startClientY)
           if (axisDir && onDoubleTapAxis) {
             onDoubleTapAxis(axisDir, targetSvg)
             return
           }
 
-          // Check Graph dataset
+          // Graph line / dataset (geometric) → Property dialog
           const hitDataset = hitTestGraph(targetSvg, startClientX, startClientY)
           if (hitDataset && onDoubleTapGraph) {
             onDoubleTapGraph(hitDataset, targetSvg)
             return
-          } else if (isInsidePlotArea(targetSvg, startClientX, startClientY) && onDoubleTapPlot) {
+          }
+
+          // Empty plot area → Data Manager
+          if (isInsidePlotArea(targetSvg, startClientX, startClientY) && onDoubleTapPlot) {
             onDoubleTapPlot(targetSvg)
             return
           }
