@@ -183,7 +183,7 @@
             Help
             <div class="menu-dropdown">
               <div class="dropdown-item" data-action="help">Help<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="about">About<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="about">About</div>
             </div>
           </div>
         </div>
@@ -1220,6 +1220,29 @@
         <div class="confirm-footer" style="padding: 10px 18px; display: flex; justify-content: flex-end; gap: 8px; background: var(--slate-50); border-top: 1px solid var(--slate-200);">
           <button class="btn btn-primary" id="saveAsConfirmBtn">Save</button>
           <button class="btn btn-secondary" id="saveAsCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal-overlay" id="aboutOverlay" style="display: none;">
+      <div class="dialog-window about-dialog" id="aboutDialog">
+        <div class="dialog-header">
+          <span class="dialog-title">About</span>
+          <button class="dialog-close-btn" id="closeAboutBtn" title="Close"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="about-body">
+          <div class="about-icon">
+            <img src="/favicon/favicon.svg" alt="SmaPlot" />
+          </div>
+          <div class="dialog-title">SmaPlot</div>
+          <div class="normal-text" id="aboutVersionText"></div>
+          <div class="normal-text">Created by Nurhidayat</div>
+          <div class="normal-text">Free and open source software under the MIT License</div>
+          <div class="about-buttons">
+            <a class="btn btn-primary" id="aboutRepoLink" href="https://github.com/nurimator/SmaPlot" target="_blank" rel="noopener noreferrer"><span class="icon icon-brand-github"></span>GitHub Repository</a>
+            <a class="btn btn-secondary" id="aboutLicenseLink" href="https://github.com/nurimator/SmaPlot/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a>
+          </div>
         </div>
       </div>
     </div>

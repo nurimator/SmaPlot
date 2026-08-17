@@ -53,6 +53,7 @@ import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/
 import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initCustomSelects } from './components/CustomSelect.ts'
+import { hideAboutDialog, initAboutDialog, showAboutDialog } from './components/AboutDialog.ts'
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
@@ -82,6 +83,7 @@ const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverla
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
+const aboutOverlayEl = document.querySelector<HTMLElement>('#aboutOverlay')
 
 if (workspaceEl && graphAreaEl) {
   initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
@@ -124,6 +126,7 @@ if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
 if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
+if (aboutOverlayEl) initAboutDialog(aboutOverlayEl)
 
 function handleSaveProject(customFileName?: string): void {
   const svgs = getAllPlotSvgs(graphAreaEl)
@@ -432,6 +435,8 @@ if (menubarEl) {
       pushUndoState()
     } else if (action === 'property') {
       showPropertyDialog(propOverlayEl)
+    } else if (action === 'about') {
+      showAboutDialog()
     }
   })
 }
@@ -915,6 +920,7 @@ registerDialogCloser(readValueOverlayEl, hideReadValueDialog)
 registerDialogCloser(colorPickerOverlayEl, hideColorPickerDialog)
 registerDialogCloser(saveAsOverlayEl, hideSaveAsDialog)
 registerDialogCloser(confirmOverlayEl, hideConfirmDialog)
+registerDialogCloser(aboutOverlayEl, hideAboutDialog)
 
 dialogClosers.forEach(({ overlay, close }) => {
   const sheet = overlay.firstElementChild as HTMLElement | null
