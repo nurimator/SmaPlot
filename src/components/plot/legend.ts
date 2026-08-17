@@ -125,9 +125,13 @@ export function renderLegend(ctx: PlotRenderContext): void {
           const idx = parseInt(head[1], 10) - 1
           const ds = processedDatasets[idx]
 
-          // %nN is dataset n name; %nE corresponds to graphic style of dataset n (removed from text)
+          // %nN is dataset n file name (uppercased); %nE corresponds to graphic
+          // style of dataset n (removed from text)
           const labelText = lineStr
-            .replace(/%(\d+)N/g, (_m, n) => processedDatasets[parseInt(n, 10) - 1]?.name || `Series ${n}`)
+            .replace(/%(\d+)N/g, (_m, n) => {
+              const d = processedDatasets[parseInt(n, 10) - 1]
+              return (d?.fileName || d?.name || `Series ${n}`).toUpperCase()
+            })
             .replace(/%(\d+)E/g, '')
             .trim()
 

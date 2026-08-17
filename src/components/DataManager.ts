@@ -56,6 +56,52 @@ let dmListBoxEl: HTMLElement | null = null
 let dmOnOpenProperty: ((selectedFileName?: string) => void) | undefined
 let dmOnDeleteDataset: ((identifier: string) => void) | undefined
 
+let dmTitleEl: HTMLElement | null = null
+let dmSidebarEl: HTMLElement | null = null
+let dmGroupTopEl: HTMLElement | null = null
+let dmGroupBottomEl: HTMLElement | null = null
+let dmLegendGroupEl: HTMLElement | null = null
+let dmUpBtnEl: HTMLElement | null = null
+let dmDownBtnEl: HTMLElement | null = null
+let dmAllBtnEl: HTMLElement | null = null
+let dmOkBtnEl: HTMLElement | null = null
+let dmCancelBtnEl: HTMLElement | null = null
+let dmDeleteBtnEl: HTMLElement | null = null
+
+function restoreDefaultButtonLayout(): void {
+  dmGroupTopEl?.appendChild(dmUpBtnEl as Node)
+  dmGroupTopEl?.appendChild(dmDownBtnEl as Node)
+  dmGroupTopEl?.appendChild(dmAllBtnEl as Node)
+  dmGroupBottomEl?.appendChild(dmOkBtnEl as Node)
+  dmGroupBottomEl?.appendChild(dmCancelBtnEl as Node)
+  dmGroupBottomEl?.appendChild(dmDeleteBtnEl as Node)
+}
+
+function setLegendMode(on: boolean): void {
+  if (!dmTitleEl) return
+  if (on) {
+    dmTitleEl.textContent = 'Select File'
+    dmGroupTopEl?.style.setProperty('display', 'none')
+    dmGroupBottomEl?.style.setProperty('display', 'none')
+    if (!dmLegendGroupEl) {
+      dmLegendGroupEl = document.createElement('div')
+      dmLegendGroupEl.className = 'dm-btn-group'
+      dmLegendGroupEl.id = 'dmLegendBtns'
+      dmSidebarEl?.appendChild(dmLegendGroupEl)
+    }
+    dmLegendGroupEl.appendChild(dmOkBtnEl as Node)
+    dmLegendGroupEl.appendChild(dmAllBtnEl as Node)
+    dmLegendGroupEl.appendChild(dmCancelBtnEl as Node)
+    dmLegendGroupEl.style.display = ''
+  } else {
+    dmTitleEl.textContent = 'Data manager'
+    dmGroupTopEl?.style.removeProperty('display')
+    dmGroupBottomEl?.style.removeProperty('display')
+    if (dmLegendGroupEl) dmLegendGroupEl.style.display = 'none'
+    restoreDefaultButtonLayout()
+  }
+}
+
 function refreshDataManagerList(): void {
   if (!dmListBoxEl) return
   renderDataManagerListBox(dmListBoxEl, dmDatasetsProvider(), (fn) => {
@@ -147,6 +193,8 @@ export function initDataManagerDialog(
     makeDraggable(dialogEl, headerEl)
   }
 
+  dmTitleEl = overlayEl.querySelector<HTMLElement>('.dialog-title')
+
   const closeHeaderBtn = overlayEl.querySelector('#closeDataManagerBtn')
   const deleteBtn = overlayEl.querySelector('#closeDMBtn')
   const okBtn = overlayEl.querySelector('#dmOkBtn')
@@ -157,6 +205,16 @@ export function initDataManagerDialog(
   const allBtn = overlayEl.querySelector('#dmAllBtn')
 
   const listBox = overlayEl.querySelector<HTMLElement>('#dmListBox')
+
+  dmSidebarEl = overlayEl.querySelector<HTMLElement>('.dm-action-sidebar')
+  dmGroupTopEl = upBtn?.closest<HTMLElement>('.dm-btn-group') || null
+  dmGroupBottomEl = okBtn?.closest<HTMLElement>('.dm-btn-group-bottom') || null
+  dmUpBtnEl = upBtn as HTMLElement | null
+  dmDownBtnEl = downBtn as HTMLElement | null
+  dmAllBtnEl = allBtn as HTMLElement | null
+  dmOkBtnEl = okBtn as HTMLElement | null
+  dmCancelBtnEl = cancelBtn as HTMLElement | null
+  dmDeleteBtnEl = deleteBtn as HTMLElement | null
 
   const hide = () => hideDataManagerDialog(overlayEl)
 
@@ -242,6 +300,7 @@ export function showDataManagerDialog(
   activeSelectCallback = onSelectDatasetCallback || null
   legendSelectCallback = null
   multiSelectMode = false
+  setLegendMode(false)
   refreshDataManagerList()
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Open'
@@ -256,11 +315,10 @@ export function showDataManagerForLegend(
 ): void {
   legendSelectCallback = onChoose
   multiSelectMode = true
+  setLegendMode(true)
   refreshDataManagerList()
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Insert'
-  const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
-  if (delBtn) delBtn.style.display = 'none'
   overlayEl.style.display = 'flex'
 }
 
@@ -268,6 +326,7 @@ export function hideDataManagerDialog(overlayEl: HTMLElement): void {
   legendSelectCallback = null
   multiSelectMode = false
   if (overlayEl === dmOverlayEl) dmOverlayEl = null
+  setLegendMode(false)
   const okBtn = overlayEl.querySelector<HTMLElement>('#dmOkBtn')
   if (okBtn) okBtn.textContent = 'Open'
   const delBtn = overlayEl.querySelector<HTMLElement>('#closeDMBtn')
