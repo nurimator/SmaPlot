@@ -14,6 +14,7 @@ import { buildGroupDragItems, setActiveGroupDrag } from './drag.ts'
 import { updatePlotVisual } from './drawPlot.ts'
 import { showArrowDialog } from './../ArrowDialog.ts'
 import { showRectangleDialog } from './../RectangleDialog.ts'
+import { getLineDashArray } from './symbols.ts'
 
 let lastAnnotationClickTime = 0
 let lastAnnotationClickKey = ''
@@ -184,11 +185,8 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aWidthMm = aLine.thickness || aLine.width || 0.4
       rectElem.setAttribute('stroke-width', String(Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))))
       rectElem.setAttribute('pointer-events', 'all')
-      if (aLine.style === 'dashed') {
-        rectElem.setAttribute('stroke-dasharray', '4 4')
-      } else if (aLine.style === 'dotted') {
-        rectElem.setAttribute('stroke-dasharray', '2 2')
-      }
+      const rectDash = getLineDashArray(aLine.style, Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2))))
+      if (rectDash !== 'none') rectElem.setAttribute('stroke-dasharray', rectDash)
       rectElem.style.cursor = 'pointer'
       rectElem.addEventListener('mousedown', handleMouseDown('line'))
       rectElem.addEventListener('dblclick', (e: MouseEvent) => {
@@ -213,25 +211,16 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aStrokeW = Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))
       const aLineStyle = aLine.style || 'solid'
 
-      let dashArray = 'none'
-      // Round caps paint aStrokeW/2 beyond each dash end, which would shrink
-      // the visual gap as the stroke thickens. Compensate so dash lengths and
-      // gaps stay constant — width only affects the stroke thickness.
-      const dashPair = (on: number, gap: number): string =>
-        `${Math.max(0.5, on - aStrokeW).toFixed(1)} ${Math.max(0.5, gap + aStrokeW).toFixed(1)}`
-      if (aLineStyle === 'dashed') {
-        dashArray = dashPair(1.5 * scaleX, 1.5 * scaleX)
-      } else if (aLineStyle === 'dotted') {
-        dashArray = `0.1 ${(Math.max(4, 4.5 * scaleX) + aStrokeW).toFixed(1)}`
-      } else if (aLineStyle === 'dash_dot') {
-        dashArray = `${dashPair(3.0 * scaleX, 1.5 * scaleX)} 0.1 ${(Math.max(2, 1.5 * scaleX) + aStrokeW).toFixed(1)}`
-      }
+      // Reuse the shared series dash pattern so the arrow line matches the
+      // plot line type exactly. getLineDashArray already compensates for the
+      // round stroke caps so dash lengths and gaps stay constant with width.
+      const dashArray = getLineDashArray(aLineStyle, aStrokeW)
 
-      const isDimension = aLine.shape === 'dimension' || aLine.rawType === '2'
+      const isMeasureLine = aLine.shape === 'measure_line' || aLine.rawType === '2'
       const mode = aLine.arrowMode !== undefined ? aLine.arrowMode : (
         aLine.shape === 'arrow_start' ? 2 :
         aLine.shape === 'arrow_both' ? 3 :
-        aLine.shape === 'line' || isDimension ? 0 :
+        aLine.shape === 'line' || isMeasureLine ? 0 :
         (aLine.shape === 'arrow' || aLine.arrowhead ? 1 : 0)
       )
 
@@ -247,7 +236,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         }
       }
 
-      if (isDimension && len > 1e-4) {
+      if (isMeasureLine && len > 1e-4) {
         const ux = dx / len
         const uy = dy / len
         const px = -uy
@@ -264,20 +253,34 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const cap2_x2 = x2 + (capLen / 2) * px
         const cap2_y2 = y2 + (capLen / 2) * py
 
-        const dimPathD = `M${cap1_x1.toFixed(1)},${cap1_y1.toFixed(1)}L${cap1_x2.toFixed(1)},${cap1_y2.toFixed(1)}M${cap2_x1.toFixed(1)},${cap2_y1.toFixed(1)}L${cap2_x2.toFixed(1)},${cap2_y2.toFixed(1)}M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`
+        // The two end boundary (extension) lines stay solid regardless of the
+        // chosen line type; only the main dimension line follows the dash style.
+        const capPathD = `M${cap1_x1.toFixed(1)},${cap1_y1.toFixed(1)}L${cap1_x2.toFixed(1)},${cap1_y2.toFixed(1)}M${cap2_x1.toFixed(1)},${cap2_y1.toFixed(1)}L${cap2_x2.toFixed(1)},${cap2_y2.toFixed(1)}`
+        const dimCaps = createSVGElement('path')
+        dimCaps.setAttribute('d', capPathD)
+        dimCaps.setAttribute('stroke', aColor)
+        dimCaps.setAttribute('stroke-width', String(aStrokeW))
+        dimCaps.setAttribute('fill', 'none')
+        dimCaps.setAttribute('stroke-linecap', 'round')
+        dimCaps.setAttribute('stroke-linejoin', 'round')
+        dimCaps.style.cursor = 'pointer'
+        dimCaps.addEventListener('mousedown', handleMouseDown('line'))
+        dimCaps.addEventListener('dblclick', handleArrowDblClick)
+        svg.appendChild(dimCaps)
 
-        const dimElem = createSVGElement('path')
-        dimElem.setAttribute('d', dimPathD)
-        dimElem.setAttribute('stroke', aColor)
-        dimElem.setAttribute('stroke-width', String(aStrokeW))
-        dimElem.setAttribute('fill', 'none')
-        dimElem.setAttribute('stroke-linecap', 'round')
-        dimElem.setAttribute('stroke-linejoin', 'round')
-        if (dashArray !== 'none') dimElem.setAttribute('stroke-dasharray', dashArray)
-        dimElem.style.cursor = 'pointer'
-        dimElem.addEventListener('mousedown', handleMouseDown('line'))
-        dimElem.addEventListener('dblclick', handleArrowDblClick)
-        svg.appendChild(dimElem)
+        const linePathD = `M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`
+        const dimLine = createSVGElement('path')
+        dimLine.setAttribute('d', linePathD)
+        dimLine.setAttribute('stroke', aColor)
+        dimLine.setAttribute('stroke-width', String(aStrokeW))
+        dimLine.setAttribute('fill', 'none')
+        dimLine.setAttribute('stroke-linecap', 'round')
+        dimLine.setAttribute('stroke-linejoin', 'round')
+        if (dashArray !== 'none') dimLine.setAttribute('stroke-dasharray', dashArray)
+        dimLine.style.cursor = 'pointer'
+        dimLine.addEventListener('mousedown', handleMouseDown('line'))
+        dimLine.addEventListener('dblclick', handleArrowDblClick)
+        svg.appendChild(dimLine)
       } else if (len > 1e-4) {
         const ux = dx / len
         const uy = dy / len

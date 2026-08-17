@@ -26,6 +26,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       svg,
       overlayEl,
       annotationIndex: currentAnnotationIndex,
+      baseAnnotation: buildArrowFromDialog(),
     })
   }
 
@@ -34,6 +35,72 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
   if (closeBtn) closeBtn.addEventListener('click', hide)
   if (cancelBtn) cancelBtn.addEventListener('click', hide)
 
+  const buildArrowFromDialog = (): SmpLineAnnotation => {
+    const arrowheadEl = overlayEl.querySelector<HTMLInputElement>('#arrowheadInput')
+    const widthEl = overlayEl.querySelector<HTMLInputElement>('#arrowWidthInput')
+    const colorEl = overlayEl.querySelector<HTMLInputElement>('#arrowColorInput')
+    const lineTypeEl = overlayEl.querySelector<HTMLSelectElement>('#arrowLineTypeSelect')
+    const pitchEl = overlayEl.querySelector<HTMLInputElement>('#arrowPitchInput')
+    const xStartEl = overlayEl.querySelector<HTMLInputElement>('#arrowXStartInput')
+    const yStartEl = overlayEl.querySelector<HTMLInputElement>('#arrowYStartInput')
+    const xEndEl = overlayEl.querySelector<HTMLInputElement>('#arrowXEndInput')
+    const yEndEl = overlayEl.querySelector<HTMLInputElement>('#arrowYEndInput')
+    const shapeEl = overlayEl.querySelector<HTMLSelectElement>('#arrowShapeSelect')
+    const spreadEl = overlayEl.querySelector<HTMLInputElement>('#arrowSpreadInput')
+    const shutEl = overlayEl.querySelector<HTMLInputElement>('#arrowShutInput')
+
+    const unitXEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitX"]:checked')
+    const unitYEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitY"]:checked')
+
+    const arrowhead = parseFloat(arrowheadEl?.value || '5.0') || 5.0
+    const width = parseFloat(widthEl?.value || '0.4') || 0.4
+    const color = colorEl?.value || '#000000'
+    const style = lineTypeEl?.value || 'solid'
+    const pitch = parseFloat(pitchEl?.value || '3') || 3
+    const x1Norm = parseFloat(xStartEl?.value || '0') || 0
+    const y1Norm = parseFloat(yStartEl?.value || '0') || 0
+    const x2Norm = parseFloat(xEndEl?.value || '0') || 0
+    const y2Norm = parseFloat(yEndEl?.value || '0') || 0
+    const shape = shapeEl?.value || 'arrow_end'
+    let arrowMode = 1
+    if (shape === 'arrow_start') arrowMode = 2
+    else if (shape === 'arrow_both') arrowMode = 3
+    else if (shape === 'line' || shape === 'measure_line') arrowMode = 0
+    const spread = parseFloat(spreadEl?.value || '30') || 30
+    const shut = parseFloat(shutEl?.value || '100') || 100
+    const unitX = (unitXEl?.value as 'mm' | 'xa' | 'ua') || 'mm'
+    const unitY = (unitYEl?.value as 'mm' | 'ya' | 'ra') || 'mm'
+
+    return {
+      x1Norm,
+      y1Norm,
+      x2Norm,
+      y2Norm,
+      style,
+      width,
+      arrowhead,
+      pitch,
+      shape,
+      arrowMode,
+      spread,
+      shut,
+      unitX,
+      unitY,
+      color,
+    }
+  }
+
+  const previewArrow = (): void => {
+    if (currentAnnotationIndex < 0) return
+    const svg = currentTargetSvg || getSelectedPlotSvg()
+    if (!svg) return
+    const smpDoc = getPlotSmpDoc(svg)
+    if (!smpDoc || !smpDoc.annotationLines) return
+    if (currentAnnotationIndex >= smpDoc.annotationLines.length) return
+    smpDoc.annotationLines[currentAnnotationIndex] = buildArrowFromDialog()
+    updatePlotVisual(svg)
+  }
+
   if (okBtn || saveBtn) {
     const handleApply = () => {
       const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -41,66 +108,12 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       const smpDoc = getPlotSmpDoc(svg)
       if (!smpDoc) return
 
-      const arrowheadEl = overlayEl.querySelector<HTMLInputElement>('#arrowheadInput')
-      const widthEl = overlayEl.querySelector<HTMLInputElement>('#arrowWidthInput')
-      const colorEl = overlayEl.querySelector<HTMLInputElement>('#arrowColorInput')
-      const lineTypeEl = overlayEl.querySelector<HTMLSelectElement>('#arrowLineTypeSelect')
-      const pitchEl = overlayEl.querySelector<HTMLInputElement>('#arrowPitchInput')
-      const xStartEl = overlayEl.querySelector<HTMLInputElement>('#arrowXStartInput')
-      const yStartEl = overlayEl.querySelector<HTMLInputElement>('#arrowYStartInput')
-      const xEndEl = overlayEl.querySelector<HTMLInputElement>('#arrowXEndInput')
-      const yEndEl = overlayEl.querySelector<HTMLInputElement>('#arrowYEndInput')
-      const shapeEl = overlayEl.querySelector<HTMLSelectElement>('#arrowShapeSelect')
-      const spreadEl = overlayEl.querySelector<HTMLInputElement>('#arrowSpreadInput')
-      const shutEl = overlayEl.querySelector<HTMLInputElement>('#arrowShutInput')
-
-      const unitXEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitX"]:checked')
-      const unitYEl = overlayEl.querySelector<HTMLInputElement>('input[name="arrowUnitY"]:checked')
-
-      const arrowhead = parseFloat(arrowheadEl?.value || '5.0') || 5.0
-      const width = parseFloat(widthEl?.value || '0.4') || 0.4
-      const color = colorEl?.value || '#000000'
-      const lineTypeVal = lineTypeEl?.value || 'Solid'
-      const style = lineTypeVal.toLowerCase().includes('dashed') ? 'dashed' : lineTypeVal.toLowerCase().includes('dotted') ? 'dotted' : 'solid'
-      const pitch = parseFloat(pitchEl?.value || '3') || 3
-      const x1Norm = parseFloat(xStartEl?.value || '0') || 0
-      const y1Norm = parseFloat(yStartEl?.value || '0') || 0
-      const x2Norm = parseFloat(xEndEl?.value || '0') || 0
-      const y2Norm = parseFloat(yEndEl?.value || '0') || 0
-      const shape = shapeEl?.value || 'arrow_end'
-      let arrowMode = 1
-      if (shape === 'arrow_start') arrowMode = 2
-      else if (shape === 'arrow_both') arrowMode = 3
-      else if (shape === 'line' || shape === 'dimension') arrowMode = 0
-      const spread = parseFloat(spreadEl?.value || '30') || 30
-      const shut = parseFloat(shutEl?.value || '100') || 100
-      const unitX = (unitXEl?.value as 'mm' | 'xa' | 'ua') || 'mm'
-      const unitY = (unitYEl?.value as 'mm' | 'ya' | 'ra') || 'mm'
-
-      const updatedAnnotation: SmpLineAnnotation = {
-        x1Norm,
-        y1Norm,
-        x2Norm,
-        y2Norm,
-        style,
-        width,
-        arrowhead,
-        pitch,
-        shape,
-        arrowMode,
-        spread,
-        shut,
-        unitX,
-        unitY,
-        color,
-      }
-
       if (!smpDoc.annotationLines) smpDoc.annotationLines = []
 
       if (currentAnnotationIndex >= 0 && currentAnnotationIndex < smpDoc.annotationLines.length) {
-        smpDoc.annotationLines[currentAnnotationIndex] = updatedAnnotation
+        smpDoc.annotationLines[currentAnnotationIndex] = buildArrowFromDialog()
       } else {
-        smpDoc.annotationLines.push(updatedAnnotation)
+        smpDoc.annotationLines.push(buildArrowFromDialog())
       }
 
       updatePlotVisual(svg)
@@ -111,6 +124,33 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     if (okBtn) okBtn.addEventListener('click', handleApply)
     if (saveBtn) saveBtn.addEventListener('click', handleApply)
   }
+
+  // Real-time preview: update the plot as arrow parameters change in the panel.
+  const liveEls: (Element | null)[] = [
+    overlayEl.querySelector('#arrowheadInput'),
+    overlayEl.querySelector('#arrowWidthInput'),
+    overlayEl.querySelector('#arrowColorInput'),
+    overlayEl.querySelector('#arrowLineTypeSelect'),
+    overlayEl.querySelector('#arrowPitchInput'),
+    overlayEl.querySelector('#arrowXStartInput'),
+    overlayEl.querySelector('#arrowYStartInput'),
+    overlayEl.querySelector('#arrowXEndInput'),
+    overlayEl.querySelector('#arrowYEndInput'),
+    overlayEl.querySelector('#arrowShapeSelect'),
+    overlayEl.querySelector('#arrowSpreadInput'),
+    overlayEl.querySelector('#arrowShutInput'),
+  ]
+  liveEls.forEach((el) => {
+    if (!el) return
+    el.addEventListener('input', previewArrow)
+    el.addEventListener('change', previewArrow)
+  })
+  overlayEl.querySelectorAll<HTMLInputElement>('input[name="arrowUnitX"]').forEach((r) =>
+    r.addEventListener('change', previewArrow)
+  )
+  overlayEl.querySelectorAll<HTMLInputElement>('input[name="arrowUnitY"]').forEach((r) =>
+    r.addEventListener('change', previewArrow)
+  )
 
   if (deleteBtn) {
     deleteBtn.addEventListener('click', () => {
@@ -165,14 +205,14 @@ export function showArrowDialog(
       if (arrowheadEl) arrowheadEl.value = String(aLine.arrowhead ?? 5.0)
       if (widthEl) widthEl.value = String(aLine.width ?? 0.4)
       if (colorEl) colorEl.value = aLine.color || '#000000'
-      if (lineTypeEl) lineTypeEl.value = aLine.style === 'dashed' ? 'Dashed' : aLine.style === 'dotted' ? 'Dotted' : 'Solid'
+      if (lineTypeEl) lineTypeEl.value = aLine.style === 'dashed' ? 'dash' : aLine.style || 'solid'
       if (pitchEl) pitchEl.value = String(aLine.pitch ?? 3)
       if (xStartEl) xStartEl.value = String(Math.round(aLine.x1Norm))
       if (yStartEl) yStartEl.value = String(Math.round(aLine.y1Norm))
       if (xEndEl) xEndEl.value = String(Math.round(aLine.x2Norm))
       if (yEndEl) yEndEl.value = String(Math.round(aLine.y2Norm))
       if (shapeEl) {
-        shapeEl.value = aLine.shape === 'dimension' ? 'dimension' : (
+        shapeEl.value = aLine.shape === 'measure_line' ? 'measure_line' : (
           aLine.arrowMode === 2 || aLine.shape === 'arrow_start' ? 'arrow_start' :
           aLine.arrowMode === 3 || aLine.shape === 'arrow_both' ? 'arrow_both' :
           aLine.arrowMode === 0 || aLine.shape === 'line' ? 'line' : 'arrow_end'
@@ -190,7 +230,7 @@ export function showArrowDialog(
       if (arrowheadEl) arrowheadEl.value = '5.0'
       if (widthEl) widthEl.value = '0.4'
       if (colorEl) colorEl.value = '#000000'
-      if (lineTypeEl) lineTypeEl.value = 'Solid'
+      if (lineTypeEl) lineTypeEl.value = 'solid'
       if (pitchEl) pitchEl.value = '3'
       if (xStartEl) xStartEl.value = '18'
       if (yStartEl) yStartEl.value = '92'

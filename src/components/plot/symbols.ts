@@ -127,6 +127,52 @@ export function createSeriesSymbol(
   return null
 }
 
+// Arrow-shape glyph (line, right/left/double arrow, dimension) for the
+// Insert > Arrow shape dropdown, rendered as a small SVG so the trigger and
+// popup options show a drawn icon instead of a unicode character.
+export function createArrowShapeSymbol(shape: string): SVGElement | null {
+  const color = '#475569'
+  const g = createSVGElement('g')
+
+  const line = createSVGElement('line')
+  line.setAttribute('x1', '1.5')
+  line.setAttribute('y1', '6')
+  line.setAttribute('x2', '10.5')
+  line.setAttribute('y2', '6')
+  line.setAttribute('stroke', color)
+  line.setAttribute('stroke-width', '1.2')
+  line.setAttribute('stroke-linecap', 'round')
+  g.appendChild(line)
+
+  if (shape === 'arrow_end' || shape === 'arrow_both') {
+    const head = createSVGElement('polygon')
+    head.setAttribute('points', '10.5,6 8.3,4.4 8.3,7.6')
+    head.setAttribute('fill', color)
+    g.appendChild(head)
+  }
+  if (shape === 'arrow_start' || shape === 'arrow_both') {
+    const head = createSVGElement('polygon')
+    head.setAttribute('points', '1.5,6 3.7,4.4 3.7,7.6')
+    head.setAttribute('fill', color)
+    g.appendChild(head)
+  }
+  if (shape === 'measure_line') {
+    for (const x of ['1.5', '10.5']) {
+      const tick = createSVGElement('line')
+      tick.setAttribute('x1', x)
+      tick.setAttribute('y1', '3.5')
+      tick.setAttribute('x2', x)
+      tick.setAttribute('y2', '8.5')
+      tick.setAttribute('stroke', color)
+      tick.setAttribute('stroke-width', '1.2')
+      tick.setAttribute('stroke-linecap', 'round')
+      g.appendChild(tick)
+    }
+  }
+
+  return g
+}
+
 export interface SeriesIconOptions {
   color: string
   lineWidthPx: number

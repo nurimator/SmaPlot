@@ -392,7 +392,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         const faceBgr = hexToBgr(aLine.faceColor || COLOR_FACE_HEX)
         const roundXVal = Math.round((aLine.roundX ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
         const roundYVal = Math.round((aLine.roundY ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
-        const styleNum = aLine.style === 'dashed' ? 2 : aLine.style === 'dotted' ? 3 : 1
+        const styleNum = (aLine.style === 'dashed' || aLine.style === 'dash') ? 2 : aLine.style === 'dotted' ? 3 : 1
         computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 ${shadeVal} ${shadeBgr} 3 ${thickVal} 1 ${faceBgr} ${roundXVal} ${roundYVal} ${styleNum} 30 100 0`
       } else if (entry.item) {
         const x1Str = formatFloatSci(entry.item.xNorm)
@@ -406,7 +406,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     } else if (entry.isLine) {
       const aLine = entry.aLine
       const item = entry.item
-      const itemType = aLine?.rawType || (aLine?.shape === 'dimension' ? '2' : '0')
+      const itemType = aLine?.rawType || (aLine?.shape === 'measure_line' ? '2' : '0')
       lines.push(itemType)
       let computed: string | null = null
       if (aLine) {
@@ -414,17 +414,26 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         const y1Str = formatFloatSci(aLine.y1Norm)
         const x2Str = formatFloatSci(aLine.x2Norm)
         const y2Str = formatFloatSci(aLine.y2Norm)
+        const isMeasureLine = aLine.shape === 'measure_line' || aLine.rawType === '2'
         const unitXCode = aLine.unitX === 'xa' ? 1 : aLine.unitX === 'ua' ? 2 : 0
-        const unitYCode = aLine.unitY === 'ya' ? 1 : aLine.unitY === 'ra' ? 2 : (aLine.shape === 'dimension' || aLine.rawType === '2' ? 2 : 0)
+        const unitYCode = aLine.unitY === 'ya' ? 1 : aLine.unitY === 'ra' ? 2 : 0
         const widthCode = Math.round((aLine.width ?? 0.4) * 100)
         const headCode = Math.round((aLine.arrowhead ?? 5.0) * 100)
         const colorCode = hexToBgr(aLine.color || '#000000')
-        const styleCode = aLine.style === 'dashed' ? 2 : aLine.style === 'dotted' ? 3 : 1
+        const styleCode = lineTypeToCode(aLine.style)
         const faceCode = hexToBgr(aLine.faceColor || '#ffffff')
-        const modeCode = aLine.arrowMode !== undefined ? aLine.arrowMode : (aLine.shape === 'arrow_start' ? 2 : aLine.shape === 'arrow_both' ? 3 : aLine.shape === 'line' || aLine.shape === 'dimension' ? 0 : 1)
+        // Native Sma4Win writes a dimension line (legendType '2') with the
+        // line-kind flag (token 9) set to 2 and arrow mode 1, matching the
+        // format produced by Sma4Win itself so the exported file is readable.
+        const dimKind = isMeasureLine ? 2 : 0
+        const modeCode = isMeasureLine
+          ? 1
+          : aLine.arrowMode !== undefined
+            ? aLine.arrowMode
+            : aLine.shape === 'arrow_start' ? 2 : aLine.shape === 'arrow_both' ? 3 : aLine.shape === 'line' ? 0 : 1
         const spreadCode = Math.round(aLine.spread ?? 30)
         const shutCode = Math.round(aLine.shut ?? 100)
-        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} 0 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`
+        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} ${dimKind} 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`
       } else if (item) {
         const x1Str = formatFloatSci(item.xNorm)
         const y1Str = formatFloatSci(item.yNorm)

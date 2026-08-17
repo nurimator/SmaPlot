@@ -648,7 +648,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               let arrowMode = itemType === '2' ? 0 : 1
               let spread = 30
               let shut = 100
-              let shape = itemType === '2' ? 'dimension' : 'arrow'
+              let shape = itemType === '2' ? 'measure_line' : 'arrow'
 
               if (parts.length >= 5) {
                 unitX = parts[4] === '1' ? 'xa' : parts[4] === '2' ? 'ua' : 'mm'
@@ -681,7 +681,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 if (!isNaN(modeVal)) {
                   arrowMode = modeVal
                   if (itemType === '2') {
-                    shape = 'dimension'
+                    shape = 'measure_line'
                   } else if (modeVal === 0) {
                     shape = 'line'
                   } else if (modeVal === 2) {

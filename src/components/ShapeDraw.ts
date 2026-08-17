@@ -1,6 +1,7 @@
 import { PLOT_MARGIN, getPlotSmpDoc, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 import type { SmpLineAnnotation } from '../types.ts'
+import { getLineDashArray } from './plot/symbols.ts'
 
 // Shared mouse-draw interaction for the Rectangle and Arrow dialogs.
 //
@@ -16,6 +17,7 @@ interface ShapeDrawState {
   svg: SVGSVGElement
   overlayEl: HTMLElement
   annotationIndex: number
+  baseAnnotation?: SmpLineAnnotation
   onComplete?: (newIndex: number) => void
   previewEl: SVGElement | null
   startX: number
@@ -92,18 +94,77 @@ function makePreviewEl(): SVGElement {
   }
   const group = document.createElementNS(SVG_NS, 'g')
   group.setAttribute('pointer-events', 'none')
-
-  const line = document.createElementNS(SVG_NS, 'line')
-  line.setAttribute('stroke', '#1d4ed8')
-  line.setAttribute('stroke-width', '2')
-  line.setAttribute('stroke-dasharray', '4 2')
-
-  const head = document.createElementNS(SVG_NS, 'polygon')
-  head.setAttribute('fill', '#1d4ed8')
-
-  group.appendChild(line)
-  group.appendChild(head)
   return group
+}
+
+// Draw the live arrow preview from the dialog's chosen shape/arrowMode/style so
+// the drag preview matches the final annotation (end/start/both heads, plain
+// line, or measure line with perpendicular end ticks, plus the dash pattern).
+function getPreviewScaleX(svg: SVGSVGElement): number {
+  const doc = getPlotSmpDoc(svg)
+  const w = svg.clientWidth || parseFloat(svg.style.width) || 400
+  const docWidthMm = (doc?.width || 14000) / 100
+  const plotW = Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  return plotW / (docWidthMm || 140)
+}
+
+function drawArrowPreview(group: SVGGElement, sx: number, sy: number, ex: number, ey: number): void {
+  const base = state?.baseAnnotation
+  const shape = base?.shape || 'arrow_end'
+  const style = base?.style || 'solid'
+  const color = base?.color || '#000000'
+  const arrowMode = base?.arrowMode !== undefined
+    ? base.arrowMode
+    : shape === 'arrow_start' ? 2 : shape === 'arrow_both' ? 3 : shape === 'line' || shape === 'measure_line' ? 0 : 1
+  const scaleX = state?.svg ? getPreviewScaleX(state.svg) : 1
+  const strokeW = Math.max(0.4, Number(((base?.width ?? 0.4) * scaleX).toFixed(2)))
+
+  group.innerHTML = ''
+  const line = document.createElementNS(SVG_NS, 'line')
+  line.setAttribute('x1', String(sx))
+  line.setAttribute('y1', String(sy))
+  line.setAttribute('x2', String(ex))
+  line.setAttribute('y2', String(ey))
+  line.setAttribute('stroke', color)
+  line.setAttribute('stroke-width', String(strokeW))
+  const dash = getLineDashArray(style, strokeW)
+  if (dash !== 'none') line.setAttribute('stroke-dasharray', dash)
+  group.appendChild(line)
+
+  if (shape === 'measure_line') {
+    const ang = Math.atan2(ey - sy, ex - sx)
+    const px = -Math.sin(ang)
+    const py = Math.cos(ang)
+    const t = 6
+    const ends: Array<[number, number]> = [[sx, sy], [ex, ey]]
+    for (const [bx, by] of ends) {
+      const tick = document.createElementNS(SVG_NS, 'line')
+      tick.setAttribute('x1', String(bx - px * t))
+      tick.setAttribute('y1', String(by - py * t))
+      tick.setAttribute('x2', String(bx + px * t))
+      tick.setAttribute('y2', String(by + py * t))
+      tick.setAttribute('stroke', color)
+      tick.setAttribute('stroke-width', String(strokeW))
+      group.appendChild(tick)
+    }
+    return
+  }
+
+  const headAngle = Math.PI / 6
+  const headLen = Math.max(6, strokeW * 3)
+  const drawHead = (hx: number, hy: number, ang: number): void => {
+    const p1x = hx - headLen * Math.cos(ang - headAngle)
+    const p1y = hy - headLen * Math.sin(ang - headAngle)
+    const p2x = hx - headLen * Math.cos(ang + headAngle)
+    const p2y = hy - headLen * Math.sin(ang + headAngle)
+    const head = document.createElementNS(SVG_NS, 'polygon')
+    head.setAttribute('points', `${hx},${hy} ${p1x.toFixed(1)},${p1y.toFixed(1)} ${p2x.toFixed(1)},${p2y.toFixed(1)}`)
+    head.setAttribute('fill', color)
+    group.appendChild(head)
+  }
+
+  if (arrowMode === 1 || arrowMode === 3) drawHead(ex, ey, Math.atan2(ey - sy, ex - sx))
+  if (arrowMode === 2 || arrowMode === 3) drawHead(sx, sy, Math.atan2(sy - ey, sx - ex))
 }
 
 function updatePreview(curX: number, curY: number): void {
@@ -122,24 +183,7 @@ function updatePreview(curX: number, curY: number): void {
     rect.setAttribute('height', String(Math.abs(curY - sy)))
   } else {
     const group = state.previewEl as SVGGElement
-    const line = group.querySelector('line')
-    const head = group.querySelector('polygon')
-    if (line) {
-      line.setAttribute('x1', String(sx))
-      line.setAttribute('y1', String(sy))
-      line.setAttribute('x2', String(curX))
-      line.setAttribute('y2', String(curY))
-    }
-    if (head) {
-      const angle = Math.atan2(curY - sy, curX - sx)
-      const headLen = 8
-      const headAngle = Math.PI / 6
-      const p1x = curX - headLen * Math.cos(angle - headAngle)
-      const p1y = curY - headLen * Math.sin(angle - headAngle)
-      const p2x = curX - headLen * Math.cos(angle + headAngle)
-      const p2y = curY - headLen * Math.sin(angle + headAngle)
-      head.setAttribute('points', `${curX},${curY} ${p1x},${p1y} ${p2x},${p2y}`)
-    }
+    drawArrowPreview(group, sx, sy, curX, curY)
   }
 }
 
@@ -243,6 +287,7 @@ function onMouseUp(e: MouseEvent): void {
       y2Norm: y2,
     }
   } else {
+    const base = state.baseAnnotation
     const annotation: SmpLineAnnotation =
       state.shape === 'rectangle'
         ? {
@@ -250,15 +295,15 @@ function onMouseUp(e: MouseEvent): void {
             y1Norm: y1,
             x2Norm: x2,
             y2Norm: y2,
-            style: 'solid',
-            width: 0.4,
-            thickness: 0.4,
-            color: '#000000',
-            faceColor: '#ffffff',
-            shadeDepth: 0,
-            shadeColor: '#000000',
-            roundX: 0,
-            roundY: 0,
+            style: base?.style || 'solid',
+            width: base?.width ?? 0.4,
+            thickness: base?.thickness ?? 0.4,
+            color: base?.color || '#000000',
+            faceColor: base?.faceColor || '#ffffff',
+            shadeDepth: base?.shadeDepth ?? 0,
+            shadeColor: base?.shadeColor || '#000000',
+            roundX: base?.roundX ?? 0,
+            roundY: base?.roundY ?? 0,
             shape: 'rectangle',
           }
         : {
@@ -266,17 +311,17 @@ function onMouseUp(e: MouseEvent): void {
             y1Norm: y1,
             x2Norm: x2,
             y2Norm: y2,
-            style: 'solid',
-            width: 0.4,
-            arrowhead: 5.0,
-            pitch: 3,
-            shape: 'arrow_end',
-            arrowMode: 1,
-            spread: 30,
-            shut: 100,
-            unitX: 'mm',
-            unitY: 'mm',
-            color: '#000000',
+            style: base?.style || 'solid',
+            width: base?.width ?? 0.4,
+            arrowhead: base?.arrowhead ?? 5.0,
+            pitch: base?.pitch ?? 3,
+            shape: base?.shape ?? 'arrow_end',
+            arrowMode: base?.arrowMode ?? 1,
+            spread: base?.spread ?? 30,
+            shut: base?.shut ?? 100,
+            unitX: base?.unitX ?? 'mm',
+            unitY: base?.unitY ?? 'mm',
+            color: base?.color || '#000000',
           }
     doc.annotationLines.push(annotation)
     newIndex = doc.annotationLines.length - 1
@@ -305,6 +350,7 @@ export function beginShapeDraw(opts: {
   svg: SVGSVGElement
   overlayEl: HTMLElement
   annotationIndex: number
+  baseAnnotation?: SmpLineAnnotation
   onComplete?: (newIndex: number) => void
 }): void {
   if (state) cancelDraw()
@@ -316,6 +362,7 @@ export function beginShapeDraw(opts: {
     svg: opts.svg,
     overlayEl: opts.overlayEl,
     annotationIndex: opts.annotationIndex,
+    baseAnnotation: opts.baseAnnotation,
     onComplete: opts.onComplete,
     previewEl: null,
     startX: 0,

@@ -933,9 +933,11 @@
             <div class="form-field-stacked">
               <label class="title-field-label">Line type</label>
               <select id="arrowLineTypeSelect" class="form-select width-md">
-                <option value="Dashed" selected>Dashed</option>
-                <option value="Solid">Solid</option>
-                <option value="Dotted">Dotted</option>
+                <option value="solid" selected>Solid</option>
+                <option value="dash">Dash</option>
+                <option value="dotted">dotted</option>
+                <option value="dash_dot">Dash Dot</option>
+                <option value="dash_dot_dot">dash Dot Dot</option>
               </select>
             </div>
             <div class="form-field-stacked">
@@ -980,11 +982,10 @@
           <div class="arrow-shape-row" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
             <label class="title-field-label">shape</label>
             <select id="arrowShapeSelect" class="form-select width-md">
-              <option value="line">— (Line)</option>
-              <option value="arrow_end" selected>&rarr; (Right Arrow)</option>
-              <option value="arrow_start">&larr; (Left Arrow)</option>
-              <option value="arrow_both">&harr; (Double Arrow)</option>
-              <option value="dimension">|—| (Dimension)</option>
+              <option value="arrow_end" selected data-symbol="arrow">Right Arrow</option>
+              <option value="arrow_start" data-symbol="arrow">Left Arrow</option>
+              <option value="arrow_both" data-symbol="arrow">Double Arrow</option>
+              <option value="measure_line" data-symbol="arrow">Measure Line</option>
             </select>
             <label class="title-field-label">spread</label>
             <input type="number" id="arrowSpreadInput" value="30" min="1" max="180" class="form-input-num width-sm" />

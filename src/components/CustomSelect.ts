@@ -1,5 +1,5 @@
 import { createSVGElement } from './plot/svg.ts'
-import { createSeriesSymbol } from './plot/symbols.ts'
+import { createSeriesSymbol, createArrowShapeSymbol } from './plot/symbols.ts'
 
 interface OpenPopup {
   popup: HTMLElement
@@ -10,11 +10,10 @@ interface OpenPopup {
 
 let openPopup: OpenPopup | null = null
 
-// Inline marker symbol (same shapes as the plotted series) for options that
-// opt in via data-symbol="series". Returns '' when the option has no icon.
-function optionIconHtml(opt: HTMLOptionElement): string {
-  if (opt.dataset.symbol !== 'series') return ''
-  const symbol = createSeriesSymbol(opt.value, 6, 6, 4.5, '#475569', '#ffffff')
+// Inline icon for options that opt in via data-symbol. "series" renders the
+// plotted marker shapes; "arrow" renders the arrow-shape glyphs. Returns ''
+// when the option has no icon.
+function buildIconSvg(symbol: SVGElement | null): string {
   if (!symbol) return ''
   const svg = createSVGElement('svg')
   svg.setAttribute('viewBox', '0 0 12 12')
@@ -24,6 +23,16 @@ function optionIconHtml(opt: HTMLOptionElement): string {
   svg.setAttribute('aria-hidden', 'true')
   svg.appendChild(symbol)
   return svg.outerHTML
+}
+
+function optionIconHtml(opt: HTMLOptionElement): string {
+  if (opt.dataset.symbol === 'series') {
+    return buildIconSvg(createSeriesSymbol(opt.value, 6, 6, 4.5, '#475569', '#ffffff'))
+  }
+  if (opt.dataset.symbol === 'arrow') {
+    return buildIconSvg(createArrowShapeSymbol(opt.value))
+  }
+  return ''
 }
 
 function syncButtonText(select: HTMLSelectElement, button: HTMLButtonElement): void {
