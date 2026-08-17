@@ -5,6 +5,11 @@ import type { PlotRenderContext } from './svg.ts'
 export function renderAxes(ctx: PlotRenderContext): void {
   const { svg, margin, plotW, plotH, scaleX, sx, sy, smpDoc } = ctx
 
+  const formatLabel = (v: number, addPlus?: boolean): string => {
+    const base = formatTick(v)
+    if (addPlus && v > 0) return `+${base}`
+    return base
+  }
   const getMajorTicks = (minVal: number, maxVal: number, stepVal: number): number[] => {
     const ticks: number[] = []
     if (stepVal <= 0) return [minVal, maxVal]
@@ -61,6 +66,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const showXTicks = smpDoc?.axisX.showTicks !== false
   const showXLabels = showXTicks && (smpDoc?.axisX.showLabels !== false)
 
+  // "merge zero labels": when both X and Y origins sit at the bottom-left corner (min === 0)
+  // the axes share a single zero label positioned exactly at that corner.
+  const mergeZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
+
   const xMajIn = smpDoc?.axisX.majorIn ?? (smpDoc?.axisX.insideTicks !== false)
   const xMajOut = smpDoc?.axisX.majorOut ?? false
   const xMajLen = smpDoc?.axisX.majorLength ?? 6
@@ -108,6 +117,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   if (showXLabels) {
     xMajorTicks.forEach((v) => {
+      if (mergeZero && v === 0) return
       const px = sx(v)
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
@@ -120,7 +130,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (xFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (xFontStyle === 'bold' || xFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', xLabelColor)
-        label.textContent = formatTick(v)
+        label.textContent = formatLabel(v, smpDoc?.axisX.addPlusSign)
         xLabelFrag.appendChild(label)
       }
     })
@@ -244,7 +254,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (uFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (uFontStyle === 'bold' || uFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', uLabelColor)
-        label.textContent = formatTick(v)
+        label.textContent = formatLabel(v, uSpec?.addPlusSign)
         uLabelFrag.appendChild(label)
       }
     })
@@ -340,7 +350,12 @@ export function renderAxes(ctx: PlotRenderContext): void {
   }
 
   if (showYLabels) {
+    // "merge zero labels": when both X and Y origins sit at the bottom-left corner (min === 0)
+    // the axes share a single zero label, so suppress the redundant Y-axis zero and draw one
+    // label placed exactly at the corner (x matches the Y zero, y matches the X zero).
+    const shareZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
     yMajorTicks.forEach((v) => {
+      if (shareZero && v === 0) return
       const py = sy(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
@@ -352,10 +367,26 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (yFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (yFontStyle === 'bold' || yFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', yLabelColor)
-        label.textContent = formatTick(v)
+        label.textContent = formatLabel(v, smpDoc?.axisY.addPlusSign)
         yLabelFrag.appendChild(label)
       }
     })
+
+    if (mergeZero) {
+      const zLabel = createSVGElement('text')
+      // x aligned with the Y-axis zero (just left of the frame), y aligned with the X-axis zero.
+      zLabel.setAttribute('x', String(leftX - 1 + yShiftRight))
+      zLabel.setAttribute('y', String(bottomY + 1 + xShiftDown))
+      zLabel.setAttribute('text-anchor', 'end')
+      zLabel.setAttribute('dominant-baseline', 'hanging')
+      zLabel.setAttribute('font-size', String(yRenderFontSize))
+      zLabel.setAttribute('font-family', yFontFamily)
+      if (yFontStyle === 'italic') zLabel.setAttribute('font-style', 'italic')
+      if (yFontStyle === 'bold' || yFontWeight >= 600) zLabel.setAttribute('font-weight', 'bold')
+      zLabel.setAttribute('fill', yLabelColor)
+      zLabel.textContent = formatLabel(0, smpDoc?.axisY.addPlusSign)
+      yLabelFrag.appendChild(zLabel)
+    }
   }
 
   if (yTickPathD) {
@@ -475,7 +506,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (rFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (rFontStyle === 'bold' || rFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', rLabelColor)
-        label.textContent = formatTick(v)
+        label.textContent = formatLabel(v, rSpec?.addPlusSign)
         rLabelFrag.appendChild(label)
       }
     })
@@ -509,3 +540,4 @@ export function renderAxes(ctx: PlotRenderContext): void {
   ctx.rMin = rMin
   ctx.rMax = rMax
 }
+

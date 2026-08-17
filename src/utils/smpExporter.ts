@@ -177,7 +177,9 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const width = Math.round(doc.width || DEFAULT_PLOT_GEOM.width)
   const height = Math.round(doc.height || DEFAULT_PLOT_GEOM.height)
   lines.push(`${left} ${top} ${width} ${height}`)
-  lines.push(doc.graphFixed1 || GRAPH_FIXED_1)
+  const gTokens = (doc.graphFixed1 || GRAPH_FIXED_1).split(/\s+/)
+  if (gTokens.length > 2) gTokens[2] = doc.mergeZeroLabels ? '1' : '0'
+  lines.push(gTokens.join(' '))
   if (doc.graphFixed2 && !doc.frameWidth && !doc.frameColor) {
     lines.push(doc.graphFixed2)
   } else if (doc.frameWidth === undefined && doc.frameColor === undefined && doc.frameBgColor === undefined) {
@@ -209,7 +211,11 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       maxStr = formatFloatSci(axis?.max ?? DEFAULT_AXIS_RANGE.max)
       stepStr = formatFloatSci(axis?.step ?? DEFAULT_AXIS_RANGE.step)
     }
-    const fixedTail = axis?.rawFixedTail || AXIS_FIXED_TAIL
+    // Axis line token index 10 (0-based) holds the "add + sign" flag for positive tick
+    // labels; patch it from the typed field so edits round-trip through the document.
+    const tailTokens = (axis?.rawFixedTail || AXIS_FIXED_TAIL).split(/\s+/)
+    if (tailTokens.length > 7) tailTokens[7] = axis?.addPlusSign ? '1' : '0'
+    const fixedTail = tailTokens.join(' ')
     lines.push(`${minStr} ${maxStr} ${stepStr} ${fixedTail}`)
 
     if (axis?.rawLine2) {
@@ -619,3 +625,4 @@ function encodeWindows1252(text: string): ArrayBuffer {
 
   return buffer.slice(0, byteCount)
 }
+

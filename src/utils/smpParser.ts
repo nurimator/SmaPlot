@@ -189,6 +189,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let frameBgColor = '#ffffff'
     let graphFixed1 = ''
     let graphFixed2 = ''
+    let mergeZeroLabels = false
 
     let axisX = createDefaultAxis(0, 100, 20)
     let axisY = createDefaultAxis(0, 100, 20)
@@ -374,6 +375,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         i++
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
           graphFixed1 = docLines[i].trim()
+          const gParts = graphFixed1.split(/\s+/)
+          // GRAPH line token index 2 (0-based) is the "merge zero labels" flag that makes the
+          // X and Y zero origin share a single label at the bottom-left corner.
+          if (gParts.length > 2) {
+            mergeZeroLabels = gParts[2] === '1'
+          }
           i++
         }
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
@@ -409,6 +416,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           axisSpec.rawFixedTail = parts1.slice(3).join(' ')
           if (parts1.length >= 15) {
             axisSpec.subDivs = parseInt(parts1[14], 10) || 5
+          }
+          // Axis line token index 10 (0-based) is the "add + sign" flag for positive
+          // tick labels (1 = enabled).
+          if (parts1.length > 10) {
+            axisSpec.addPlusSign = parts1[10] === '1'
           }
         }
 
@@ -923,6 +935,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       frameBgColor,
       graphFixed1,
       graphFixed2,
+      mergeZeroLabels,
       datasets: docDatasets,
       axisX,
       axisY,
@@ -958,3 +971,5 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     smpMeta: legacyMeta,
   }
 }
+
+

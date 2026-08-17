@@ -101,6 +101,7 @@ export interface SmpAxisSpec {
   labelColor?: string
   shiftRight?: number
   shiftDown?: number
+  addPlusSign?: boolean
 
    // Synced with opposite axis
   isSynced?: boolean
@@ -167,6 +168,7 @@ export interface SmpPlotDoc {
   frameBgColor?: string
   graphFixed1?: string
   graphFixed2?: string
+  mergeZeroLabels?: boolean
 }
 
 export interface SmpMetadata {
@@ -202,4 +204,5 @@ export interface ActiveDrag {
   startHeight: number
   initialItemPositions?: { xPx: number; yPx: number; x2Px?: number; y2Px?: number }[]
 }
+
 

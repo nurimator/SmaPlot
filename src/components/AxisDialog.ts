@@ -84,6 +84,8 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisFontSize = overlayEl.querySelector<HTMLInputElement>('#axisFontSize')
   const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
   const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
+  const axisAddPlusSign = overlayEl.querySelector<HTMLInputElement>('#axisAddPlusSign')
+  const axisMergeZeroLabels = overlayEl.querySelector<HTMLInputElement>('#axisMergeZeroLabels')
 
   const applyAxisOptions = () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -155,6 +157,8 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisFontSize && axisFontSize.value !== '') targetSpec.fontSize = parseInt(axisFontSize.value, 10) || 24
     if (axisShiftRight && axisShiftRight.value !== '') targetSpec.shiftRight = parseFloat(axisShiftRight.value) || 0
     if (axisShiftDown && axisShiftDown.value !== '') targetSpec.shiftDown = parseFloat(axisShiftDown.value) || 0
+    if (axisAddPlusSign) targetSpec.addPlusSign = axisAddPlusSign.checked
+    if (axisMergeZeroLabels) smpDoc.mergeZeroLabels = axisMergeZeroLabels.checked
 
     // Linked (synced) axis logic:
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
@@ -211,7 +215,8 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     axisDraw, axisFrom, axisTo, axisDivision, axisSync,
     axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
     axisMinorIn, axisMinorOut, axisMinorColor, axisMinorWidth, axisMinorStyle, axisMinorLength,
-    axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown
+    axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown,
+    axisAddPlusSign, axisMergeZeroLabels
   ]
   allControls.forEach(ctrl => {
     ctrl?.addEventListener('change', applyAxisOptions)
@@ -336,6 +341,8 @@ export function showAxisDialog(
       const axisFontSize = overlayEl.querySelector<HTMLInputElement>('#axisFontSize')
       const axisShiftRight = overlayEl.querySelector<HTMLInputElement>('#axisShiftRight')
       const axisShiftDown = overlayEl.querySelector<HTMLInputElement>('#axisShiftDown')
+      const axisAddPlusSign = overlayEl.querySelector<HTMLInputElement>('#axisAddPlusSign')
+      const axisMergeZeroLabels = overlayEl.querySelector<HTMLInputElement>('#axisMergeZeroLabels')
 
       if (axisSync) axisSync.checked = isSynced
       if (axisDraw) axisDraw.checked = spec.showTicks !== false
@@ -369,6 +376,8 @@ export function showAxisDialog(
       if (axisFontSize) axisFontSize.value = String(spec.fontSize || 24)
       if (axisShiftRight) axisShiftRight.value = String(spec.shiftRight || 0)
       if (axisShiftDown) axisShiftDown.value = String(spec.shiftDown || 0)
+      if (axisAddPlusSign) axisAddPlusSign.checked = spec.addPlusSign ?? false
+      if (axisMergeZeroLabels) axisMergeZeroLabels.checked = !!smpDoc.mergeZeroLabels
     }
   }
 
@@ -378,3 +387,4 @@ export function showAxisDialog(
 export function hideAxisDialog(overlayEl: HTMLElement): void {
   overlayEl.style.display = 'none'
 }
+
