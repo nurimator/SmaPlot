@@ -84,14 +84,6 @@ export function getPlotLimits(svg: SVGSVGElement): { xMin: number; xMax: number;
   return { xMin, xMax, yMin, yMax }
 }
 
-// Lightweight digest of live workspace state used to skip no-op undo pushes.
-// Must cover every mutating source: drag→geometry, delete→counts,
-// create/load→counts+geometry, axis/title/arrow dialogs→legend/annotation/axis
-// fields, addDataset→dataset count, clearPlotScale→baseScale. Data arrays are
-// immutable after load, and selection never triggers a push, so both are excluded.
-// Doc fields are projected through exportPlotToSmpDoc() — the exact projection
-// captureWorkspaceSnapshot() stores — so the digest always matches what undo/redo
-// restores (a plot without a live doc still gets a synthesized one in both).
 export function captureWorkspaceDigest(): string {
   return JSON.stringify(
     activeSvgs.map((svg) => {
@@ -251,7 +243,6 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
   }
 }
 
-/** Update the live plot doc geometry from the SVG's current px box (same math as exportPlotToSmpDoc). */
 export function syncDocGeometry(svg: SVGSVGElement): void {
   const doc = svgSmpDocMap.get(svg)
   if (!doc) return
@@ -272,8 +263,6 @@ export function syncDocGeometry(svg: SVGSVGElement): void {
   doc.height = Math.round(frameHeight / SMP_SCALE)
 }
 
-// Return the live SmpPlotDoc for a plot, synthesizing & caching one (from the
-// base data scale) if it does not yet exist, so axis min/max edits persist.
 export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
   let doc = svgSmpDocMap.get(svg)
   if (!doc) {

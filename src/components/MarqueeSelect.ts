@@ -9,7 +9,6 @@ let globalMarqueeSelectBox: HTMLElement | null = null
 let lastClickTime = 0
 let lastHitObj: SelectableObject | null = null
 
-// Check whether the click point (in graph-area local coords) hits an already-selected object.
 export function hitsSelectedObject(gx: number, gy: number): boolean {
   return getSelectableObjects().some((o) => {
     if (!isObjectSelected(o.obj)) return false
@@ -18,9 +17,7 @@ export function hitsSelectedObject(gx: number, gy: number): boolean {
   })
 }
 
-// Find the topmost selectable object at a click point (point hit-test).
 export function hitTestPoint(gx: number, gy: number): SelectableObject | null {
-  // Check inner objects (legend, annotation) first — they are "on top" of plots.
   const all = getSelectableObjects()
   for (let i = all.length - 1; i >= 0; i--) {
     const o = all[i]
@@ -28,7 +25,6 @@ export function hitTestPoint(gx: number, gy: number): SelectableObject | null {
       return o.obj
     }
   }
-  // Then check plot boxes — border-only hit test.
   for (let i = all.length - 1; i >= 0; i--) {
     const o = all[i]
     if (o.obj.kind === 'plot' && hitsRectBorder(gx, gy, o.l, o.t, o.w, o.h)) {
@@ -78,7 +74,7 @@ export function updateMarqueeSelectBox(
   const hits = getSelectableObjects()
     .filter((o) => o.l < mRight && o.l + o.w > mLeft && o.t < mBottom && o.t + o.h > mTop)
     .map((o) => o.obj)
-    .filter((o) => o.kind !== 'plot') // Marquee never selects boxplots; use click instead
+    .filter((o) => o.kind !== 'plot')
   setObjectSelection(hits)
 }
 
@@ -127,8 +123,6 @@ export function handleSelectClickOrTap(startGraphX: number, startGraphY: number)
   }
 }
 
-// Left-drag marquee selection of plot elements (boxplots, labels, legends, lines/arrows).
-// Distinct from the right-click marquee in MarqueeExport.ts, which is used solely for SVG export.
 export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
   let isSelecting = false
   let hasMoved = false
@@ -143,21 +137,13 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     if (e.button !== 0) return
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
     const target = e.target as HTMLElement
-    // Trimming mode takes over left-drag; suspend marquee selection.
     if (isTrimmingMode()) return
-    // Read Value mode takes over clicking and dragging on plot; suspend marquee selection.
     if (isReadValueMode()) return
-    // Property tab mode (transform manipulation active); suspend marquee and click selection.
     if (isPropertyTabMode()) return
-    // While a Rectangle/Arrow mouse-draw is in progress the next left-drag draws
-    // the shape instead of a marquee selection.
     if (isShapeDrawing()) return
-    // Skip only UI chrome that should never trigger marquee
     if (target.closest('.scrollbar-v, .scrollbar-h, .workspace-right, #ctxMenu, #marqueeCtxMenu')) return
-    // Skip resize handles
     if (target.closest('[data-dir]')) return
 
-    // Clear any leftover right-click export marquee box
     graphAreaEl.querySelectorAll('.marquee-selection-box, .marquee-export-box').forEach((el) => el.remove())
 
     const rect = graphAreaEl.getBoundingClientRect()
@@ -167,7 +153,6 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     startGraphX = (e.clientX - rect.left) / zoom
     startGraphY = (e.clientY - rect.top) / zoom
 
-    // If clicking on an already-selected object, let its own handler do group drag
     if (hitsSelectedObject(startGraphX, startGraphY)) return
 
     isSelecting = true

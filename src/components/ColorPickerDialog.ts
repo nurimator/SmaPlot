@@ -7,7 +7,6 @@ export interface ColorPickerOptions {
   onCancel?: () => void
 }
 
-// 48 standard Basic Colors from Windows Palette (8 columns x 6 rows)
 export const BASIC_COLORS: string[] = [
   '#FF8080', '#FFFF80', '#80FF80', '#00FF80', '#80FFFF', '#0080FF', '#FF80C0', '#FF80FF',
   '#FF0000', '#FFFF00', '#80FF00', '#00FF40', '#00FFFF', '#0080C0', '#8080C0', '#FF00FF',
@@ -29,7 +28,6 @@ function loadCustomColors(): string[] {
       }
     }
   } catch {
-    // ignore
   }
   return Array(16).fill('#FFFFFF')
 }
@@ -38,11 +36,9 @@ function saveCustomColors(colors: string[]): void {
   try {
     localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(colors))
   } catch {
-    // ignore
   }
 }
 
-// Color conversion math (HSV <-> RGB <-> Hex)
 export function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
   h = ((h % 360) + 360) % 360
   s = Math.max(0, Math.min(1, s))
@@ -137,9 +133,9 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
 }
 
 let activeOptions: ColorPickerOptions | null = null
-let currentHue = 0 // 0..360
-let currentSat = 1 // 0..1
-let currentVal = 1 // 0..1
+let currentHue = 0
+let currentSat = 1
+let currentVal = 1
 let initialHex = '#000000'
 let customColors: string[] = loadCustomColors()
 let selectedCustomSlotIndex = 0
@@ -182,7 +178,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
   const closeBtn = overlayEl.querySelector<HTMLButtonElement>('#closeColorPickerBtn')
   const addCustomBtn = overlayEl.querySelector<HTMLButtonElement>('#colorAddCustomBtn')
 
-  // Render Basic Colors Grid
   if (basicGridEl) {
     basicGridEl.innerHTML = ''
     BASIC_COLORS.forEach((color) => {
@@ -198,7 +193,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     })
   }
 
-  // Render Custom Colors Grid
   const renderCustomGrid = () => {
     if (!customGridEl) return
     customGridEl.innerHTML = ''
@@ -218,17 +212,14 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
   }
   renderCustomGrid()
 
-  // Update UI Elements with Current Color State
   const updateUI = (source?: string) => {
     const rgb = hsvToRgb(currentHue, currentSat, currentVal)
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b)
 
-    // Update Saturation/Brightness Box background Hue
     if (sbBoxEl) {
       sbBoxEl.style.backgroundColor = `hsl(${currentHue}, 100%, 50%)`
     }
 
-    // Update Saturation/Brightness Handle Position
     if (sbHandleEl && sbBoxEl) {
       const rect = sbBoxEl.getBoundingClientRect()
       const boxW = rect.width || 180
@@ -239,7 +230,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
       sbHandleEl.style.top = `${y}px`
     }
 
-    // Update Hue Handle Position
     if (hueHandleEl && hueBarEl) {
       const rect = hueBarEl.getBoundingClientRect()
       const barH = rect.height || 180
@@ -247,7 +237,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
       hueHandleEl.style.top = `${y}px`
     }
 
-    // Previews
     if (previewCurrentEl) {
       previewCurrentEl.style.backgroundColor = hex
     }
@@ -255,7 +244,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
       previewInitialEl.style.backgroundColor = initialHex
     }
 
-    // Input fields
     if (source !== 'hex' && hexInput) {
       hexInput.value = hex
     }
@@ -270,7 +258,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
       if (vInput) vInput.value = String(Math.round(currentVal * 100))
     }
 
-    // Trigger live onChange if provided
     if (activeOptions?.onChange) {
       activeOptions.onChange(hex)
     }
@@ -286,7 +273,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     updateUI()
   }
 
-  // Handle SB Box Dragging
   const handleSbEvent = (e: MouseEvent | TouchEvent) => {
     if (!sbBoxEl) return
     const rect = sbBoxEl.getBoundingClientRect()
@@ -308,7 +294,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     handleSbEvent(e)
   })
 
-  // Handle Hue Bar Dragging
   const handleHueEvent = (e: MouseEvent | TouchEvent) => {
     if (!hueBarEl) return
     const rect = hueBarEl.getBoundingClientRect()
@@ -342,7 +327,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     isDraggingHue = false
   })
 
-  // Hex Input Listener
   hexInput?.addEventListener('input', () => {
     let val = hexInput.value.trim()
     if (!val.startsWith('#')) val = '#' + val
@@ -358,7 +342,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     }
   })
 
-  // RGB Input Listeners
   const onRgbInput = () => {
     const r = Math.max(0, Math.min(255, parseInt(rInput?.value || '0', 10) || 0))
     const g = Math.max(0, Math.min(255, parseInt(gInput?.value || '0', 10) || 0))
@@ -373,7 +356,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
   gInput?.addEventListener('input', onRgbInput)
   bInput?.addEventListener('input', onRgbInput)
 
-  // HSV Input Listeners
   const onHsvInput = () => {
     const h = Math.max(0, Math.min(360, parseFloat(hInput?.value || '0') || 0))
     const s = Math.max(0, Math.min(100, parseFloat(sInput?.value || '0') || 0)) / 100
@@ -387,7 +369,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
   sInput?.addEventListener('input', onHsvInput)
   vInput?.addEventListener('input', onHsvInput)
 
-  // Add to Custom Colors button
   addCustomBtn?.addEventListener('click', () => {
     const rgb = hsvToRgb(currentHue, currentSat, currentVal)
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b)
@@ -397,7 +378,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     renderCustomGrid()
   })
 
-  // Actions: OK, Cancel, Close
   const closeDialog = () => {
     hideColorPickerDialog(overlayEl)
   }
@@ -425,7 +405,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     closeDialog()
   })
 
-  // Global helper for opening Color Picker
   ;(window as unknown as { openColorPickerModal?: typeof openColorPicker }).openColorPickerModal = (
     options: ColorPickerOptions
   ) => {
@@ -444,7 +423,6 @@ export function initColorPickerDialog(overlayEl: HTMLElement): void {
     })
   }
 
-  // Hook all existing and future color-picker-box inputs automatically!
   initGlobalColorInputIntercept()
 }
 
@@ -457,10 +435,6 @@ export function openColorPicker(options: ColorPickerOptions): void {
   }
 }
 
-/**
- * Intercept clicks on any `<input type="color">` or `.color-picker-box` across the application
- * so our custom color dialog seamlessly replaces the browser's native picker.
- */
 export function initGlobalColorInputIntercept(): void {
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
@@ -468,7 +442,6 @@ export function initGlobalColorInputIntercept(): void {
     const input = target.closest<HTMLInputElement>('input[type="color"], .color-picker-box')
     if (!input) return
 
-    // If it's an input inside our own color picker dialog, ignore
     if (input.closest('#colorPickerDialog')) return
 
     e.preventDefault()
@@ -478,7 +451,6 @@ export function initGlobalColorInputIntercept(): void {
     openColorPicker({
       initialColor,
       onChange: (liveHex) => {
-        // live preview update
         if (input.value !== liveHex) {
           input.value = liveHex
           input.dispatchEvent(new Event('input', { bubbles: true }))

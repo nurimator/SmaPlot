@@ -146,7 +146,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
   const lines = text.split(/\r?\n/)
   const globalFileDatasetsMap = parseDataBlockLines(lines)
 
-  // Detect document blocks (e.g. [HEMATIT1.SMP], [HEMATIT2.SMP] or single doc)
   const docBlocks: { name: string; lines: string[] }[] = []
   let currentDocName = defaultFileName
   let currentDocLines: string[] = []
@@ -218,24 +217,21 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       if (line.startsWith('[') && line.endsWith(']')) {
         currentSection = line.slice(1, -1).trim()
         i++
-        // The first line after [LEGEND] is the item count (may collide with a
-        // legend item type line, e.g. count "4" vs type 4 = X-axis title).
         if (currentSection === 'LEGEND' && i < docLines.length && /^\d+$/.test(docLines[i].trim())) {
           i++
         }
         continue
       }
 
-      // Series specs e.g. [1 SG.txt] or [KP.txt]
       if (currentSection.match(/^\d+\s+/) || (currentSection.endsWith('.txt') && !currentSection.startsWith('AXIS'))) {
         const specHeader = currentSection
         const cleanName = specHeader.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
         let filePath = ''
         if (i < docLines.length) {
           filePath = docLines[i].trim()
-          i++ // path line
+          i++
         }
-        if (i < docLines.length) i++ // config 1
+        if (i < docLines.length) i++
         let color = '#000000'
         let width = 0.6
         let stylePrefix = 60
@@ -262,8 +258,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         let markerSize = 3
         if (i < docLines.length) {
           const parts = docLines[i].trim().split(/\s+/)
-          // First token of the symbol line is the Sma4Win pen style code:
-          // 1=solid, 2=dash, 3=dot, 4=dash-dot, 5=dash-dot-dot, 6=face.
           if (parts.length >= 1) {
             const penCode = parseInt(parts[0], 10)
             if (!isNaN(penCode)) {
@@ -303,7 +297,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           }
           i++
         }
-        // Symbol fill color record: "0 0 1 0 0 0 <fillBGR> 5" (7th token).
         let fillColor: string | undefined
         let fillLine = ''
         if (i < docLines.length) {
@@ -318,7 +311,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         let exprFlag = '0 0 0'
         if (i < docLines.length) {
           exprFlag = docLines[i].trim() || '0 0 0'
-          i++ // config 4
+          i++
         }
         let xExpr = 'x'
         if (i < docLines.length) {
@@ -333,12 +326,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         let zerosLine = ''
         if (i < docLines.length) {
           zerosLine = docLines[i].trim()
-          i++ // config 5
+          i++
         }
         let fixed5 = ''
         if (i < docLines.length) {
           fixed5 = docLines[i].trim()
-          i++ // config 6
+          i++
         }
 
         seriesSpecs[specHeader] = {
@@ -376,8 +369,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
           graphFixed1 = docLines[i].trim()
           const gParts = graphFixed1.split(/\s+/)
-          // GRAPH line token index 2 (0-based) is the "merge zero labels" flag that makes the
-          // X and Y zero origin share a single label at the bottom-left corner.
           if (gParts.length > 2) {
             mergeZeroLabels = gParts[2] === '1'
           }
@@ -417,8 +408,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts1.length >= 15) {
             axisSpec.subDivs = parseInt(parts1[14], 10) || 5
           }
-          // Axis line token index 10 (0-based) is the "add + sign" flag for positive
-          // tick labels (1 = enabled).
           if (parts1.length > 10) {
             axisSpec.addPlusSign = parts1[10] === '1'
           }
@@ -541,8 +530,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++
           if (i < docLines.length) {
             const posParts = docLines[i].trim().split(/\s+/)
-            // Native Sma4Win stores legend text positions in 0.01 mm from the
-            // frame origin; convert to normalized 0-10000 frame-relative values.
             const xNorm = Math.round((parseFloat(posParts[0]) / docWidth) * 10000)
             const yNorm = Math.round((parseFloat(posParts[1]) / docHeight) * 10000)
             const posTail = posParts.slice(2).join(' ')
@@ -560,7 +547,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 const styleParts = font1Spec.split(/\s+/)
                 if (styleParts.length >= 5) {
                   const rotVal = parseInt(styleParts[2], 10)
-                  if (rotVal !== 0) rotation = rotVal / 10 // e.g. -900 -> -90 deg
+                  if (rotVal !== 0) rotation = rotVal / 10
                   const weightNum = parseInt(styleParts[4], 10)
                   if (weightNum >= 600) fontWeight = 600
                   const sizeVal = Math.abs(parseInt(styleParts[0], 10))
@@ -570,7 +557,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               }
               let fontFamily = 'Times New Roman'
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-                // Strip Sma4Win style suffix (e.g. "Times New Roman TUR" -> "Times New Roman")
                 fontFamily = docLines[i].trim().replace(/\s+[A-Z]{2,4}$/, '') || 'Times New Roman'
                 i++
               }
@@ -594,11 +580,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 symbolFontFamily = docLines[i].trim()
                 i++
               }
-              if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item
+              if (i < docLines.length && !docLines[i].trim()) i++
 
-              // Native legend item types: 4=X-axis title, 5=Y-axis title.
-              // Superscripts/subscripts (^...@ / _...@) are NOT converted here;
-              // they render via renderSmpTextToHtml in the plot layer.
               if (legendType === 4) {
                 xLabel = txt
               } else if (legendType === 5) {
@@ -725,7 +708,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               }
             }
             i++
-            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item
+            if (i < docLines.length && !docLines[i].trim()) i++
           }
           continue
         } else if (line === '3') {
@@ -801,7 +784,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               }
             }
             i++
-            if (i < docLines.length && !docLines[i].trim()) i++ // empty line after item 3
+            if (i < docLines.length && !docLines[i].trim()) i++
           }
           continue
         }
@@ -820,7 +803,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             othersSymbolLine = docLines[i].trim()
             i++
           }
-          if (i < docLines.length) i++ // Symbol font name
+          if (i < docLines.length) i++
           if (i < docLines.length && !docLines[i].trim()) i++
         }
         currentSection = ''
@@ -830,7 +813,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       i++
     }
 
-    // Parse datasets for this document
     const localDatasetsMap = parseDataBlockLines(docLines)
     const mergedDatasetsMap = { ...globalFileDatasetsMap, ...localDatasetsMap }
 
@@ -952,7 +934,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     })
   })
 
-  // For single doc backwards compatibility:
   const firstDoc = docs[0]
   const legacyMeta: SmpMetadata = {
     docs,

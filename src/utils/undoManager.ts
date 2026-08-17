@@ -103,9 +103,6 @@ export function captureWorkspaceSnapshot(): WorkspaceSnapshot {
   return { plots, globalDatasets, selection }
 }
 
-// Snapshot is only pushed when the digest differs from the top of the stack, so
-// no-op interactions (e.g. a handle click without movement) don't create phantom
-// undo steps. Keep captureWorkspaceDigest in plot/smpDoc.ts in sync when adding mutators.
 export function pushUndoState(): void {
   if (isApplyingState) return
   const digest = captureWorkspaceDigest()
@@ -119,7 +116,6 @@ export function pushUndoState(): void {
 export function applyWorkspaceSnapshot(graphArea: HTMLElement, snapshot: WorkspaceSnapshot): void {
   isApplyingState = true
   try {
-    // Remove extra SVG elements if snapshot has fewer plots
     while (activeSvgs.length > snapshot.plots.length) {
       const svg = activeSvgs.pop()
       if (svg) {
@@ -130,10 +126,8 @@ export function applyWorkspaceSnapshot(graphArea: HTMLElement, snapshot: Workspa
       }
     }
 
-    // Clear existing HTML overlays
     graphArea.querySelectorAll('.plot-overlay').forEach((el) => el.remove())
 
-    // Update or create plot SVGs
     snapshot.plots.forEach((pSnap, idx) => {
       let svg = activeSvgs[idx]
       if (!svg) {
@@ -160,11 +154,9 @@ export function applyWorkspaceSnapshot(graphArea: HTMLElement, snapshot: Workspa
       drawPlot(svg, clonedDatasets, pSnap.width, pSnap.height)
     })
 
-    // Sync global datasets
     globalDataManager.clearDatasets()
     snapshot.globalDatasets.forEach((d) => globalDataManager.addDataset(clone(d)))
 
-    // Restore object selection
     const restoredSel: SelectableObject[] = []
     snapshot.selection.forEach((s) => {
       const svg = activeSvgs[s.plotIdx]

@@ -56,7 +56,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
       if (!wasSelected) {
-        // Not yet selected — don't stopPropagation, let MarqueeSelect handle.
         return
       }
 
@@ -83,7 +82,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       lastAnnotationClickTime = now
       lastAnnotationClickKey = clickKey
 
-      // Object was already selected — stopPropagation and start group drag
       e.stopPropagation()
       setSelectedPlotSvg(svg)
       setSelectedAnnotationIndex(aIdx)
@@ -103,7 +101,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         return
       }
 
-      // Single annotation: keep endpoint editing behavior
       setActiveGroupDrag({
         items: [
           {
@@ -211,9 +208,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aStrokeW = Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))
       const aLineStyle = aLine.style || 'solid'
 
-      // Reuse the shared series dash pattern so the arrow line matches the
-      // plot line type exactly. getLineDashArray already compensates for the
-      // round stroke caps so dash lengths and gaps stay constant with width.
       const dashArray = getLineDashArray(aLineStyle, aStrokeW)
 
       const isMeasureLine = aLine.shape === 'measure_line' || aLine.rawType === '2'
@@ -253,8 +247,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const cap2_x2 = x2 + (capLen / 2) * px
         const cap2_y2 = y2 + (capLen / 2) * py
 
-        // The two end boundary (extension) lines stay solid regardless of the
-        // chosen line type; only the main dimension line follows the dash style.
         const capPathD = `M${cap1_x1.toFixed(1)},${cap1_y1.toFixed(1)}L${cap1_x2.toFixed(1)},${cap1_y2.toFixed(1)}M${cap2_x1.toFixed(1)},${cap2_y1.toFixed(1)}L${cap2_x2.toFixed(1)},${cap2_y2.toFixed(1)}`
         const dimCaps = createSVGElement('path')
         dimCaps.setAttribute('d', capPathD)
@@ -299,7 +291,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         let endX = x2
         let endY = y2
 
-        // Arrowhead at End (x2, y2)
         if (mode === 1 || mode === 3) {
           const tipX = x2
           const tipY = y2
@@ -329,7 +320,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           endY = notchY
         }
 
-        // Arrowhead at Start (x1, y1)
         if (mode === 2 || mode === 3) {
           const tipX = x1
           const tipY = y1
@@ -359,7 +349,6 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           startY = notchY
         }
 
-        // Body line
         const lineElem = createSVGElement('path')
         lineElem.setAttribute('d', `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`)
         lineElem.setAttribute('stroke', aColor)

@@ -10,9 +10,6 @@ interface OpenPopup {
 
 let openPopup: OpenPopup | null = null
 
-// Inline icon for options that opt in via data-symbol. "series" renders the
-// plotted marker shapes; "arrow" renders the arrow-shape glyphs. Returns ''
-// when the option has no icon.
 function buildIconSvg(symbol: SVGElement | null): string {
   if (!symbol) return ''
   const svg = createSVGElement('svg')
@@ -191,7 +188,6 @@ export function initCustomSelects(scope: ParentNode = document): void {
       if (item) onPopupItemClick(item)
     })
 
-    // Programmatic select.value writes (dialogs populate on show) stay in sync.
     const nativeValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
     if (nativeValue?.get && nativeValue.set) {
       Object.defineProperty(select, 'value', {
@@ -204,7 +200,6 @@ export function initCustomSelects(scope: ParentNode = document): void {
       })
     }
 
-    // Dynamic option repopulation (e.g. X/Y column selects, symbol categories).
     const observer = new MutationObserver(() => syncButtonText(select, button))
     observer.observe(select, { childList: true })
 

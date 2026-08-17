@@ -35,8 +35,6 @@ export function getValidIndices(svg: SVGSVGElement | null, dataset: Dataset | nu
     }
   }
 
-  // If no points fall within range (e.g. plot limits zoomed completely away from data),
-  // fallback to all indices to prevent breaking UI
   if (indices.length === 0) {
     for (let i = 0; i < N; i++) indices.push(i)
   }
@@ -130,7 +128,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   closeHeaderBtn?.addEventListener('click', hide)
   closeFooterBtn?.addEventListener('click', hide)
 
-  // Step navigation buttons
   overlayEl.querySelector('#rvStepBack100')?.addEventListener('click', () => stepIndex(-100))
   overlayEl.querySelector('#rvStepBack10')?.addEventListener('click', () => stepIndex(-10))
   overlayEl.querySelector('#rvStepBack1')?.addEventListener('click', () => stepIndex(-1))
@@ -138,7 +135,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   overlayEl.querySelector('#rvStepFwd10')?.addEventListener('click', () => stepIndex(10))
   overlayEl.querySelector('#rvStepFwd100')?.addEventListener('click', () => stepIndex(100))
 
-  // Slider range input
   const sliderEl = overlayEl.querySelector<HTMLInputElement>('#rvSlider')
   sliderEl?.addEventListener('input', () => {
     const val = parseInt(sliderEl.value, 10)
@@ -151,7 +147,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
     }
   })
 
-  // Editable X & Y inputs
   const inputX = overlayEl.querySelector<HTMLInputElement>('#rvInputX')
   const inputY = overlayEl.querySelector<HTMLInputElement>('#rvInputY')
 
@@ -202,7 +197,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
   inputX?.addEventListener('change', handleInputXCommit)
   inputY?.addEventListener('change', handleInputYCommit)
 
-  // X axis tool buttons (Copy, Find Highest, Find Lowest)
   const copyXBtn = overlayEl.querySelector<HTMLElement>('#rvCopyXBtn')
   copyXBtn?.addEventListener('click', () => {
     if (!activeDataset) return
@@ -243,7 +237,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
     setIndex(minIdx)
   })
 
-  // Y axis tool buttons (Copy, Find Highest, Find Lowest)
   const copyYBtn = overlayEl.querySelector<HTMLElement>('#rvCopyYBtn')
   copyYBtn?.addEventListener('click', () => {
     if (!activeDataset) return
@@ -284,7 +277,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
     setIndex(minIdx)
   })
 
-  // Mark button
   overlayEl.querySelector('#rvMarkBtn')?.addEventListener('click', () => {
     if (!activeDataset) return
     const proc = getProcessedDataset(activeDataset)
@@ -298,7 +290,6 @@ export function initReadValueDialog(overlayEl: HTMLElement): void {
     updateAveragesDisplay()
   })
 
-  // Average button
   overlayEl.querySelector('#rvAvgBtn')?.addEventListener('click', () => {
     updateAveragesDisplay()
   })
@@ -475,7 +466,6 @@ export function showReadValueDialog(
     el.classList.add('active')
   })
 
-  // Attach graph pointer listeners to update crossbar position by clicking or dragging directly on plot
   if (graphMouseDownListener) {
     document.removeEventListener('mousedown', graphMouseDownListener)
   }
@@ -517,9 +507,6 @@ export function showReadValueDialog(
   window.addEventListener('mousemove', graphMouseMoveListener)
   window.addEventListener('mouseup', graphMouseUpListener)
 
-  // Touch equivalents: taps already work through synthetic mouse events, but a
-  // finger drag only emits touchmove (no mousemove), so crossbar dragging needs
-  // dedicated non-passive touch listeners.
   if (graphTouchStartListener) {
     document.removeEventListener('touchstart', graphTouchStartListener)
   }
@@ -562,7 +549,6 @@ export function showReadValueDialog(
   window.addEventListener('touchmove', graphTouchMoveListener, { passive: false })
   window.addEventListener('touchend', graphTouchEndListener, { passive: true })
 
-  // Attach keydown listener for keyboard arrow navigation
   if (keydownListener) {
     document.removeEventListener('keydown', keydownListener)
   }
@@ -603,7 +589,6 @@ export function showReadValueDialog(
   }
   document.addEventListener('keydown', keydownListener)
 
-  // Display dialog centered on screen
   overlayEl.style.display = 'flex'
   const dialogEl = overlayEl.querySelector<HTMLElement>('#readValueDialog')
   if (dialogEl && !window.matchMedia('(max-width: 640px)').matches) {

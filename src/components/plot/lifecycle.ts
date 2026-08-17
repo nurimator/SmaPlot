@@ -48,9 +48,6 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   const h = parseFloat(svg.style.height) || svg.getBoundingClientRect().height
   drawPlot(svg, currentDatasets, w, h)
 
-  // Fresh "New" plots auto-fit their axis to the first dataset loaded. Once a
-  // real SmpPlotDoc replaces the default (e.g. an .SMP project load), this flag
-  // is already cleared, so loaded scales are never overwritten here.
   if (autoScaleSvgs.has(svg)) {
     const baseScale = svgBaseScaleMap.get(svg)
     const doc = svgSmpDocMap.get(svg)
@@ -229,8 +226,6 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
     const dir = target.getAttribute('data-dir')
     const graphArea = svg.parentElement || document.body
     if (!dir) {
-      // Left-drag on the plot body: if the plot is already marquee-selected AND click is on frame border line,
-      // start a group-move. Otherwise, let MarqueeSelect handle it.
       if (e.button !== 0) return
       const rect = graphArea.getBoundingClientRect()
       const zoom = getCanvasZoom()
@@ -252,7 +247,6 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
         e.stopPropagation()
         startGroupDrag(e.clientX, e.clientY)
       }
-      // Don't stopPropagation — MarqueeSelect will start marquee selection or point hit-test
       return
     }
   })

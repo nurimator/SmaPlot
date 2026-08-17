@@ -56,7 +56,6 @@ export function renderPlotCrossbar(svg: SVGSVGElement, xVal: number, yVal: numbe
   }
   group.replaceChildren()
 
-  // Vertical red crossbar line (thin 0.5)
   const vLine = createSVGElement('line')
   vLine.setAttribute('x1', String(px))
   vLine.setAttribute('y1', String(margin.t))
@@ -66,7 +65,6 @@ export function renderPlotCrossbar(svg: SVGSVGElement, xVal: number, yVal: numbe
   vLine.setAttribute('stroke-width', '0.5')
   group.appendChild(vLine)
 
-  // Horizontal red crossbar line (thin 0.5)
   const hLine = createSVGElement('line')
   hLine.setAttribute('x1', String(margin.l))
   hLine.setAttribute('y1', String(py))

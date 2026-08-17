@@ -51,14 +51,12 @@ export function evaluateMathExpr(expr: string, val: number, varName: 'x' | 'y'):
   let evaluator = mathExprCache.get(key)
   if (evaluator === undefined) {
     evaluator = null
-    if (trimmed !== varName) {
-      // Strictly enforce basic arithmetic only (+, -, *, /, parentheses, digits, decimal points, and variable)
-      const validCharsRegex = new RegExp(`^[0-9\\s\\+\\-\\*/\\(\\)${varName}\\.]+$`)
+      if (trimmed !== varName) {
+        const validCharsRegex = new RegExp(`^[0-9\\s\\+\\-\\*/\\(\\)${varName}\\.]+$`)
       if (validCharsRegex.test(trimmed)) {
         try {
           evaluator = new Function(varName, `return ${trimmed};`) as (v: number) => number
         } catch {
-          // keep null (invalid expression)
         }
       }
     }

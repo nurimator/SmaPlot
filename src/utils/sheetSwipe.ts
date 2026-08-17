@@ -17,10 +17,6 @@ const IGNORE_TARGETS = 'button, input, select, textarea, a, [contenteditable="tr
 
 import { adaptCanvasToHeight, setCanvasTransition, snapshotCanvasAdapt } from './canvasZoom.ts'
 
-// ── Sheet push: while a sheet is open the workspace reserves its height via
-// the `--sheet-h` custom property, so the sheet PUSHES the canvas instead of
-// being drawn on top of it. Stacked sheets (e.g. color picker over property)
-// take the max height so the canvas is never hidden behind any of them.
 const sheetHeights = new Map<object, number>()
 const transientKey: object = {}
 
@@ -32,14 +28,12 @@ function updateSheetPush(): void {
 
 const NAV_BAR_H = 56
 
-/** Current pushed height (px) from the `--sheet-h` custom property. */
 function currentSheetPush(): number {
   const raw = document.documentElement.style.getPropertyValue('--sheet-h')
   const h = parseFloat(raw)
   return Number.isFinite(h) && h > 0 ? h : 0
 }
 
-/** Workspace padding the push produces (the nav bar keeps a 56px floor). */
 function effectivePad(push: number): number {
   return Math.max(push, NAV_BAR_H)
 }
@@ -49,8 +43,6 @@ function gridHeight(): number {
   return grid ? grid.clientHeight : 0
 }
 
-/** Reserve extra push height for a floating sheet that is not an overlay's
- *  first child (e.g. the Title symbol panel on mobile). */
 export function pushSheetHeight(px: number): void {
   const oldPush = currentSheetPush()
   const oldGridH = gridHeight()
@@ -75,12 +67,6 @@ function workspaceEl(): HTMLElement | null {
 
 const CANVAS_ANIM_MS = 320
 
-/**
- * Animated one-shot view adaptation for sheet open/close: scale the canvas
- * into the viewport the workspace will have after the push change, animated
- * with the same 0.28s curve as the sheet itself. The target height is exact,
- * so no settle pass is needed afterwards.
- */
 function animateCanvasAdapt(targetH: number): void {
   if (targetH <= 0) return
   snapshotCanvasAdapt()
@@ -93,16 +79,6 @@ function endCanvasTransition(): void {
   window.setTimeout(() => setCanvasTransition(false), CANVAS_ANIM_MS)
 }
 
-/**
- * Mobile bottom-sheet interactions:
- *  1. Pull-to-close: swipe down on the sheet body (only when the touched
- *     scrollable region is scrolled to its top) dismisses the sheet.
- *  2. Header resize: dragging the sheet header (the knob strip) up/down
- *     resizes the sheet height; releasing when the height is already
- *     <= 10% of the viewport dismisses the sheet.
- * Uses the independent `translate` property so pulls compose with the entry
- * animation's `transform` (fill-mode forwards) instead of fighting it.
- */
 export function initSheetSwipe(sheetEl: HTMLElement, onDismiss: () => void): void {
   initPullToClose(sheetEl, onDismiss)
   initHeaderResize(sheetEl, onDismiss)
@@ -207,9 +183,6 @@ function initHeaderResize(sheetEl: HTMLElement, onDismiss: () => void): void {
     e.preventDefault()
     sheetEl.style.transition = 'none'
     sheetEl.style.willChange = 'height, translate'
-    // Realtime drag: the canvas (and the workspace padding it fits into) must
-    // follow the finger instantly, so kill both transitions for the drag and
-    // snapshot the pre-drag view as the scaling base.
     setCanvasTransition(false)
     const workspace = workspaceEl()
     if (workspace) workspace.style.transition = 'none'
@@ -242,8 +215,6 @@ function initHeaderResize(sheetEl: HTMLElement, onDismiss: () => void): void {
       sheetHeights.set(overlay, appliedH)
       updateSheetPush()
     }
-    // Live: scale the canvas into the shrinking/growing viewport so the
-    // visible content stays put while the sheet follows the finger.
     adaptCanvasToHeight(gridHeight())
   })
 
@@ -287,7 +258,6 @@ function trackSheetPush(sheetEl: HTMLElement): void {
       sheetEl.style.opacity = ''
       sheetEl.style.transition = ''
       sheetEl.style.willChange = ''
-      // Animate the canvas back into the full viewport in sync with the exit.
       animateCanvasAdapt(oldGridH - (effectivePad(newPush) - effectivePad(oldPush)))
     } else if (overlayEl.style.display === 'flex') {
       const oldPush = currentSheetPush()
@@ -295,8 +265,6 @@ function trackSheetPush(sheetEl: HTMLElement): void {
       sheetHeights.set(overlayEl, sheetEl.offsetHeight)
       updateSheetPush()
       const newPush = currentSheetPush()
-      // Animate the squeeze in sync with the sheet's slide-up; the target
-      // height is exact so the final view lands precisely without a settle.
       animateCanvasAdapt(oldGridH - (effectivePad(newPush) - effectivePad(oldPush)))
     }
   })

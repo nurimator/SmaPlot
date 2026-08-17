@@ -6,7 +6,6 @@ export function createSVGElement<K extends keyof SVGElementTagNameMap>(tag: K): 
   return document.createElementNS(SVG_NS, tag) as SVGElementTagNameMap[K]
 }
 
-// 5-point star polygon centered at (cx,cy), point-up, outer radius r.
 export function starPoints(cx: number, cy: number, r: number): string {
   const pts: string[] = []
   for (let k = 0; k < 10; k++) {
@@ -19,20 +18,16 @@ export function starPoints(cx: number, cy: number, r: number): string {
 
 export const PLOT_MARGIN = { l: 65, r: 25, t: 25, b: 55 }
 
-export const BORDER_TOL = 2 // px tolerance for clicking on plot frame border lines
+export const BORDER_TOL = 2
 
-// Check if a point is on the border (edges only) of a rectangle, within tolerance.
 export function hitsRectBorder(gx: number, gy: number, l: number, t: number, w: number, h: number): boolean {
   const r = l + w
   const b = t + h
-  // Must be within the outer padded rect
   if (gx < l - BORDER_TOL || gx > r + BORDER_TOL || gy < t - BORDER_TOL || gy > b + BORDER_TOL) return false
-  // Must NOT be fully inside the inner rect (i.e. must be near an edge)
   if (gx > l + BORDER_TOL && gx < r - BORDER_TOL && gy > t + BORDER_TOL && gy < b - BORDER_TOL) return false
   return true
 }
 
-// Distance from point (px,py) to segment (x1,y1)-(x2,y2).
 export function distToSeg(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const dx = x2 - x1
   const dy = y2 - y1
@@ -59,9 +54,6 @@ export function snapToGridThreshold(val: number, step: number = 100, threshold: 
   return val
 }
 
-// Shared render context handed by drawPlot to the axes/series/annotations/legend/
-// transform renderers. Su/sr and the U/R limits start as the X/Y defaults and are
-// refined by renderAxes when an independent top/right axis exists.
 export interface PlotRenderContext {
   svg: SVGSVGElement
   smpDoc?: SmpPlotDoc

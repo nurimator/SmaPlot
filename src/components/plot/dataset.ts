@@ -1,8 +1,6 @@
 import type { Dataset } from '../../types.ts'
 import { evaluateMathExpr } from '../../utils/dataset.ts'
 
-// Cache of column-mapped + math-transformed coordinates per dataset.
-// Redraws only recompute when the relevant options change.
 const processedCache = new WeakMap<Dataset, { key: string; x: number[]; y: number[] }>()
 
 export function getRawDatasetCoords(ds: Dataset): { x: number[]; y: number[] } {
@@ -41,7 +39,6 @@ function formatNumber(num: number): string {
     return roundInt.toString()
   }
 
-  // Standard case: for normal numbers (>= 0.01), limit strictly to at most 2 decimal places
   if (abs >= 0.01 && abs < 1e7) {
     const fixed2 = parseFloat(num.toFixed(2)).toString()
     if (fixed2 !== '0') {
@@ -49,14 +46,12 @@ function formatNumber(num: number): string {
     }
   }
 
-  // High precision case: activated only when necessary for small numbers (< 0.01)
   if (abs >= 0.0001 && abs < 0.01) {
     let decimals = 4
     if (abs < 0.001) decimals = 5
     return parseFloat(num.toFixed(decimals)).toString()
   }
 
-  // Micro-scale numbers (< 0.0001)
   return parseFloat(num.toPrecision(3)).toString()
 }
 
@@ -80,7 +75,6 @@ export function formatLinearExpr(a: number, b: number, varName: 'x' | 'y'): stri
     a = a < 0 ? -1e-12 : 1e-12
   }
 
-  // Snap scale 'a' to integer only if Math.round(a) is non-zero
   const roundA = Math.round(a)
   if (roundA !== 0 && Math.abs(a - roundA) < 0.02) {
     a = roundA
@@ -88,7 +82,6 @@ export function formatLinearExpr(a: number, b: number, varName: 'x' | 'y'): stri
 
   const absA = Math.abs(a)
 
-  // Snap offset 'b' to 0 or integer
   if (Math.abs(b) < 1e-5) {
     b = 0
   } else {
@@ -102,13 +95,11 @@ export function formatLinearExpr(a: number, b: number, varName: 'x' | 'y'): stri
   if (Math.abs(absA - 1) < 0.01) {
     termA = a < 0 ? `-${varName}` : varName
   } else if (absA < 1) {
-    // For scale < 1 (compress/squeeze), format as division (integer or decimal divisor)
     const invA = 1 / absA
     const roundInvA = Math.round(invA)
     const divisorStr = Math.abs(invA - roundInvA) < 0.02 ? roundInvA.toString() : formatNumber(invA)
     termA = a < 0 ? `-${varName}/${divisorStr}` : `${varName}/${divisorStr}`
   } else {
-    // For scale > 1 (stretch/expand), format as multiplication
     const aStr = formatNumber(absA)
     termA = a < 0 ? `-${varName}*${aStr}` : `${varName}*${aStr}`
   }

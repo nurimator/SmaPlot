@@ -125,7 +125,6 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     if (saveBtn) saveBtn.addEventListener('click', handleApply)
   }
 
-  // Real-time preview: update the plot as arrow parameters change in the panel.
   const liveEls: (Element | null)[] = [
     overlayEl.querySelector('#arrowheadInput'),
     overlayEl.querySelector('#arrowWidthInput'),
@@ -168,7 +167,6 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     })
   }
 
-  // Draggable dialog header
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
   if (headerEl && dialogEl) {
     makeDraggable(dialogEl, headerEl)

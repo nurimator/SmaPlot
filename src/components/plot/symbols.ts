@@ -1,12 +1,6 @@
 import type { Dataset } from '../../types.ts'
 import { createSVGElement, starPoints } from './svg.ts'
 
-// Dash-array pattern shared by the data series, legend line samples, and the
-// Data Manager series icon. Returns 'none' when the line is solid.
-// Round/square stroke caps paint strokeWidth/2 beyond each dash end, which
-// would shrink the visual gap as the line thickens. Passing the stroke width
-// compensates so dash lengths and gaps stay constant — width only affects
-// the stroke thickness (perpendicular), never the pattern along the line.
 export function getLineDashArray(lineType: string | undefined, strokeWidth = 0): string {
   if (lineType === 'dotted') return dashedPair(2, 2, strokeWidth)
   if (lineType === 'dash_dot') return `${dashedPair(6, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)}`
@@ -22,8 +16,6 @@ function dashedPair(on: number, gap: number, strokeWidth: number): string {
   return `${Math.max(0.5, on - strokeWidth).toFixed(1)} ${Math.max(0.5, gap + strokeWidth).toFixed(1)}`
 }
 
-// Marker symbol for one data point. Shared by the plot data series, the legend
-// line samples, and the Data Manager series icon. Returns null for 'no_dot'/'none'.
 export function createSeriesSymbol(
   plotType: string,
   cx: number,
@@ -127,9 +119,6 @@ export function createSeriesSymbol(
   return null
 }
 
-// Arrow-shape glyph (line, right/left/double arrow, dimension) for the
-// Insert > Arrow shape dropdown, rendered as a small SVG so the trigger and
-// popup options show a drawn icon instead of a unicode character.
 export function createArrowShapeSymbol(shape: string): SVGElement | null {
   const color = '#475569'
   const g = createSVGElement('g')
@@ -185,10 +174,6 @@ export interface SeriesIconOptions {
   viewBoxWidth?: number
 }
 
-// Legend-style series icon: line sample (color + dash pattern) with the plot
-// marker shape on top, mirroring the legend rendering in the plot. Purely
-// visual — not clickable. Shared by the Data Manager series icon and the
-// Property dialog sample preview.
 export function createSeriesIconFromOpts(opts: SeriesIconOptions): SVGSVGElement {
   const count = opts.markerCount ?? 1
   const viewBoxWidth = opts.viewBoxWidth ?? 24

@@ -33,8 +33,6 @@ export function addRecentFile(name: string, content: string): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
   } catch {
-    // Quota exceeded (file too large): keep the newest full copy,
-    // drop the content payloads of the rest so the list still works.
     try {
       const nameOnly = [
         entry,
@@ -42,7 +40,6 @@ export function addRecentFile(name: string, content: string): void {
       ]
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nameOnly))
     } catch {
-      // Even that failed — ignore; the list simply won't persist.
     }
   }
 }

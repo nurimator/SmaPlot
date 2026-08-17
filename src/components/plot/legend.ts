@@ -19,9 +19,6 @@ import { showTitleDialog } from './../TitleDialog.ts'
 export function renderLegend(ctx: PlotRenderContext): void {
   const { svg, smpDoc, margin, plotW, plotH, scaleX, processedDatasets } = ctx
 
-  // ----------------------------------------------------
-  // LEGEND ITEMS & ANNOTATIONS (10000ths Normalized Coordinates)
-  // ----------------------------------------------------
   if (smpDoc && smpDoc.legendItems.length === 0) {
     const xLbl = smpDoc?.xLabel
     const yLbl = smpDoc?.yLabel
@@ -83,7 +80,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
         if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
         const wasSelected = isObjectSelected({ kind: 'legend', svg, itemIdx })
 
-        // Double-click detection (always works)
         const now = Date.now()
         if (now - lastClickTime < 350 || e.detail >= 2) {
           lastClickTime = 0
@@ -98,11 +94,9 @@ export function renderLegend(ctx: PlotRenderContext): void {
         lastClickTime = now
 
         if (!wasSelected) {
-          // Not yet selected — don't stopPropagation, let MarqueeSelect handle.
           return
         }
 
-        // Object was already selected — stopPropagation and start group drag
         e.stopPropagation()
         setSelectedPlotSvg(svg)
         setSelectedLegendIndex(itemIdx)
@@ -112,7 +106,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
       }
 
       if (isSeriesLegendText(item.text)) {
-        // Series Legend Box e.g. %01E KP\n%02E SG\n%03E GS  or  %01E%01N
         const legGroup = createSVGElement('g')
         legGroup.setAttribute('data-legend-item', String(itemIdx))
         svg.appendChild(legGroup)
@@ -125,8 +118,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
           const idx = parseInt(head[1], 10) - 1
           const ds = processedDatasets[idx]
 
-          // %nN is dataset n file name (uppercased); %nE corresponds to graphic
-          // style of dataset n (removed from text)
           const labelText = lineStr
             .replace(/%(\d+)N/g, (_m, n) => {
               const d = processedDatasets[parseInt(n, 10) - 1]
@@ -135,12 +126,9 @@ export function renderLegend(ctx: PlotRenderContext): void {
             .replace(/%(\d+)E/g, '')
             .trim()
 
-          // Deleted dataset: keep the label but skip the line sample & marker
-          // (no black fallback line), preserving the line's vertical space.
           if (ds) {
           const color = ds.options?.lineColor || ds.color || '#000000'
 
-          // Draw legend line sample
           const legLine = createSVGElement('line')
           legLine.setAttribute('x1', String(renderPx))
           legLine.setAttribute('y1', String(legY))
@@ -161,7 +149,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
           legLine.addEventListener('dblclick', openTitleModal)
           legGroup.appendChild(legLine)
 
-          // Draw legend marker symbol if set
           const plotType = ds?.options?.plotType || 'no_dot'
           if (plotType !== 'no_dot' && plotType !== 'none') {
             const dotColor = ds?.options?.dotColor || color
@@ -280,7 +267,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
           }
           }
 
-          // Draw legend text next to icon (foreignObject + renderSmpTextToHtml)
           const legStr = renderSmpTextToHtml(labelText)
           const legFontSz = 10
           const legFo = createSVGElement('foreignObject')
@@ -448,7 +434,6 @@ export function renderLegend(ctx: PlotRenderContext): void {
       }
     })
   } else {
-    // Fallback axis labels if not in legendItems
     const xLabel = smpDoc?.xLabel
     if (xLabel) {
       const xTitle = createSVGElement('text')

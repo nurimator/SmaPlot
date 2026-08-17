@@ -21,12 +21,9 @@ function makePlotFrame(svg: SVGSVGElement): PlotFrame {
   return { svg, l, t, w, h }
 }
 
-// Locate the inner plot frame (graph area) that contains a graph-area-local point.
-// Iterates in reverse so the topmost (last-drawn) plot wins on overlap.
 function findPlotFrameAt(gx: number, gy: number): PlotFrame | null {
   if (activeSvgs.length === 0) return null
 
-  // 1. Strict inner data frame hit (topmost plot first)
   for (let i = activeSvgs.length - 1; i >= 0; i--) {
     const svg = activeSvgs[i]
     const frame = makePlotFrame(svg)
@@ -35,7 +32,6 @@ function findPlotFrameAt(gx: number, gy: number): PlotFrame | null {
     }
   }
 
-  // 2. Outer SVG hit (including axes / margins / labels / titles)
   for (let i = activeSvgs.length - 1; i >= 0; i--) {
     const svg = activeSvgs[i]
     const left = parseFloat(svg.style.left) || 0
@@ -47,18 +43,15 @@ function findPlotFrameAt(gx: number, gy: number): PlotFrame | null {
     }
   }
 
-  // 3. Fallback to currently selected plot if active
   const selSvg = getSelectedPlotSvg()
   if (selSvg && activeSvgs.includes(selSvg)) {
     return makePlotFrame(selSvg)
   }
 
-  // 4. Fallback if single plot exists on canvas
   if (activeSvgs.length === 1) {
     return makePlotFrame(activeSvgs[0])
   }
 
-  // 5. Fallback to nearest plot
   let closest: PlotFrame | null = null
   let minDist = Infinity
   for (const svg of activeSvgs) {
@@ -74,9 +67,7 @@ function findPlotFrameAt(gx: number, gy: number): PlotFrame | null {
   return closest
 }
 
-// ── Module-level state ───────────────────────────────────────────────────────
-// Promoted from closure so touchGestures.ts can delegate trim touch events
-// without creating a second set of competing listeners on workspaceEl.
+// ── Module-level state ──
 
 let _graphAreaEl: HTMLElement | null = null
 let _onCommit: (() => void) | null = null
@@ -97,10 +88,8 @@ const isIgnoredTarget = (target: HTMLElement): boolean =>
   target.closest('.scrollbar-v, .scrollbar-h, .workspace-right, #ctxMenu, #marqueeCtxMenu, [data-dir]') !== null ||
   target.closest('.dialog-overlay, .modal') !== null
 
-// ── Public trim API (used by mouse handlers below and touch via touchGestures) ──
+// ── Public trim API ──
 
-/** Start a trim drag at the given client coordinates. Returns true when the
- *  touch/click landed on a plot's graph area and the drag session was opened. */
 export function beginTrim(clientX: number, clientY: number): boolean {
   if (!isTrimmingMode() || !_graphAreaEl) return false
 
@@ -125,7 +114,6 @@ export function beginTrim(clientX: number, clientY: number): boolean {
   return true
 }
 
-/** Update the trim selection box while dragging. No-op when no session is active. */
 export function updateTrim(clientX: number, clientY: number): void {
   if (!_isTrimming || !_frame || !_graphAreaEl) return
   const dx = clientX - _startClientX
@@ -158,8 +146,6 @@ export function updateTrim(clientX: number, clientY: number): void {
   }
 }
 
-/** Commit the trim: applies the selected region to the plot's axis range and
- *  fires onCommit + onFinish.  A session with no movement is a no-op. */
 export function finishTrim(): void {
   if (!_isTrimming || !_frame) return
   _isTrimming = false
@@ -172,10 +158,8 @@ export function finishTrim(): void {
   const f = _frame
   _frame = null
 
-  // Single click without drag: nothing to trim.
   if (!_hasMoved) return
 
-  // Clamp the drag rectangle to the plot's inner frame.
   const cl = Math.max(f.l, Math.min(_startGraphX, _lastGraphX))
   const cr = Math.min(f.l + f.w, Math.max(_startGraphX, _lastGraphX))
   const ct = Math.max(f.t, Math.min(_startGraphY, _lastGraphY))
@@ -191,13 +175,9 @@ export function finishTrim(): void {
   const yMin = ay.min
   const yMax = ay.max
 
-  // Map frame pixel coordinates back into data coordinates.
   const xAt = (gx: number) => xMin + ((gx - f.l) / f.w) * (xMax - xMin)
   const yAt = (gy: number) => yMax - ((gy - f.t) / f.h) * (yMax - yMin)
 
-  // Preserve the original axis direction (including reversed/negative ranges
-  // such as xMin=400, xMax=0): the axis min is always at the left frame edge
-  // and the axis max at the right edge, regardless of value ordering.
   const newXMin = xAt(cl)
   const newXMax = xAt(cr)
   const newYMin = yAt(cb)
@@ -223,7 +203,6 @@ export function finishTrim(): void {
   _onFinish?.()
 }
 
-/** Discard the in-progress trim without applying any axis changes. */
 export function cancelTrim(): void {
   if (!_isTrimming) return
   _isTrimming = false
@@ -235,23 +214,12 @@ export function cancelTrim(): void {
   _frame = null
 }
 
-/** True while a trim drag session is active (between beginTrim and finish/cancel). */
 export function isTrimDragging(): boolean {
   return _isTrimming
 }
 
-// ── Initialiser ──────────────────────────────────────────────────────────────
+// ── Initialiser ──
 
-// Trimming mode: left-click hold-drag on a plot's graph area defines a rectangle
-// that re-scopes that plot's X/Y axis start & end. The box size is unchanged — the
-// data simply zooms in to fill the trimmed region. Marquee selection is disabled
-// while this mode is active (see MarqueeSelect.ts). The mode auto-exits after a
-// single successful trim; onFinish restores the toolbar/marquee state.
-//
-// NOTE: Touch events are intentionally NOT registered here. They are delegated
-// by touchGestures.ts so there is only one non-passive touchstart listener on
-// workspaceEl — mixing passive + non-passive listeners on the same element
-// causes iOS Safari to ignore preventDefault() from the non-passive listener.
 export function initTrimMode(graphAreaEl: HTMLElement, onCommit: () => void, onFinish: () => void): void {
   _graphAreaEl = graphAreaEl
   _onCommit = onCommit

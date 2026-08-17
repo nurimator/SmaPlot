@@ -3,13 +3,6 @@ import { pushUndoState } from '../utils/undoManager.ts'
 import type { SmpLineAnnotation } from '../types.ts'
 import { getLineDashArray } from './plot/symbols.ts'
 
-// Shared mouse-draw interaction for the Rectangle and Arrow dialogs.
-//
-// When the dialog's "Draw" button is pressed we enter a create mode that
-// temporarily disables the left-drag marquee (see MarqueeSelect). The next
-// left-click-drag on the canvas draws the shape from the press point to the
-// release point; the annotation is committed and the marquee is restored.
-
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 interface ShapeDrawState {
@@ -97,9 +90,6 @@ function makePreviewEl(): SVGElement {
   return group
 }
 
-// Draw the live arrow preview from the dialog's chosen shape/arrowMode/style so
-// the drag preview matches the final annotation (end/start/both heads, plain
-// line, or measure line with perpendicular end ticks, plus the dash pattern).
 function getPreviewScaleX(svg: SVGSVGElement): number {
   const doc = getPlotSmpDoc(svg)
   const w = svg.clientWidth || parseFloat(svg.style.width) || 400
@@ -191,7 +181,6 @@ function onMouseDownCapture(e: MouseEvent): void {
   if (!state) return
   if (e.button !== 0) return
   const target = e.target as HTMLElement
-  // Ignore clicks that land on other UI chrome (e.g. a re-opened dialog).
   if (target.closest('.dialog-window, #ctxMenu, #marqueeCtxMenu, .toolbar, .menubar, .workspace-right')) return
   e.preventDefault()
   e.stopPropagation()

@@ -16,11 +16,6 @@ import { svgSmpDocMap } from './state.ts'
 let activeDrag: ActiveDrag | null = null
 let rafId: number | null = null
 
-// Pointer-capture bookkeeping for handle-initiated drags (resize / move zone).
-// activePointerId is set only when a drag is started via the pointerdown handler
-// (see initPlotDragListeners); other drags (mouse border move, touch marquee-group
-// move, transform) keep activePointerId === null and are driven by the legacy
-// mouse/touch listeners. This separation prevents double-processing.
 let activePointerId: number | null = null
 let capturedSvg: SVGSVGElement | null = null
 
@@ -31,14 +26,12 @@ function releaseCapturedPointer(): void {
         capturedSvg.releasePointerCapture(activePointerId)
       }
     } catch {
-      // Pointer may already be released; ignore.
     }
   }
   capturedSvg = null
   activePointerId = null
 }
 
-// Latest resize geometry, applied once per animation frame by applyResizeFrame.
 let pendingResizeGeom: { svg: SVGSVGElement; left: number; top: number; width: number; height: number } | null = null
 
 export function getActiveDrag(): ActiveDrag | null {
@@ -72,7 +65,6 @@ export function setActiveGroupDrag(
   activeGroupDrag = drag
 }
 
-// Cached overlay elements (populated lazily)
 let _cachedTitleOverlay: HTMLElement | null = null
 let _cachedArrowOverlay: HTMLElement | null = null
 function getCachedTitleOverlay(): HTMLElement | null {
@@ -84,8 +76,6 @@ function getCachedArrowOverlay(): HTMLElement | null {
   return _cachedArrowOverlay
 }
 
-// Start state of every selected object for a group move. Inner objects (legend /
-// annotation) of a selected plot box are excluded: they ride along with their plot.
 export function buildGroupDragItems(selection: SelectableObject[]): GroupDragItem[] {
   const selectedPlots = new Set<SVGSVGElement>()
   selection.forEach((o) => {
@@ -137,10 +127,6 @@ export function buildGroupDragItems(selection: SelectableObject[]): GroupDragIte
 export function startGroupDrag(startX: number, startY: number): void {
   const items = buildGroupDragItems(getSelectedObjects())
 
-  // Snapshot the selection-box overlay geometry so a live legend drag can move
-  // it with the group without any redraw. Only direct children of the overlay
-  // are moved — for rotated text the box/corners live inside .ov-rot-wrap, and
-  // moving that wrapper moves them too.
   for (const item of items) {
     if (item.kind !== 'legend') continue
     const ov = getPlotOverlay(item.svg)
@@ -193,10 +179,6 @@ export function startPlotDrag(svg: SVGSVGElement, dir: string, clientX: number, 
   document.body.style.userSelect = 'none'
 }
 
-// Deferred per-frame resize application (see handleDragMove): applies the pending
-// geometry, renormalizes legend items, syncs the doc geometry, and redraws the
-// plot once. Touchscreens sample at 120–240 Hz, so per-event style writes forced
-// a reflow per event and stuttered; everything is coalesced to one rAF per frame.
 function applyResizeFrame(dragRef?: ActiveDrag): void {
   rafId = null
   const geom = pendingResizeGeom
@@ -234,17 +216,11 @@ function applyResizeFrame(dragRef?: ActiveDrag): void {
     })
   }
 
-  // Annotations are frame-relative mm; resizing the plot leaves them
-  // untouched (they scale with the frame).
   syncDocGeometry(svg)
 
   if (ds) drawPlot(svg, ds, geom.width, geom.height)
 }
 
-// Coalesced per-frame visual sync for live drags (group move / transform drag).
-// Rebuilding the whole plot SVG synchronously on every mousemove/touchmove event
-// stutters badly on high-sampling-rate touchscreens, so all redraw + dialog-sync
-// work is deferred to a single requestAnimationFrame per animation frame.
 const pendingVisualRedraws = new Set<SVGSVGElement>()
 let pendingVisualRaf: number | null = null
 let pendingLegendSync: { svg: SVGSVGElement; itemIdx: number } | null = null
@@ -282,9 +258,6 @@ function schedulePlotVisualSync(
   })
 }
 
-// Global mousemove, mouseup, touchmove, and touchend listeners for resize with snap to grid.
-// onDragCommit is invoked after a resize/group-move finishes, letting the caller
-// (e.g. undo manager) record the mutation without Plot importing it.
 export function initPlotDragListeners(onDragCommit?: () => void): void {
   const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean) => {
     if (getActiveTransDrag()) {
@@ -327,7 +300,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       let curAy = startYLinear.a
       let curBy = startYLinear.b
 
-      // Handle Y transformation
       if (yTransActive) {
         let newAy = startYLinear.a
         let newBy = startYLinear.b
@@ -373,7 +345,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
         curBy = newBy
       }
 
-      // Handle X transformation
       if (xTransActive) {
         let newAx = startXLinear.a
         let newBx = startXLinear.b
@@ -432,9 +403,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       const dy = (clientY - dragRef.startY) / zoom
       const touchedSvgs = new Set<SVGSVGElement>()
 
-      // When only legend/text and plot objects are dragged, move the legend DOM
-      // directly (one translate attribute) instead of rebuilding the whole plot
-      // SVG per frame — full redraws stutter badly on touchscreens.
       const liveLegendDrag = dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
 
       for (const item of dragRef.items) {
@@ -551,10 +519,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
         }
       }
 
-      // Keep the Title / Arrow dialogs in sync with the dragged object
       if (liveLegendDrag) {
-        // Cheap live sync of the position fields; the full dialog rebuild and
-        // the single commit redraw happen on drag end.
         const titleOverlayEl = getCachedTitleOverlay()
         if (titleOverlayEl && titleOverlayEl.style.display !== 'none') {
           const legendItem = dragRef.items.find((it) => it.kind === 'legend')
@@ -601,11 +566,11 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     let newWidth = startWidth
     let newHeight = startHeight
 
-    const GRID_SIZE = 100 // Major grid step (100px per major grid square = 50 statusbar units)
-    const SNAP_THRESHOLD = 6 // Magnetic snap threshold (only snaps within 6px of major grid lines)
+    const GRID_SIZE = 100
+    const SNAP_THRESHOLD = 6
     const margin = PLOT_MARGIN
-    const minPlotW = GRID_SIZE / 2 // Minimum frame width = 0.5 major grid (50px)
-    const minPlotH = GRID_SIZE / 2 // Minimum frame height = 0.5 major grid (50px)
+    const minPlotW = GRID_SIZE / 2
+    const minPlotH = GRID_SIZE / 2
 
     const startPlotW = startWidth - margin.l - margin.r
     const startPlotH = startHeight - margin.t - margin.b
@@ -644,9 +609,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       newHeight = newPlotH + margin.t + margin.b
     }
 
-    // Pure math only in the event handler; styles/redraw are deferred to a single
-    // rAF per frame (applyResizeFrame) so high-sampling-rate touch input stays
-    // smooth.
     pendingResizeGeom = { svg, left: newLeft, top: newTop, width: newWidth, height: newHeight }
     if (rafId === null) {
       rafId = requestAnimationFrame(() => applyResizeFrame())
@@ -668,8 +630,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
 
-      // Commit live legend/text drags: write the final xNorm/yNorm, then one
-      // redraw resets the temporary group transform and selection overlays.
       const liveLegendDrag =
         dragRef.items.some((it) => it.kind === 'legend') &&
         dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
@@ -707,8 +667,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
       const dragRef = activeDrag
       activeDrag = null
       document.body.style.userSelect = ''
-      // Flush any deferred geometry so the commit redraw sees the final size
-      // and the legend/annotation normalization is up to date.
       if (rafId !== null) {
         cancelAnimationFrame(rafId)
         rafId = null
@@ -731,9 +689,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     }
   }
 
-  // Non-pointer drags (mouse border group-move, touch marquee-group move, transform
-  // drag) are driven by the legacy mouse/touch listeners. They only act when no
-  // pointer-captured drag is in progress (activePointerId === null).
   document.addEventListener('mousemove', (e: MouseEvent) => {
     if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey)
   })
@@ -762,12 +717,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (activePointerId === null) handleDragEnd()
   })
 
-  // Handle-initiated drags (resize edge/corner + top-middle move zone) are owned by
-  // Pointer Events with setPointerCapture on the stable <svg> root. Because the root
-  // element is never removed by drawPlot()'s svg.replaceChildren() (only its children
-  // are), capturing on it keeps the pointer alive across the per-frame redraws that
-  // used to destroy the touch target and trigger a touchcancel — which previously
-  // killed the resize mid-gesture on touchscreens.
   document.addEventListener('pointerdown', (e: PointerEvent) => {
     if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
     const target = e.target as SVGElement
@@ -784,8 +733,6 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     try {
       svg.setPointerCapture(e.pointerId)
     } catch {
-      // Capture may fail on some browsers; the legacy listeners are inactive for
-      // this gesture (activePointerId is set), so movement still flows via pointermove.
     }
     e.preventDefault()
     e.stopPropagation()

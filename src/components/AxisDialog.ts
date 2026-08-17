@@ -9,10 +9,6 @@ type AxisTarget = 'x' | 'y' | 'u' | 'r'
 let currentAxisTarget: AxisTarget = 'x'
 let currentTargetSvg: SVGSVGElement | null = null
 
-// In synced/linked mode a pair (X<->U, Y<->R) behaves as a single axis: scale AND
-// tick appearance (Draw included) are shared, so whichever side the user edits is
-// mirrored onto its partner. Labels are deliberately excluded — the secondary axis
-// keeps them hidden while synced (handled by the caller).
 function syncAxisPair(source: SmpAxisSpec, target: SmpAxisSpec): void {
   target.min = source.min
   target.max = source.max
@@ -52,7 +48,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const applyBtn = overlayEl.querySelector('#applyAxisBtn')
   const tabs = overlayEl.querySelectorAll<HTMLButtonElement>('.tab-btn')
 
-  // Scale Tab Elements
   const axisDraw = overlayEl.querySelector<HTMLInputElement>('#axisDraw')
   const axisAutoStep = overlayEl.querySelector<HTMLInputElement>('#axisAutoStep')
   const axisFrom = overlayEl.querySelector<HTMLInputElement>('#axisFrom')
@@ -61,7 +56,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
   const axisSync = overlayEl.querySelector<HTMLInputElement>('#axisSync')
 
-  // Tick Tab Elements
   const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
   const axisMajorOut = overlayEl.querySelector<HTMLInputElement>('#axisMajorOut')
   const axisMajorColor = overlayEl.querySelector<HTMLInputElement>('#axisMajorColor')
@@ -76,7 +70,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisMinorStyle = overlayEl.querySelector<HTMLSelectElement>('#axisMinorStyle')
   const axisMinorLength = overlayEl.querySelector<HTMLInputElement>('#axisMinorLength')
 
-  // Label Tab Elements
   const axisDrawLabels = overlayEl.querySelector<HTMLInputElement>('#axisDrawLabels')
   const axisFontFamily = overlayEl.querySelector<HTMLSelectElement>('#axisFontFamily')
   const axisLabelColor = overlayEl.querySelector<HTMLInputElement>('#axisLabelColor')
@@ -131,7 +124,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
     if (axisDivision && axisDivision.value !== '') targetSpec.subDivs = parseInt(axisDivision.value, 10) || 5
 
-    // Tick specs
     if (axisMajorIn) targetSpec.majorIn = axisMajorIn.checked
     if (axisMajorOut) targetSpec.majorOut = axisMajorOut.checked
     if (axisMajorColor) targetSpec.majorColor = axisMajorColor.value
@@ -146,7 +138,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisMinorStyle) targetSpec.minorStyle = axisMinorStyle.value
     if (axisMinorLength && axisMinorLength.value !== '') targetSpec.minorLength = parseFloat(axisMinorLength.value) || 3
 
-    // Label specs
     if (axisDrawLabels) targetSpec.showLabels = axisDrawLabels.checked
     if (axisFontFamily) targetSpec.fontFamily = axisFontFamily.value
     if (axisLabelColor) targetSpec.labelColor = axisLabelColor.value
@@ -160,7 +151,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     if (axisAddPlusSign) targetSpec.addPlusSign = axisAddPlusSign.checked
     if (axisMergeZeroLabels) smpDoc.mergeZeroLabels = axisMergeZeroLabels.checked
 
-    // Linked (synced) axis logic:
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
       const isSynced = axisSync ? axisSync.checked : true
       smpDoc.syncWithU = isSynced
@@ -210,7 +200,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     hide()
   })
 
-  // Real-time update listeners for all controls
   const allControls = [
     axisDraw, axisFrom, axisTo, axisDivision, axisSync,
     axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
@@ -248,7 +237,6 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     applyAxisOptions()
   })
 
-  // Tab switching
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       tabs.forEach((t) => t.classList.remove('active'))

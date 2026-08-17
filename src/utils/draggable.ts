@@ -9,11 +9,9 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
   handleEl.style.touchAction = 'none'
 
   const startDrag = (clientX: number, clientY: number, target: HTMLElement): boolean => {
-    // Mobile: dialogs are bottom sheets — not draggable (dismissed via backdrop tap / swipe-down)
     if (window.matchMedia('(max-width: 640px)').matches) {
       return false
     }
-    // Ignore clicks/touches on close button or other interactive controls inside header
     if (target.closest('.dialog-close-btn, button, input, select, textarea')) {
       return false
     }
@@ -25,7 +23,6 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
     initialLeft = rect.left
     initialTop = rect.top
 
-    // Ensure dialog is positioned via top/left explicitly
     dialogEl.style.position = 'fixed'
     dialogEl.style.left = `${initialLeft}px`
     dialogEl.style.top = `${initialTop}px`
@@ -54,7 +51,6 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
     }
   }
 
-  // Mouse listeners
   handleEl.addEventListener('mousedown', (e: MouseEvent) => {
     if (e.button !== 0) return
     if (startDrag(e.clientX, e.clientY, e.target as HTMLElement)) {
@@ -75,7 +71,6 @@ export function makeDraggable(dialogEl: HTMLElement, handleEl: HTMLElement): voi
     }
   })
 
-  // Touch listeners
   handleEl.addEventListener(
     'touchstart',
     (e: TouchEvent) => {

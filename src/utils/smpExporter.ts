@@ -1,19 +1,15 @@
 import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 
-// --- Sma4Win internal unit conversions ---------------------------------
-const MM_TO_SMP = 100 // width/thickness/size: 1 mm = 100 SMP units
-const SMP_TICK_UNIT_MM = 0.02 // tick length: 1 SMP unit = 0.02 mm (mm / 0.02 = units)
-const DEG_TO_SMP = 10 // rotation: 1 degree = 10 SMP units
+const MM_TO_SMP = 100
+const SMP_TICK_UNIT_MM = 0.02
+const DEG_TO_SMP = 10
 
-// --- Colors --------------------------------------------------------------
-const COLOR_WHITE_BGR = 0xffffff // 16777215, white as BGR int
+const COLOR_WHITE_BGR = 0xffffff
 const COLOR_BLACK_HEX = '#000000'
 const COLOR_FACE_HEX = '#ffffff'
-// Opaque per-axis label color codes: index 0=X, 1=Y, 2=Top, 3=Right.
 const AXIS_LABEL_COLOR: readonly number[] = [300, 1200, 900, 0]
 
-// --- Fallback defaults (values bound to optional doc/axis/item fields) ---
 const DEFAULT_PLOT_GEOM = { left: 5000, top: 5000, width: 10000, height: 10000 }
 const DEFAULT_AXIS_RANGE = { min: 0, max: 100, step: 20 }
 const DEFAULT_AXIS = {
@@ -33,14 +29,13 @@ const DEFAULT_XLABEL_POS = { x: 2400, y: 11400 }
 const DEFAULT_YLABEL_POS = { x: -400, y: 5000, rotation: -90 }
 const DEFAULT_ANNOTATION = { thickness: 0.4, shade: 0, round: 0 }
 
-// --- Fixed Sma4Win format records (opaque grammar, keep byte-identical) ---
 const HEADER_SMP_FILE = ' Sma4Win ver. 1.8  SMP file'
 const HEADER_SMA_FILE = ' Sma4Win ver. 1.1  SMA file'
-const PAGE_SETUP_LINE = '1 1 215 279 0 0 0' // A4 page setup
+const PAGE_SETUP_LINE = '1 1 215 279 0 0 0'
 const GRAPH_FIXED_1 = '100 1 0 0 1 0'
-const GRAPH_FIXED_2 = '40 0 300 16777215' // frame/background (16777215 = white)
+const GRAPH_FIXED_2 = '40 0 300 16777215'
 const AXIS_FIXED_TAIL = '0 0 10000 -1 -1 0 1 0 0 1 5 5 1.000000e+00 1'
-const AXIS_FONT_EXTRA = ['162 3 2 1 18', '0 0 0 2 18'] as const // idx 0|1 vs 2|3
+const AXIS_FONT_EXTRA = ['162 3 2 1 18', '0 0 0 2 18'] as const
 const OTHERS_HEADER = ' 2'
 const OTHERS_ZEROS = '0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
 const OTHERS_SYMBOL_LINE = '-2400 0 0 0 400 1 0 0 2 3 2 1 18'
@@ -50,7 +45,6 @@ const FONT_NAME_ARCHIC = 'Arphic PRound-Gothic Medium JIS'
 const LEGEND_POS_TAIL = '0 1 0 0'
 const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
 
-// --- Series spec record lines ---------------------------------------------
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
 const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
 const SERIES_SYMBOL_LINE = (pen: number, sym: number, size: number, color: number): string => `${pen} ${sym} ${size} ${color}`
@@ -59,7 +53,6 @@ const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 
 const SERIES_ZEROS_LINE = '0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
 const SERIES_FIXED_LINE_5 = '1 40 0 300 1'
 
-// --- Legend text font records (charset + mode differ per font) ------------
 function fontRecordLine(szVal: number, rot: number, weight: number, charset: number, mode: number): string {
   return `-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 ${charset} 3 2 1 ${mode}`
 }
@@ -132,14 +125,13 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
-  const fillLine = ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX))
   return [
     `[${ds.smpSeriesName || `${cleanName}.txt`}]`,
     ds.filePath || `${SMP_FALLBACK_DIR}${cleanName}.txt`,
     SERIES_COUNT_LINE(pointCount),
     SERIES_STYLE_LINE(stylePrefix, bgrColor),
     SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
-    fillLine,
+    ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX)),
     exprFlag,
     xExpr,
     yExpr,
@@ -163,14 +155,12 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const datasets = doc.datasets || []
   lines.push(`${datasets.length}`)
 
-  // Series Specs
   datasets.forEach((ds) => {
     const numericPointCount = Math.min(ds.x?.length || 0, ds.y?.length || 0)
     const pointCount = numericPointCount || ds.rawLines?.filter((row) => row.length >= 2).length || 0
     lines.push(...seriesSpecLines(ds, pointCount))
   })
 
-  // GRAPH Section
   lines.push('[GRAPH]')
   const left = Math.round(doc.left || DEFAULT_PLOT_GEOM.left)
   const top = Math.round(doc.top || DEFAULT_PLOT_GEOM.top)
@@ -192,7 +182,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   }
   lines.push('')
 
-  // AXIS Sections
   const formatAxis = (idx: number, axis?: SmpAxisSpec) => {
     lines.push(`[AXIS-${idx}]`)
     let minStr: string
@@ -211,8 +200,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       maxStr = formatFloatSci(axis?.max ?? DEFAULT_AXIS_RANGE.max)
       stepStr = formatFloatSci(axis?.step ?? DEFAULT_AXIS_RANGE.step)
     }
-    // Axis line token index 10 (0-based) holds the "add + sign" flag for positive tick
-    // labels; patch it from the typed field so edits round-trip through the document.
     const tailTokens = (axis?.rawFixedTail || AXIS_FIXED_TAIL).split(/\s+/)
     if (tailTokens.length > 7) tailTokens[7] = axis?.addPlusSign ? '1' : '0'
     const fixedTail = tailTokens.join(' ')
@@ -305,7 +292,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   formatAxis(2, axisTopExport)
   formatAxis(3, axisRightExport)
 
-  // LEGEND Section
   const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])]
   if (legendItems.length === 0) {
     if (doc.xLabel) {
@@ -340,12 +326,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 
   lines.push('[LEGEND]')
 
-  // Gather all legend items and annotation lines for export
   const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation }[] = []
 
   legendItems.forEach((item) => {
     if (item.rawLine && item.rawLine.startsWith('3')) {
-      // Raw rectangle line
       exportList.push({ isRect: true, rawLine: item.rawLine, item })
     } else if (item.type === 'annotation' || item.x2Norm !== undefined) {
       exportList.push({ isLine: true, item })
@@ -354,7 +338,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     }
   })
 
-  // Add any annotationLines that are not yet in exportList
   const annotationLines = doc.annotationLines || []
   annotationLines.forEach((aLine) => {
     const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
@@ -377,8 +360,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   exportList.forEach((entry) => {
     if (entry.isRect) {
       lines.push('3')
-      // The raw line is kept only when it matches the current norm values byte
-      // for byte; any edit (drag, dialog) is serialized from the norm fields.
       let computed: string | null = null
       if (entry.aLine) {
         const aLine = entry.aLine
@@ -422,9 +403,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         const colorCode = hexToBgr(aLine.color || '#000000')
         const styleCode = lineTypeToCode(aLine.style)
         const faceCode = hexToBgr(aLine.faceColor || '#ffffff')
-        // Native Sma4Win writes a dimension line (legendType '2') with the
-        // line-kind flag (token 9) set to 2 and arrow mode 1, matching the
-        // format produced by Sma4Win itself so the exported file is readable.
         const dimKind = isMeasureLine ? 2 : 0
         const modeCode = isMeasureLine
           ? 1
@@ -448,21 +426,13 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       const item = entry.item
       lines.push(String(item.legendType ?? DEFAULT_LEGEND_TYPE))
       const posTail = item.posTail || LEGEND_POS_TAIL
-      // xNorm/yNorm are frame-relative normalized 0-10000 values; native Sma4Win
-      // stores them as 0.01 mm from the frame origin, so scale by the frame size.
       lines.push(`${Math.round((item.xNorm / 10000) * doc.width)} ${Math.round((item.yNorm / 10000) * doc.height)} ${posTail}`)
-      // `text` is the canonical Unicode form. `rawText` is kept for rendering
-      // parsed files and may already contain the SMP-encoded representation;
-      // converting it again would corrupt the 2-byte symbol sequences.
       lines.push(unicodeToSmp(item.text || item.rawText || '').replace(/\n/g, '\\n'))
       const rot = Math.round(item.rotation * DEG_TO_SMP)
       const weight = item.fontWeight >= DEFAULT_AXIS.boldWeight ? 700 : 400
       const szVal = Math.round((item.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
       lines.push(item.font1Spec || FONT_SPEC_TIMES(szVal, rot, weight))
       lines.push(item.fontFamily || DEFAULT_AXIS.fontFamily)
-      // Native Sma4Win stores the Arphic option-font record with its own
-      // charset/face parameters. Keeping these values is required for the
-      // original application to import the text item correctly.
       lines.push(item.font2Spec || FONT_SPEC_ARCHIC(szVal, rot, weight))
       lines.push(item.optionFontFamily || item.fontFamily || FONT_NAME_ARCHIC)
       lines.push(item.font3Spec || FONT_SPEC_SYMBOL(szVal, rot, weight))
@@ -471,7 +441,6 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     }
   })
 
-  // OTHERS & MASKS Section
   lines.push('[OTHERS]')
   lines.push(OTHERS_HEADER)
   lines.push(doc.othersZerosLine || OTHERS_ZEROS)
@@ -484,13 +453,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   lines.push('0')
   lines.push('')
 
-  // DATA Section (single-doc export includes its own [DATA]; multi-doc projects
-  // collect every dataset into one trailing [DATA] section, matching real Sma4Win)
   if (writeData) {
     lines.push(...dataSectionLines(datasets))
   }
 
-  // Sma4Win desktop app requires Windows CRLF line endings (\r\n)
   return lines.join('\r\n')
 }
 
@@ -535,8 +501,6 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
     ...docs.map((doc) => serializeSmpDoc(doc, true, false)),
   ]
 
-  // One shared [DATA] section at the end, de-duplicated by dataset name,
-  // mirroring how real Sma4Win stores multi-plot project files.
   const allDatasets: Dataset[] = []
   const seen = new Set<string>()
   for (const doc of docs) {
@@ -592,7 +556,6 @@ export async function saveFileWithPicker(
       return handle.name || suggestedName
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // User cancelled the native save dialog
         return null
       }
       console.warn('Native showSaveFilePicker failed:', err)
@@ -601,9 +564,6 @@ export async function saveFileWithPicker(
   return undefined
 }
 
-// SMP files use Windows-1252 bytes. The symbol mapper returns a JavaScript
-// string whose characters represent those decoded bytes, so it must be
-// encoded explicitly before passing it to Blob (which otherwise uses UTF-8).
 const WINDOWS_1252_SPECIAL_BYTES = new Map<number, number>([
   [0x20ac, 0x80], [0x201a, 0x82], [0x0192, 0x83], [0x201e, 0x84],
   [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02c6, 0x88],
@@ -624,8 +584,6 @@ function encodeWindows1252(text: string): ArrayBuffer {
     let byte = WINDOWS_1252_SPECIAL_BYTES.get(codePoint)
 
     if (byte === undefined && codePoint <= 0xff) {
-      // This also preserves the undefined C1 slots (0x81, 0x8d, 0x8f,
-      // 0x90 and 0x9d) used by Sma4Win's custom symbol pairs.
       byte = codePoint
     }
 
@@ -634,4 +592,3 @@ function encodeWindows1252(text: string): ArrayBuffer {
 
   return buffer.slice(0, byteCount)
 }
-

@@ -83,7 +83,6 @@ const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOv
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
 
-// Initialize Canvas Zoom Engine (Ctrl + Scroll / Trackpad Pinch)
 if (workspaceEl && graphAreaEl) {
   initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
 
@@ -117,7 +116,6 @@ if (workspaceEl && graphAreaEl) {
   }
 }
 
-// Initialize component logic & event listeners
 if (titlebarEl) initTitlebar(titlebarEl)
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
@@ -172,12 +170,10 @@ async function handleSaveAsProject(): Promise<void> {
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
   const content = serializeSmpProject(docs)
 
-  // Open native OS File Explorer save dialog (File System Access API)
   const pickerResult = await saveFileWithPicker(content, defaultName)
 
   if (pickerResult !== undefined) {
     if (pickerResult === null) {
-      // User cancelled native explorer dialog
       return
     }
     const fileName = pickerResult
@@ -198,7 +194,6 @@ async function handleSaveAsProject(): Promise<void> {
     return
   }
 
-  // Fallback for browsers that do not support File System Access API
   const customName = await showSaveAsDialog(defaultName)
   if (!customName) return
 
@@ -261,10 +256,6 @@ async function handleInsertLegend(): Promise<void> {
   })
 }
 
-// Insert > X/Y/U/R-axis title: identical to Insert > Strings — a plain legend
-// text item. The only difference is the predetermined initial state (position,
-// rotation, size, legendType). Afterwards it is a fully editable title: the
-// user can move it, change its properties, and reorient it freely.
 function openAxisTitleDialog(axis: 'x' | 'y' | 'u' | 'r'): void {
   const svg = getSelectedPlotSvg() || getAllPlotSvgs(graphAreaEl)[0]
   if (!svg) {
@@ -451,7 +442,6 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
     return
   }
 
-  // Any other toolbar action exits trimming mode (restoring marquee selection).
   exitTrimMode()
 
   if (action === 'undo') {
@@ -559,7 +549,6 @@ if (ctxMenuEl) {
   })
 }
 
-// Click on empty area outside any plot box deselects the current plot
 graphAreaEl.addEventListener('mousedown', (e) => {
   if (isReadValueMode() || isPropertyTabMode()) return
   const target = e.target as HTMLElement
@@ -567,20 +556,10 @@ graphAreaEl.addEventListener('mousedown', (e) => {
   setObjectSelection([])
 })
 
-// Double-click on a plot. Detected via timing on `mousedown` (not native `dblclick`)
-// because selecting the plot re-renders the SVG (`replaceChildren`), detaching the
-// element under the cursor so the browser never fires a `dblclick` for it.
-//  - on the graph (data points / lines, detected geometrically via `hitTestGraph`) → open the Property panel for that graph
-//  - on empty area inside the box plot (not series, ticks, axis, title, legend) → open the Data Manager
-// Legend / annotation / title elements carry their own mousedown handlers, so they are unaffected here.
 let lastPlotClickTime = 0
 let lastPlotClickSvg: SVGSVGElement | null = null
 graphAreaEl.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return
-  // Touch input synthesizes mousedown/click events; the touch double-tap path in
-  // touchGestures.ts already opens the correct panel, so skip this mouse-based
-  // double-click detection right after a touch gesture (prevents e.g. Data Manager
-  // opening instead of a legend/annotation panel).
   if (wasTouchInteractionRecent()) return
   if (isReadValueMode() || isPropertyTabMode()) return
   const target = e.target as HTMLElement
@@ -595,7 +574,6 @@ graphAreaEl.addEventListener('mousedown', (e) => {
     e.preventDefault()
     setSelectedPlotSvg(svg)
 
-    // Check axis zones first (border, ticks, labels) using geometry — works even after SVG re-render
     const axisDir = hitTestAxisArea(svg, e.clientX, e.clientY)
     if (axisDir) {
       showAxisDialog(axisOverlayEl, axisDir, svg)
@@ -617,21 +595,16 @@ graphAreaEl.addEventListener('mousedown', (e) => {
 // Initialize Plot drag & resize listeners
 initPlotDragListeners(pushUndoState)
 
-// Left-drag marquee selection of plot elements (select + group move)
 initMarqueeSelect(graphAreaEl)
 
-// Trimming mode: left-drag on a plot's graph area re-scopes its X/Y axis range.
-// Mode auto-exits after one successful trim (onFinish restores toolbar + marquee).
 initTrimMode(graphAreaEl, () => pushUndoState(), exitTrimMode)
 
-// Initialize Marquee Drag Selection & SVG Clipboard Copy
 const marqueeCtxMenuEl = document.querySelector<HTMLElement>('#marqueeCtxMenu')
 const statusFileTextEl = document.querySelector<HTMLElement>('#statusFileText')
 if (marqueeCtxMenuEl) {
   initMarqueeExport(graphAreaEl, marqueeCtxMenuEl, statusFileTextEl)
 }
 
-// Initialize Touch Gestures (500ms Long Press, Haptic, Context Menu, Touch Marquee Export & Select)
 if (marqueeCtxMenuEl) {
   initTouchGestures({
     workspaceEl,
@@ -664,20 +637,13 @@ if (marqueeCtxMenuEl) {
   })
 }
 
-// Initialize Property, Data Manager, Axis & Confirm Dialogs
 if (propOverlayEl) initPropertyDialog(propOverlayEl)
 if (axisOverlayEl) initAxisDialog(axisOverlayEl)
 const confirmOverlayEl = document.querySelector<HTMLElement>('#confirmOverlay')
 if (confirmOverlayEl) initConfirmDialog(confirmOverlayEl)
 
-// Uniform custom dropdowns for all form selects
 initCustomSelects()
 
-// Data Manager callback: when a file is selected, transition to Property modal.
-// The dialog only lists the datasets of the currently selected (or last
-// selected) boxplot, so datasets of different plots never mix. The global pool
-// is used only when the active plot has no datasets of its own (e.g. when
-// picking data to add to a fresh plot).
 if (dmOverlayEl) {
   const getDataManagerDatasets = (): Dataset[] => {
     const svg = getSelectedPlotSvg()
@@ -701,7 +667,6 @@ if (dmOverlayEl) {
   )
 }
 
-// Reflect canUndo()/canRedo() on the Undo/Redo menu items and toolbar buttons
 function updateUndoRedoButtons(): void {
   const undoDisabled = !canUndo()
   const redoDisabled = !canRedo()
@@ -724,7 +689,6 @@ function updateUndoRedoButtons(): void {
 subscribeUndoState(updateUndoRedoButtons)
 updateUndoRedoButtons()
 
-// Spawn a fresh, untitled project on first launch
 async function initApp() {
   await handleNewProject()
   updateRecentFilesMenu()
@@ -733,8 +697,6 @@ async function initApp() {
 
 initApp()
 
-// Register the PWA service worker and surface update availability.
-// `prompt` mode: never force-reload the user (unsaved plots would be lost).
 const pwaToast = document.querySelector<HTMLElement>('#pwaUpdateToast')
 const pwaUpdateBtn = document.querySelector<HTMLElement>('#pwaUpdateBtn')
 const pwaDismissBtn = document.querySelector<HTMLElement>('#pwaDismissBtn')
@@ -765,7 +727,6 @@ pwaUpdateBtn?.addEventListener('click', () => {
 })
 pwaDismissBtn?.addEventListener('click', hidePwaToast)
 
-// Global Window & Workspace Drag-and-Drop Handler for .SMP, .SMA, and .TXT files
 window.addEventListener('dragover', (e) => e.preventDefault())
 window.addEventListener('drop', (e) => e.preventDefault())
 
@@ -812,7 +773,6 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
   }
 })
 
-// Right-click context menu event listener on plot graph area
 graphAreaEl.addEventListener('contextmenu', (e) => {
   if (getActiveDrag()) {
     e.preventDefault()
@@ -895,8 +855,7 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   }
 })
 
-// ── Mobile: header + footer bars reuse the shared toolbar action dispatch ──
-// Hidden on desktop via CSS; the listeners are harmless there.
+// ── Mobile: header + footer bars ──
 const mobileHeaderEl = document.querySelector<HTMLElement>('#mobileHeader')
 const mobileNavEl = document.querySelector<HTMLElement>('#mobileNav')
 
@@ -907,14 +866,10 @@ if (mobileNavEl) {
   bindActionButtons(mobileNavEl, handleToolbarAction)
 }
 
-// Burger menu: slides the menubar down as a drawer (mobile CSS) and reuses its
-// existing dropdown handling. The drawer closes after choosing an action or
-// when tapping anywhere outside it.
 const mobileMenuBtn = document.querySelector<HTMLButtonElement>('#mobileMenuBtn')
 if (mobileMenuBtn && menubarEl) {
   const closeDrawer = () => {
     menubarEl.classList.remove('menu-drawer-open')
-    // Reset any open accordions so the next open starts clean.
     closeAllMenuDropdowns()
   }
 
@@ -931,10 +886,7 @@ if (mobileMenuBtn && menubarEl) {
     const target = e.target as HTMLElement
     const item = target.closest('.dropdown-item')
     if (!item) return
-    // Items inside an open submenu collapse the accordion but must NOT close
-    // the whole drawer (Menubar.ts already handles the action + collapse).
     if (item.closest('.menu-submenu')) return
-    // The has-submenu row itself toggles the accordion — don't close drawer.
     if (item.classList.contains('has-submenu')) return
     closeDrawer()
   })
@@ -946,15 +898,7 @@ if (mobileMenuBtn && menubarEl) {
   })
 }
 
-// ── Mobile: sheet swipe-down / header-resize interactions ───────────────────
-// The mobile backdrop passes pointer events through (CSS: .modal-overlay has
-// pointer-events:none), so the workspace stays interactive while a sheet is
-// open — pan, pinch-zoom, read-value picking, and transform-box drags all keep
-// working behind the sheet. Sheets are dismissed via their close button, a
-// swipe-down on the sheet body, or dragging the header down until the sheet is
-// <=10% of the screen height. Closing goes through the same hide* helpers the
-// dialog buttons use, so dialog state (multi-select mode, read-value mode,
-// promises, etc.) is cleaned up — not just display.
+// ── Mobile: sheet swipe-down / header-resize ──
 const dialogClosers: Array<{ overlay: HTMLElement; close: () => void }> = []
 const registerDialogCloser = (overlay: HTMLElement | null, close: (overlayEl: HTMLElement) => void): void => {
   if (!overlay) return

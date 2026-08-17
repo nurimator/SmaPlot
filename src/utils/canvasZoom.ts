@@ -28,8 +28,6 @@ export function getCanvasZoom(): number {
   return currentZoom
 }
 
-// Default/initial zoom. On mobile (<=640px) the whole 601x601 canvas plus the
-// surrounding grid margin is fitted into the viewport; desktop keeps ZOOM_BASE.
 export function getDefaultCanvasZoom(container: HTMLElement): number {
   if (!window.matchMedia('(max-width: 640px)').matches) return ZOOM_BASE
   const viewW = container.clientWidth || 800
@@ -45,20 +43,12 @@ let activeContainer: HTMLElement | null = null
 let activeGraphArea: HTMLElement | null = null
 let activeStatusEl: HTMLElement | null | undefined = null
 
-// Snapshot used by sheetSwipe-driven view adaptation: while a mobile sheet
-// opens/closes (or is dragged) the canvas zoom is scaled proportionally to
-// the viewport height so whatever canvas content is visible stays visible.
 let adaptSnapshotZoom = ZOOM_BASE
 let adaptSnapshotPanX = 0
 let adaptSnapshotPanY = 0
 let adaptSnapshotViewW = 0
 let adaptSnapshotViewH = 0
 
-/**
- * Enable/disable the smooth canvas-transform transition used while a mobile
- * sheet opens/closes. Kept OFF during sheet resize drags so the canvas follows
- * the finger in realtime. No-op on desktop / wide viewports.
- */
 export function setCanvasTransition(on: boolean): void {
   if (!window.matchMedia('(max-width: 640px)').matches) return
   if (activeGraphArea) {
@@ -66,13 +56,6 @@ export function setCanvasTransition(on: boolean): void {
   }
 }
 
-/**
- * Snapshot the current canvas view + viewport size. `adaptCanvasToHeight`
- * then scales the zoom proportionally to the (changed) viewport height while
- * keeping the canvas point at the viewport center fixed, so the visible
- * canvas content is preserved. Call once at the start of a viewport change
- * (drag start, sheet open/close) — never per frame, or the scaling compounds.
- */
 export function snapshotCanvasAdapt(): void {
   if (!activeContainer) return
   adaptSnapshotZoom = currentZoom
@@ -82,19 +65,10 @@ export function snapshotCanvasAdapt(): void {
   adaptSnapshotViewH = activeContainer.clientHeight || 600
 }
 
-/**
- * Scale the canvas view from the snapshot into a viewport of the given
- * height: zoom *= targetH / snapshotH, keeping the snapshot's viewport-center
- * canvas point centered in the new viewport. May go below MIN_ZOOM so the
- * visible content is preserved even on very small pushed viewports.
- * No-op on desktop / wide viewports.
- */
 export function adaptCanvasToHeight(targetH: number): void {
   if (!window.matchMedia('(max-width: 640px)').matches) return
   if (!activeContainer || !activeGraphArea || adaptSnapshotViewH <= 0) return
   const nextZoom = Math.min(MAX_ZOOM, Math.max(0.1, adaptSnapshotZoom * (targetH / adaptSnapshotViewH)))
-  // The canvas point that sat at the snapshot viewport's center...
-  // (screen = canvas * zoom + pan, so canvas = (screen - pan) / zoom)
   const centerX = (adaptSnapshotViewW / 2 - adaptSnapshotPanX) / adaptSnapshotZoom
   const centerY = (adaptSnapshotViewH / 2 - adaptSnapshotPanY) / adaptSnapshotZoom
   currentZoom = nextZoom
@@ -187,8 +161,6 @@ export function centerCanvas(
 ): void {
   const viewW = container.clientWidth || 800
   const viewH = container.clientHeight || 600
-  // True centering: the canvas center sits at the viewport center (the old
-  // 20px floor pinned the canvas to the top-left on narrow screens).
   panX = (viewW - GRID_CANVAS_SIZE * currentZoom) / 2
   panY = (viewH - GRID_CANVAS_SIZE * currentZoom) / 2
   clampPan(container)
@@ -228,8 +200,6 @@ export function setCanvasZoom(
   applyTransform(graphAreaEl, statusEl)
 }
 
-// Reset zoom to the platform default: fit-to-viewport on mobile, ZOOM_BASE on
-// desktop. Kept in one place so the initial load and every reset stay in sync.
 export function resetCanvasZoom(
   workspaceOrContainer: HTMLElement,
   graphAreaEl: HTMLElement,
@@ -252,16 +222,12 @@ export function initCanvasZoom(
   activeGraphArea = graphAreaEl
   activeStatusEl = statusEl ?? null
 
-  // Mobile starts at a fit-to-viewport zoom so the whole canvas is visible on
-  // load; desktop keeps the classic 100% (ZOOM_BASE) view.
   if (window.matchMedia('(max-width: 640px)').matches) {
     currentZoom = getDefaultCanvasZoom(container)
   }
 
-  // Initial centering
   centerCanvas(container, graphAreaEl, statusEl)
 
-  // Live Sma4Win coordinate tracking (0..300 statusbar units, 50 units per major grid block)
   graphAreaEl.addEventListener('mousemove', (e: MouseEvent) => {
     const rect = graphAreaEl.getBoundingClientRect()
     const mouseX = (e.clientX - rect.left) / currentZoom
@@ -279,7 +245,6 @@ export function initCanvasZoom(
     applyTransform(graphAreaEl, statusEl)
   })
 
-  // Key listeners for Spacebar panning
   window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.code === 'Space' && !isSpacePressed) {
       const activeEl = document.activeElement
@@ -296,7 +261,6 @@ export function initCanvasZoom(
     }
   })
 
-  // Mouse pan listeners (middle-click or Space+drag only; left-drag is reserved for marquee selection)
   container.addEventListener('mousedown', (e: MouseEvent) => {
     const target = e.target as HTMLElement
     const isScrollbarTarget = target.closest('.scrollbar-v') || target.closest('.scrollbar-h')
@@ -333,7 +297,6 @@ export function initCanvasZoom(
     }
   })
 
-  // Arrow button click handlers on custom scrollbars
   const btnUp = document.querySelector<HTMLElement>('.scroll-btn-up')
   const btnDown = document.querySelector<HTMLElement>('.scroll-btn-down')
   const btnLeft = document.querySelector<HTMLElement>('.scroll-btn-left')
@@ -363,7 +326,6 @@ export function initCanvasZoom(
     applyTransform(graphAreaEl, statusEl)
   })
 
-  // Custom Scrollbar Thumb Drag Listeners
   const vThumb = document.querySelector<HTMLElement>('.scrollbar-v-thumb')
   const vTrack = document.querySelector<HTMLElement>('.scrollbar-v-track')
   const hThumb = document.querySelector<HTMLElement>('.scrollbar-h-thumb')
@@ -445,7 +407,6 @@ export function initCanvasZoom(
     })
   }
 
-  // Wheel listener for cursor-centered zoom (pinch) + 2-finger trackpad / wheel pan
   container.addEventListener(
     'wheel',
     (e: WheelEvent) => {
@@ -471,7 +432,6 @@ export function initCanvasZoom(
         clampPan(container)
         applyTransform(graphAreaEl, statusEl)
       } else {
-        // Two-finger scroll on a trackpad (and plain mouse wheel) pans the canvas
         e.preventDefault()
         panX -= e.deltaX
         panY -= e.deltaY
@@ -482,7 +442,6 @@ export function initCanvasZoom(
     { passive: false }
   )
 
-  // Two-finger touch pan & pinch-zoom (trackpad / touch device gesture)
   let touchPanStart: {
     midX: number
     midY: number
@@ -555,4 +514,3 @@ export function initCanvasZoom(
     touchPanStart = null
   })
 }
-

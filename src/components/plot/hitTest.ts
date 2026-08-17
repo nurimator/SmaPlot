@@ -11,10 +11,6 @@ import {
 } from './state.ts'
 import type { SelectableObject } from './selection.ts'
 
-// Geometric hit-test: is the (client) point on the graph — i.e. near a data point
-// or the connecting line of any visible series? Used to distinguish "grafik" (open
-// Property) from empty area inside the box plot (open Data Manager). Independent of
-// which DOM element is the event target, since the SVG re-renders on selection.
 export function hitTestGraph(svg: SVGSVGElement, clientX: number, clientY: number): Dataset | null {
   const rawDatasets = svgDataMap.get(svg) || []
   if (rawDatasets.length === 0) return null
@@ -102,12 +98,6 @@ export function isInsidePlotArea(svg: SVGSVGElement, clientX: number, clientY: n
   return gx >= margin.l && gx <= margin.l + plotW && gy >= margin.t && gy <= margin.t + plotH
 }
 
-// Detect whether a click is in an axis zone:
-//  - bottom edge / margin -> 'x'
-//  - top edge / margin -> 'u'
-//  - left edge / margin -> 'y'
-//  - right edge / margin -> 'r'
-// Returns 'x', 'y', 'u', 'r', or null.
 export function hitTestAxisArea(svg: SVGSVGElement, clientX: number, clientY: number): 'x' | 'y' | 'u' | 'r' | null {
   const w = svg.clientWidth || parseFloat(svg.style.width) || svg.getBoundingClientRect().width || 400
   const h = svg.clientHeight || parseFloat(svg.style.height) || svg.getBoundingClientRect().height || 300
@@ -124,15 +114,13 @@ export function hitTestAxisArea(svg: SVGSVGElement, clientX: number, clientY: nu
   const frameR = margin.l + plotW
   const frameT = margin.t
   const frameB = margin.t + plotH
-  const tol = 6 // px tolerance around border edges
+  const tol = 6
 
-  // Margin zones first:
   if (gy > frameB + tol && gy <= h && gx >= 0 && gx <= w) return 'x'
   if (gy < frameT - tol && gy >= 0 && gx >= 0 && gx <= w) return 'u'
   if (gx < frameL - tol && gx >= 0 && gy >= 0 && gy <= h) return 'y'
   if (gx > frameR + tol && gx <= w && gy >= 0 && gy <= h) return 'r'
 
-  // Near frame border strokes:
   const nearBottom = Math.abs(gy - frameB) <= tol && gx >= frameL - tol && gx <= frameR + tol
   const nearTop = Math.abs(gy - frameT) <= tol && gx >= frameL - tol && gx <= frameR + tol
   const nearLeft = Math.abs(gx - frameL) <= tol && gy >= frameT - tol && gy <= frameB + tol
@@ -146,8 +134,6 @@ export function hitTestAxisArea(svg: SVGSVGElement, clientX: number, clientY: nu
   return null
 }
 
-// Every movable object (plot box, legend item, annotation line) with its on-canvas
-// bounding box in graph-area local coordinates, for marquee hit-testing.
 export function getSelectableObjects(): { obj: SelectableObject; l: number; t: number; w: number; h: number }[] {
   const result: { obj: SelectableObject; l: number; t: number; w: number; h: number }[] = []
   for (const svg of activeSvgs) {

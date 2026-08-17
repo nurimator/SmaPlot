@@ -90,9 +90,6 @@ function startTransformDrag(
   const startYTransMin = Math.min(yTrans1, yTrans2)
   const startYTransMax = Math.max(yTrans1, yTrans2)
 
-  // Snapshot the pre-drag box/handle geometry (svg-relative px). The live
-  // affine transform is applied to these originals each move — reading the
-  // current style would compound the transform instead.
   const boxGeoms: Array<{ el: HTMLElement; left: number; top: number; width: number; height: number }> = []
   getPlotOverlay(svg)
     .querySelectorAll<HTMLElement>('.ov-trans-box, .ov-trans-handle')
@@ -142,14 +139,6 @@ function startTransformDrag(
   document.body.style.userSelect = 'none'
 }
 
-// Live affine transform applied during a transform-box drag. The drag only ever
-// produces a linear expression (a*v + b) and the axis pixel mappings are linear
-// too, so the on-screen effect of the new expr is an affine map of the geometry
-// already on screen — applied with one SVG transform on the dataset's series
-// group plus a CSS transform on the trans box/handles. No data recompute and no
-// redraw until the drag ends, which keeps 60fps dragging even for huge datasets.
-// Returns false when the pre-drag expr is degenerate (constant), in which case
-// the caller falls back to a plain redraw per event.
 export function applyTransDragVisual(
   drag: ActiveTransDrag,
   newAx: number,
@@ -183,8 +172,6 @@ export function applyTransDragVisual(
     if (Math.abs(aOld) < 1e-9) return false
     mx = newAx / aOld
     const c = newBx - mx * startXLinear.b
-    // sx(v) = margin.l + ((v - xMin) / (xMax - xMin)) * plotW, so the exact
-    // anchor is (1 - mx) * (margin.l - xMin * sx) + c * sx.
     const sx = plotW / (xMax - xMin || 1)
     kx = (1 - mx) * (margin.l - xMin * sx) + c * sx
   }
@@ -194,8 +181,6 @@ export function applyTransDragVisual(
     if (Math.abs(aOld) < 1e-9) return false
     my = newAy / aOld
     const c = newBy - my * startYLinear.b
-    // sy(v) = margin.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH, so the
-    // exact anchor is (1 - my) * (margin.t + plotH + yMin * sy) - c * sy.
     const sy = plotH / (yMax - yMin || 1)
     ky = (1 - my) * (margin.t + plotH + yMin * sy) - c * sy
   }
@@ -297,7 +282,6 @@ export function renderDatasetTransformOverlays(
     const boxW = Math.max(12, maxPx - minPx)
     const boxH = Math.max(12, maxPy - minPy)
 
-    // Bounding box container
     const boxEl = createOverlayEl('ov-trans-box')
     boxEl.style.left = `${boxLeft}px`
     boxEl.style.top = `${boxTop}px`

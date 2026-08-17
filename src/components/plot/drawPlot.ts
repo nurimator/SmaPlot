@@ -30,10 +30,8 @@ export function drawPlot(
   const h = explicitH || svg.clientHeight || parseFloat(svg.style.height) || 300
   if (w <= 0 || h <= 0) return
 
-  // Apply column mapping and math expression transformations to X and Y coordinates
   const processedDatasets: Dataset[] = datasets.map((ds) => getProcessedDataset(ds))
 
-  // Lock base scale bounds on initial dataset load
   if (!svgBaseScaleMap.has(svg) && datasets.length > 0) {
     let origXMin = Infinity,
       origXMax = -Infinity
@@ -103,7 +101,6 @@ export function drawPlot(
     if (yMin > 0) yMin = 0
   }
 
-  // Determine steps for X and Y axes
   let xStep = Math.abs(smpDoc?.axisX.step || smpMeta?.xStep || 0)
   let autoSubDivsX: number | null = null
   if (smpDoc?.axisX.autoStep || xStep <= 0) {
@@ -128,9 +125,6 @@ export function drawPlot(
   const scaleX = plotW / (docWidthMm || 100)
   const scaleY = plotH / (docHeightMm || 100)
 
-  // Plot frame. Each side IS its axis line, so it is drawn only when that axis is
-  // "drawn" (the Draw checkbox / showTicks in the Scale tab). Unchecking Draw on an
-  // axis hides both its ticks and its axis line; the Label tab still controls labels.
   const frameWidthMm = smpDoc?.frameWidth ?? 0.4
   const frameStrokeWidth = Math.max(0.4, Number((frameWidthMm * scaleX).toFixed(2)))
   const frameColor = smpDoc?.frameColor || '#000000'
@@ -149,14 +143,11 @@ export function drawPlot(
   const showYTicks = smpDoc?.axisY.showTicks !== false
   const showUTicks = smpDoc?.axisTop?.showTicks ?? showXTicks
   const showRTicks = smpDoc?.axisRight?.showTicks ?? showYTicks
-  if (showYTicks) drawEdge(margin.l, margin.t, margin.l, margin.t + plotH) // left (Y)
-  if (showUTicks) drawEdge(margin.l, margin.t, margin.l + plotW, margin.t) // top (U)
-  if (showXTicks) drawEdge(margin.l, margin.t + plotH, margin.l + plotW, margin.t + plotH) // bottom (X)
-  if (showRTicks) drawEdge(margin.l + plotW, margin.t, margin.l + plotW, margin.t + plotH) // right (R)
+  if (showYTicks) drawEdge(margin.l, margin.t, margin.l, margin.t + plotH)
+  if (showUTicks) drawEdge(margin.l, margin.t, margin.l + plotW, margin.t)
+  if (showXTicks) drawEdge(margin.l, margin.t + plotH, margin.l + plotW, margin.t + plotH)
+  if (showRTicks) drawEdge(margin.l + plotW, margin.t, margin.l + plotW, margin.t + plotH)
 
-  // ----------------------------------------------------
-  // SVG CLIP-PATH & PLOT CONTAINER (Clips series & annotations within box)
-  // ----------------------------------------------------
   const clipId = `plot-clip-${Math.random().toString(36).substring(2, 9)}`
   const defs = createSVGElement('defs')
   const clipPath = createSVGElement('clipPath')
@@ -174,9 +165,6 @@ export function drawPlot(
   seriesGroup.setAttribute('clip-path', `url(#${clipId})`)
   svg.appendChild(seriesGroup)
 
-  // ----------------------------------------------------
-  // 4-AXIS INSIDE/OUTSIDE TICKS & LABELS ENGINE
-  // ----------------------------------------------------
   const syncWithU = smpDoc ? (smpDoc.syncWithU !== false && smpDoc.axisX.isSynced !== false) : true
   const syncWithR = smpDoc ? (smpDoc.syncWithR !== false && smpDoc.axisY.isSynced !== false) : true
 
@@ -217,7 +205,6 @@ export function drawPlot(
   renderLegend(ctx)
   renderSeries(ctx)
 
-  // Edge and Corner drag handles aligned with plot frame box (selected plots only)
   if (isMultiSelected(svg)) {
     const hs = 10
     const addHandle = (x: number, y: number, width: number, height: number, dir: string) => {
@@ -237,9 +224,6 @@ export function drawPlot(
     const fw = plotW
     const fh = plotH
 
-    // Edges on plot frame. Top edge is split Sma4Win-style: the middle 25%–75%
-    // (plus the top-middle dot) is the MOVE zone; the remaining top quarters and
-    // every other edge/corner handle resize.
     const topQuarterW = Math.max(1, fw * 0.25 - hs)
     const moveZoneW = Math.max(1, fw * 0.5)
     addHandle(fx + hs, fy - hs / 2, topQuarterW, hs, 'top')
@@ -249,13 +233,11 @@ export function drawPlot(
     addHandle(fx - hs / 2, fy + hs, hs, fh - 2 * hs, 'left')
     addHandle(fx + fw - hs / 2, fy + hs, hs, fh - 2 * hs, 'right')
 
-    // Corners on plot frame
     addHandle(fx - hs / 2, fy - hs / 2, hs, hs, 'top-left')
     addHandle(fx + fw - hs / 2, fy - hs / 2, hs, hs, 'top-right')
     addHandle(fx - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-left')
     addHandle(fx + fw - hs / 2, fy + fh - hs / 2, hs, hs, 'bottom-right')
 
-    // Visual control dots
     const ov = getPlotOverlay(svg)
     const addVisualHandle = (cx: number, cy: number) => {
       const dot = createOverlayEl('ov-dot')
@@ -264,13 +246,11 @@ export function drawPlot(
       ov.appendChild(dot)
     }
 
-    // 4 corners of plot frame
     addVisualHandle(fx, fy)
     addVisualHandle(fx + fw, fy)
     addVisualHandle(fx, fy + fh)
     addVisualHandle(fx + fw, fy + fh)
 
-    // 4 edge midpoints of plot frame
     addVisualHandle(fx + fw / 2, fy)
     addVisualHandle(fx + fw / 2, fy + fh)
     addVisualHandle(fx, fy + fh / 2)

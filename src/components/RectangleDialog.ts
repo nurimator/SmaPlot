@@ -112,7 +112,6 @@ export function initRectangleDialog(overlayEl: HTMLElement): void {
     })
   }
 
-  // Draggable dialog header
   const headerEl = overlayEl.querySelector<HTMLElement>('.dialog-header')
   if (headerEl && dialogEl) {
     makeDraggable(dialogEl, headerEl)

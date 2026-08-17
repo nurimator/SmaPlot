@@ -29,8 +29,6 @@ export interface Dataset {
   rawLines?: string[][]
   fileName?: string
   filePath?: string
-  // Native Sma4Win identifiers, including an optional numeric prefix such as
-  // "1 SG.txt". These are distinct from the display name used by the UI.
   smpSeriesName?: string
   smpDataName?: string
   smpDataHeaderRest?: string
@@ -44,7 +42,6 @@ export interface Dataset {
 
 export interface SmpLegendItem {
   type?: 'text' | 'annotation'
-  /** Sma4Win legend item type: 4=X-axis title, 5=Y-axis title, 6=U-axis title, 7=R-axis title, 8=string */
   legendType?: number
   text: string
   rawText?: string
@@ -103,7 +100,6 @@ export interface SmpAxisSpec {
   shiftDown?: number
   addPlusSign?: boolean
 
-   // Synced with opposite axis
   isSynced?: boolean
 
   // Native Sma4Win metadata preservation
@@ -173,7 +169,6 @@ export interface SmpPlotDoc {
 
 export interface SmpMetadata {
   docs: SmpPlotDoc[]
-  // Legacy flat properties for single plot backwards compatibility
   xMin?: number
   xMax?: number
   xStep?: number

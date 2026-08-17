@@ -9,15 +9,10 @@ let currentTargetSvg: SVGSVGElement | null = null
 let currentItemIndex: number = -1
 let currentPreset: TitlePreset | null = null
 
-/** Predefined position/rotation/font for a newly inserted legend text item (e.g. axis titles). */
 export interface TitlePreset {
-  /** Sma4Win legend item type: 4=X-axis title, 5=Y-axis title, 6=U-axis title, 7=R-axis title */
   legendType?: number
-  /** Stored rotation in degrees (-90 for vertical axis titles) */
   rotation: number
-  /** Horizontal position in mm from the frame origin (converted to normalized xNorm on commit) */
   posX: number
-  /** Vertical position in mm from the frame origin (converted to normalized yNorm on commit) */
   posY: number
   fontSize: number
   fontFamily?: string
@@ -239,8 +234,6 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     mo.observe(dialogEl, { attributes: true, attributeFilter: ['style'] })
   }
 
-  // Mobile: the symbol panel is a bottom sheet too — reserve its height in the
-  // workspace push so it never covers the canvas.
   if (symbolPanel) {
     const symbolPushObserver = new MutationObserver(() => {
       if (symbolPanel.style.display === 'flex') {

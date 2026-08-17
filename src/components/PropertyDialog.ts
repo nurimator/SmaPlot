@@ -27,7 +27,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   const applyBtn = overlayEl.querySelector('#applyPropBtn')
   const tabs = overlayEl.querySelectorAll<HTMLButtonElement>('.tab-btn')
 
-  // Form Elements
   const fileShow = overlayEl.querySelector<HTMLInputElement>('#propFileShow')
   const fileLineStyle = overlayEl.querySelector<HTMLSelectElement>('#propFileLineStyle')
   const plotType = overlayEl.querySelector<HTMLSelectElement>('#propPlotType')
@@ -107,7 +106,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   propSaveBtn1?.addEventListener('click', handleSave)
   propSaveBtn2?.addEventListener('click', handleSave)
 
-  // Real-time update listeners on ALL property controls
   fileShow?.addEventListener('change', applyVisualOptions)
   fileLineStyle?.addEventListener('change', applyVisualOptions)
   plotType?.addEventListener('change', applyVisualOptions)
@@ -131,7 +129,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   xColSelect?.addEventListener('change', applyVisualOptions)
   yColSelect?.addEventListener('change', applyVisualOptions)
 
-  // Tab switching logic (file, plot, more...)
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       tabs.forEach((t) => t.classList.remove('active'))
@@ -153,7 +150,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     })
   })
 
-  // Real-time sample preview box update in Plot tab
   lineColor?.addEventListener('input', () => renderSamplePreview(overlayEl))
   widthInput?.addEventListener('input', () => renderSamplePreview(overlayEl))
   lineType?.addEventListener('change', () => renderSamplePreview(overlayEl))
@@ -162,7 +158,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   paintColor?.addEventListener('input', () => renderSamplePreview(overlayEl))
   sizeInput?.addEventListener('input', () => renderSamplePreview(overlayEl))
 
-  // Re-fit the preview to the box width when the dialog is resized/opened.
   const sampleContainer = overlayEl.querySelector<HTMLElement>('#propLineSamplePreview')
   if (sampleContainer) {
     const sampleObserver = new ResizeObserver(() => renderSamplePreview(overlayEl))
@@ -170,9 +165,6 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
   }
 }
 
-// Sample preview icon: line sample (color + width + dash pattern) with the
-// marker shape on top, same style as the Data Manager series icon. Fills the
-// preview box width with 3 markers evenly spread.
 function renderSamplePreview(overlayEl: HTMLElement): void {
   const container = overlayEl.querySelector<HTMLElement>('#propLineSamplePreview')
   if (!container) return
@@ -265,7 +257,6 @@ function renderDatasetPreview(overlayEl: HTMLElement, dataset?: Dataset): void {
   previewRows.innerHTML = ''
   previewRows.appendChild(rowsFragment)
 
-  // Dynamically update X/Y Column dropdown options based on maxCols in dataset
   if (xColSelect && yColSelect) {
     const currentX = xColSelect.value
     const currentY = yColSelect.value
@@ -324,7 +315,6 @@ export function showPropertyDialog(
   currentActiveDataset = dataset
   renderDatasetPreview(overlayEl, dataset)
 
-  // Populate dialog controls with existing per-dataset options
   if (dataset) {
     const existingOpts = dataset.options || {}
     const fileShow = overlayEl.querySelector<HTMLInputElement>('#propFileShow')

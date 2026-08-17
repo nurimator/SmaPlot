@@ -11,16 +11,10 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const isShow = opts.show !== false
     if (!isShow) continue
 
-    // Per-dataset group so a live transform drag can move/scale a single
-    // series with one attribute change instead of a full redraw.
     const dsGroup = createSVGElement('g')
     dsGroup.setAttribute('data-series', String(dIdx))
     seriesGroup.appendChild(dsGroup)
 
-    // Data-mapped geometry (bars, area fill, line path) lives in a nested group
-    // that receives the scale() part of the live transform; fixed-size symbols
-    // stay in dsGroup which only translates. vector-effect keeps strokes at
-    // constant screen width so a scaled curve never looks thick/thin.
     const dsScaleGroup = createSVGElement('g')
     dsScaleGroup.setAttribute('data-scale-group', '1')
     dsGroup.appendChild(dsScaleGroup)
@@ -37,7 +31,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const plotType = opts.plotType || 'no_dot'
     const lineType = opts.lineType || 'solid'
 
-    // Line style dash array handling for exact Sma4Win line types
     const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth))
 
     if (plotType === 'bar') {
@@ -58,7 +51,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
         dsScaleGroup.appendChild(bar)
       }
     } else {
-      // Draw Line Path / Face Area Fill
       if (lineType !== 'no_line' && ds.x.length > 0) {
         const points: string[] = []
         for (let i = 0; i < ds.x.length; i++) {
@@ -66,7 +58,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
         }
 
         if (lineType === 'face') {
-          // Fill area below line down to Y = 0 baseline
           const zeroY = dsSy(0).toFixed(1)
           const firstX = dsSx(ds.x[0]).toFixed(1)
           const lastX = dsSx(ds.x[ds.x.length - 1]).toFixed(1)
@@ -79,7 +70,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
           dsScaleGroup.appendChild(areaPath)
         }
 
-        // Top boundary curve line
         const path = createSVGElement('path')
         path.setAttribute('d', `M ${points.join(' ')}`)
         path.setAttribute('fill', 'none')
@@ -92,7 +82,6 @@ export function renderSeries(ctx: PlotRenderContext): void {
         dsScaleGroup.appendChild(path)
       }
 
-      // Draw Dot / Symbol Markers based on exact Plot type shape with pitch interval
       if (plotType !== 'no_dot') {
         const step = Math.max(1, opts.pitch || 1)
         for (let i = 0; i < ds.x.length; i += step) {

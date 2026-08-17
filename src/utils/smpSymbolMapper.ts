@@ -385,7 +385,6 @@ export const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar,
   category: getCategory(desc)
 }))
 
-// Convert 2-byte Sma4Win encoded strings to standard Unicode characters
 export function smpToUnicode(text: string): string {
   if (!text) return ''
   let result = text
@@ -397,7 +396,6 @@ export function smpToUnicode(text: string): string {
   return result
 }
 
-// Convert standard Unicode characters back to 2-byte Sma4Win encoded strings (for saving .SMP)
 export function unicodeToSmp(text: string): string {
   if (!text) return ''
   let result = text
@@ -409,34 +407,26 @@ export function unicodeToSmp(text: string): string {
   return result
 }
 
-// Convert Sma4Win text to clean HTML retaining user font families and styles
 export function renderSmpTextToHtml(
   rawText: string,
   _options: { fontSize?: number; fontFamily?: string; color?: string } = {}
 ): string {
   if (!rawText) return ''
 
-  // Step 1: Ensure text has symbols converted to Unicode
   let s = smpToUnicode(rawText)
 
-  // Step 2: Convert literal \n to HTML line breaks <br>
   s = s.replace(/\\n/g, '<br>').replace(/\n/g, '<br>')
 
-  // Step 3: Handle Italic (%I ... %R) and Bold (%K ... %R)
   s = s.replace(/%I(.*?)%R/g, '<i>$1</i>')
   s = s.replace(/%K(.*?)%R/g, '<b>$1</b>')
   s = s.replace(/%R/g, '')
 
-  // Step 4: Handle Subscripts (_content@) and Superscripts (^content@)
-  // @ marks the end of subscript/superscript format block
   s = s.replace(/_([^@]+)@/g, '<sub>$1</sub>')
   s = s.replace(/\^([^@]+)@/g, '<sup>$1</sup>')
 
-  // Fallback for single char subscripts/superscripts without trailing @
   s = s.replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>')
   s = s.replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>')
 
-  // Clean up any remaining @ markers
   s = s.replace(/@/g, '')
 
   return s

@@ -66,8 +66,6 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const showXTicks = smpDoc?.axisX.showTicks !== false
   const showXLabels = showXTicks && (smpDoc?.axisX.showLabels !== false)
 
-  // "merge zero labels": when both X and Y origins sit at the bottom-left corner (min === 0)
-  // the axes share a single zero label positioned exactly at that corner.
   const mergeZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
 
   const xMajIn = smpDoc?.axisX.majorIn ?? (smpDoc?.axisX.insideTicks !== false)
@@ -350,9 +348,6 @@ export function renderAxes(ctx: PlotRenderContext): void {
   }
 
   if (showYLabels) {
-    // "merge zero labels": when both X and Y origins sit at the bottom-left corner (min === 0)
-    // the axes share a single zero label, so suppress the redundant Y-axis zero and draw one
-    // label placed exactly at the corner (x matches the Y zero, y matches the X zero).
     const shareZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
     yMajorTicks.forEach((v) => {
       if (shareZero && v === 0) return
@@ -374,7 +369,6 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     if (mergeZero) {
       const zLabel = createSVGElement('text')
-      // x aligned with the Y-axis zero (just left of the frame), y aligned with the X-axis zero.
       zLabel.setAttribute('x', String(leftX - 1 + yShiftRight))
       zLabel.setAttribute('y', String(bottomY + 1 + xShiftDown))
       zLabel.setAttribute('text-anchor', 'end')

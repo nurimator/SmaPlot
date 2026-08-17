@@ -95,12 +95,10 @@ export function updateSelectionBorder(svg: SVGSVGElement): void {
   if (!ov) return
   const isSel = isMultiSelected(svg)
 
-  // Remove existing frame border element
   const existing = ov.querySelector('.ov-frame-border')
   if (existing) existing.remove()
 
   if (isSel) {
-    // Add a border element positioned exactly on the inner plot frame
     const border = document.createElement('div')
     border.className = 'ov-frame-border'
     border.style.position = 'absolute'

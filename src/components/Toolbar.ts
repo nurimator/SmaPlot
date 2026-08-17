@@ -12,7 +12,6 @@ export function initToolbar(
   })
 }
 
-/** Binds any `[data-action]` element to the shared action dispatcher. */
 export function bindActionButtons(
   container: HTMLElement,
   onActionClick: (action: string, title: string) => void

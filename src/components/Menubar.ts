@@ -55,11 +55,9 @@ export function initMenubar(
           dropdownItem.classList.toggle('open')
           return
         }
-        const action = dropdownItem.getAttribute('data-action') || ''
-        if (action) {
-          // Tapping an item inside an open submenu collapses just that
-          // accordion instead of closing the whole drawer.
-          if (dropdownItem.closest('.menu-submenu')) {
+          const action = dropdownItem.getAttribute('data-action') || ''
+          if (action) {
+            if (dropdownItem.closest('.menu-submenu')) {
             e.stopPropagation()
             dropdownItem.closest('.dropdown-item.has-submenu')?.classList.remove('open')
             onMenuClick(action)

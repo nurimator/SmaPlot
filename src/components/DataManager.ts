@@ -47,9 +47,6 @@ let activeSelectCallback: ((fileName: string) => void) | null = null
 let legendSelectCallback: ((identifiers: string[]) => void) | null = null
 let multiSelectMode = false
 
-// The dialog renders only the datasets of the currently selected (or last
-// selected) boxplot, so datasets of different plots never mix. Falls back to
-// the global pool only when the active plot has no datasets of its own.
 let dmDatasetsProvider: () => Dataset[] = () => globalDataManager.getDatasets()
 let dmOverlayEl: HTMLElement | null = null
 let dmListBoxEl: HTMLElement | null = null
@@ -270,7 +267,6 @@ export function initDataManagerDialog(
       refreshDataManagerList()
     })
 
-    // Up(U) button action
     upBtn?.addEventListener('click', () => {
       const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
       if (selected && selected.previousElementSibling) {
@@ -278,7 +274,6 @@ export function initDataManagerDialog(
       }
     })
 
-    // Down(D) button action
     downBtn?.addEventListener('click', () => {
       const selected = listBox.querySelector<HTMLElement>('.dm-list-item.selected')
       if (selected && selected.nextElementSibling) {
@@ -286,7 +281,6 @@ export function initDataManagerDialog(
       }
     })
 
-    // All(A) button action
     allBtn?.addEventListener('click', () => {
       listBox.querySelectorAll('.dm-list-item').forEach((item) => item.classList.add('selected'))
     })

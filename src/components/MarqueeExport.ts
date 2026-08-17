@@ -30,7 +30,6 @@ export function generateMarqueeSvg(
   defs.appendChild(styleEl)
   masterSvg.appendChild(defs)
 
-  // Full-area transparent hit-test layer for Word, PowerPoint, and vector editors
   const masterBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
   masterBg.setAttribute('x', `${mLeft}`)
   masterBg.setAttribute('y', `${mTop}`)
@@ -64,7 +63,6 @@ export function generateMarqueeSvg(
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
 
-      // Transparent hit layer specifically covering the inside boxplot area
       const margin = { l: 65, r: 25, t: 25, b: 55 }
       const plotW = Math.max(10, widthPx - margin.l - margin.r)
       const plotH = Math.max(10, heightPx - margin.t - margin.b)
@@ -177,12 +175,10 @@ export function generateMarqueeSvg(
           txt.setAttribute('font-family', 'Inter, system-ui, sans-serif')
         }
 
-        // Apply text-anchor to style for broader compatibility
         if (txt.hasAttribute('text-anchor')) {
           txt.style.textAnchor = txt.getAttribute('text-anchor') || 'start'
         }
 
-        // Replace dominant-baseline="hanging" with dy="0.75em"
         if (txt.getAttribute('dominant-baseline') === 'hanging') {
           txt.removeAttribute('dominant-baseline')
           txt.setAttribute('dy', '0.75em')
@@ -255,8 +251,6 @@ export async function downloadPngFile(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image()
-    // vector-effect keeps strokes at 1x screen width; when rasterizing at high
-    // scale they must scale with the image or the plot lines end up paper-thin.
     const svgBlob = new Blob([stripNonScalingStroke(svgString)], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
     img.onload = () => {
@@ -507,7 +501,6 @@ export function initMarqueeExport(
     if (!currentMarqueeBounds) return
     const { left, top, width, height } = currentMarqueeBounds
     const svgCode = generateMarqueeSvg(graphAreaEl, left, top, width, height)
-    // Scale 10: 1 canvas major grid (100 CSS px) -> 1000 PNG px (~960 DPI).
     const success = await downloadPngFile(svgCode, width, height, `${getExportBaseName()}.png`, 10)
     if (success && statusFileTextEl) {
       statusFileTextEl.textContent = 'PNG marquee selection exported!'
