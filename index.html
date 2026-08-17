@@ -33,7 +33,8 @@
           <span class="icon icon-menu"></span>
         </button>
         <div class="mobile-header-sep"></div>
-        <div class="toolbar-btn" title="New" data-action="new"><span class="icon icon-file-text"></span></div>
+          <div class="toolbar-btn" title="New Project" data-action="new"><span class="icon icon-file-text"></span></div>
+        <div class="toolbar-btn" title="New Plot" data-action="new_plot"><span class="icon icon-square-plus-2"></span></div>
         <div class="toolbar-btn" title="Open" data-action="open"><span class="icon icon-folder-open"></span></div>
         <div class="toolbar-btn" title="Save" data-action="save"><span class="icon icon-device-floppy"></span></div>
         <div class="mobile-header-sep"></div>
@@ -48,7 +49,8 @@
           <div class="menu-item" data-menu="file">
             File
             <div class="menu-dropdown">
-              <div class="dropdown-item" data-action="new">New</div>
+              <div class="dropdown-item" data-action="new">New Project</div>
+              <div class="dropdown-item" data-action="new_plot">New Plot(I)</div>
               <div class="dropdown-item" data-action="delete">Delete</div>
               <div class="dropdown-item" data-action="delete_all">Delete all<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-item" data-action="load">Load</div>
@@ -189,7 +191,8 @@
 
         <!-- Toolbar -->
         <div class="toolbar">
-          <div class="toolbar-btn" title="New" data-action="new"><span class="icon icon-file-text"></span></div>
+        <div class="toolbar-btn" title="New Project" data-action="new"><span class="icon icon-file-text"></span></div>
+          <div class="toolbar-btn" title="New Plot" data-action="new_plot"><span class="icon icon-square-plus-2"></span></div>
           <div class="toolbar-btn" title="Open" data-action="open"><span class="icon icon-folder-open"></span></div>
           <div class="toolbar-btn" title="Save" data-action="save"><span class="icon icon-device-floppy"></span></div>
           <div class="toolbar-btn" title="Print" data-action="print"><span class="icon icon-printer"></span></div>
@@ -201,8 +204,10 @@
           <div class="toolbar-btn" title="Text" data-action="text"><span class="icon icon-abc"></span></div>
           <div class="toolbar-btn" title="Rectangle" data-action="rectangle"><span class="icon icon-square"></span></div>
           <div class="toolbar-btn" title="Arrow" data-action="arrow"><span class="icon icon-arrow-down-left-circle"></span></div>
+          <div class="toolbar-sep"></div>
           <div class="toolbar-btn" title="Trimming" data-action="trimming"><span class="icon icon-zoom-in"></span></div>
           <div class="toolbar-btn" title="Read Value" data-action="read-value"><span class="icon icon-photo-sensor-3"></span></div>
+          <div class="toolbar-btn" title="Constant" data-action="constant"><span class="icon icon-circle-dashed-letter-c"></span></div>
           <div class="toolbar-sep"></div>
           <div class="toolbar-btn" title="Warning" data-action="warning"><span class="icon icon-alert-triangle toolbar-icon-error"></span></div>
           <div class="toolbar-btn" title="Help" data-action="help"><span class="icon icon-help toolbar-icon-help"></span></div>
@@ -263,6 +268,10 @@
           <button class="mobile-nav-btn" title="Read Value" data-action="read-value" aria-label="Read value">
             <span class="icon icon-photo-sensor-3"></span>
             <span class="mobile-nav-label">Read</span>
+          </button>
+          <button class="mobile-nav-btn" title="Constant" data-action="constant" aria-label="Constant">
+            <span class="icon icon-circle-dashed-letter-c"></span>
+            <span class="mobile-nav-label">Const</span>
           </button>
         </nav>
 
@@ -1062,6 +1071,22 @@
               <button class="btn btn-secondary btn-sm" id="rectangleCancelBtn">Cancel</button>
               <button class="btn btn-secondary btn-sm" id="rectangleSaveBtn">Save</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Constant Modal Overlay -->
+    <div class="modal-overlay" id="constantOverlay" style="display: none;">
+      <div class="dialog-window constant-dialog" id="constantDialog" style="width: 320px;">
+        <div class="dialog-header">
+          <div class="dialog-title">Constant</div>
+          <button class="dialog-close-btn" id="closeConstantDialogBtn"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="dialog-body constant-dialog-body" style="padding: 16px;">
+          <p class="constant-coming-soon" style="margin: 0; color: var(--text-muted); font-size: 13px;">coming soon</p>
+          <div class="constant-actions" style="margin-top: 16px; display: flex; justify-content: flex-end;">
+            <button class="btn btn-primary btn-sm" id="constantOkBtn">OK</button>
           </div>
         </div>
       </div>

@@ -50,6 +50,7 @@ import { initTitleDialog, hideTitleDialog, showTitleDialog } from './components/
 import type { TitlePreset } from './components/TitleDialog.ts'
 import type { Dataset } from './types.ts'
 import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
+import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initCustomSelects } from './components/CustomSelect.ts'
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
@@ -75,6 +76,7 @@ const dmOverlayEl = document.querySelector<HTMLElement>('#dataManagerOverlay')!
 const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
+const constantOverlayEl = document.querySelector<HTMLElement>('#constantOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
@@ -119,6 +121,7 @@ if (workspaceEl && graphAreaEl) {
 if (titlebarEl) initTitlebar(titlebarEl)
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
+if (constantOverlayEl) initConstantDialog(constantOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
@@ -398,6 +401,9 @@ if (menubarEl) {
       showTitleDialog(titleOverlayEl)
     } else if (action === 'new') {
       await handleNewProject()
+    } else if (action === 'new_plot') {
+      await createPlot(graphAreaEl, 40, 40, [])
+      pushUndoState()
     } else if (action === 'insert_legend') {
       await handleInsertLegend()
     } else if (action === 'x_axis') {
@@ -412,6 +418,8 @@ if (menubarEl) {
       toggleTrimMode()
     } else if (action === 'arrow') {
       showArrowDialog(arrowOverlayEl)
+    } else if (action === 'constant') {
+      showConstantDialog(constantOverlayEl)
     } else if (action === 'rectangle') {
       showRectangleDialog(rectOverlayEl)
     } else if (action === 'read_value' || action === 'read-value') {
@@ -454,6 +462,9 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
     if (deleteSelectedObjects()) pushUndoState()
   } else if (action === 'new') {
     await handleNewProject()
+  } else if (action === 'new_plot' || title === 'New Plot') {
+    await createPlot(graphAreaEl, 40, 40, [])
+    pushUndoState()
   } else if (action === 'open' || title === 'Open') {
     if (globalFileInput) globalFileInput.click()
   } else if (action === 'save' || title === 'Save') {
@@ -464,6 +475,8 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
     showRectangleDialog(rectOverlayEl)
   } else if (action === 'arrow' || title === 'Arrow') {
     showArrowDialog(arrowOverlayEl)
+  } else if (action === 'constant' || title === 'Constant') {
+    showConstantDialog(constantOverlayEl)
   } else if (action === 'chart' || title === 'Chart') {
     showPropertyDialog(propOverlayEl)
   } else if (action === 'read-value' || action === 'read_value' || title === 'Read Value') {
@@ -952,6 +965,7 @@ registerDialogCloser(dmOverlayEl, hideDataManagerDialog)
 registerDialogCloser(axisOverlayEl, hideAxisDialog)
 registerDialogCloser(titleOverlayEl, hideTitleDialog)
 registerDialogCloser(arrowOverlayEl, hideArrowDialog)
+registerDialogCloser(constantOverlayEl, hideConstantDialog)
 registerDialogCloser(rectOverlayEl, hideRectangleDialog)
 registerDialogCloser(readValueOverlayEl, hideReadValueDialog)
 registerDialogCloser(colorPickerOverlayEl, hideColorPickerDialog)

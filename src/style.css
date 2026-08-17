@@ -970,6 +970,8 @@ body.os-mac .titlebar {
 .icon-x { --icon-url: url('/icons/x.svg'); }
 .icon-chevron-right { --icon-url: url('/icons/chevron-right.svg'); }
 .icon-file-text { --icon-url: url('/icons/file-text.svg'); }
+.icon-square-plus-2 { --icon-url: url('/icons/square-plus-2.svg'); }
+.icon-circle-dashed-letter-c { --icon-url: url('/icons/circle-dashed-letter-c.svg'); }
 .icon-folder-open { --icon-url: url('/icons/folder-open.svg'); }
 .icon-device-floppy { --icon-url: url('/icons/device-floppy.svg'); }
 .icon-printer { --icon-url: url('/icons/printer.svg'); }
