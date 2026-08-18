@@ -15,6 +15,7 @@ import { showContextMenu } from '../components/ContextMenu.ts'
 import { isShapeDrawing } from '../components/ShapeDraw.ts'
 import {
   getPlotSvgFromElement,
+  isGroupDragActive,
   isPropertyTabMode,
   isReadValueMode,
   isTrimmingMode,
@@ -255,15 +256,15 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
           clearHoldTimer()
           removeHoldIndicator()
 
-          if (!hasMoved) {
-            hasMoved = true
-            if (hitsSelectedObject(startGraphX, startGraphY)) {
-              isGroupDragging = true
-              startGroupDrag(touch.clientX, touch.clientY)
-            } else if (!initialTarget?.closest('[data-dir], [data-trans-dir]')) {
-              isMarqueeSelecting = true
+            if (!hasMoved) {
+              hasMoved = true
+              if (hitsSelectedObject(startGraphX, startGraphY) && !isGroupDragActive()) {
+                isGroupDragging = true
+                startGroupDrag(touch.clientX, touch.clientY)
+              } else if (!initialTarget?.closest('[data-dir], [data-trans-dir]')) {
+                isMarqueeSelecting = true
+              }
             }
-          }
 
           if (isMarqueeSelecting) {
             if (e.cancelable) e.preventDefault()

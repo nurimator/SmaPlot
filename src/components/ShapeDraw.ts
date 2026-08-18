@@ -62,9 +62,9 @@ function cancelDraw(): void {
   clearPreview()
   document.body.style.cursor = ''
   document.body.classList.remove('shape-drawing')
-  window.removeEventListener('mousedown', onMouseDownCapture, true)
-  window.removeEventListener('mousemove', onMouseMove, true)
-  window.removeEventListener('mouseup', onMouseUp, true)
+  window.removeEventListener('pointerdown', onPointerDownCapture, true)
+  window.removeEventListener('pointermove', onPointerMove, true)
+  window.removeEventListener('pointerup', onPointerUp, true)
   window.removeEventListener('keydown', onKeyDown, true)
   if (state) {
     state.overlayEl.style.display = 'flex'
@@ -177,40 +177,45 @@ function updatePreview(curX: number, curY: number): void {
   }
 }
 
-function onMouseDownCapture(e: MouseEvent): void {
+function onPointerDownCapture(e: PointerEvent): void {
   if (!state) return
   if (e.button !== 0) return
   const target = e.target as HTMLElement
   if (target.closest('.dialog-window, #ctxMenu, #marqueeCtxMenu, .toolbar, .menubar, .workspace-right')) return
   e.preventDefault()
   e.stopPropagation()
-  window.removeEventListener('mousedown', onMouseDownCapture, true)
+  window.removeEventListener('pointerdown', onPointerDownCapture, true)
 
   const clickedSvg = target.closest<SVGSVGElement>('.plot-svg')
   if (clickedSvg) {
     state.svg = clickedSvg
   }
 
+  try {
+    state.svg.setPointerCapture(e.pointerId)
+  } catch {
+  }
+
   const local = clientToSvgLocal(state.svg, e.clientX, e.clientY)
   state.startX = local.x
   state.startY = local.y
   updatePreview(local.x, local.y)
-  window.addEventListener('mousemove', onMouseMove, true)
-  window.addEventListener('mouseup', onMouseUp, true)
+  window.addEventListener('pointermove', onPointerMove, true)
+  window.addEventListener('pointerup', onPointerUp, true)
 }
 
-function onMouseMove(e: MouseEvent): void {
+function onPointerMove(e: PointerEvent): void {
   if (!state) return
   const local = clientToSvgLocal(state.svg, e.clientX, e.clientY)
   updatePreview(local.x, local.y)
 }
 
-function onMouseUp(e: MouseEvent): void {
+function onPointerUp(e: PointerEvent): void {
   if (!state) return
   e.preventDefault()
   e.stopPropagation()
-  window.removeEventListener('mousemove', onMouseMove, true)
-  window.removeEventListener('mouseup', onMouseUp, true)
+  window.removeEventListener('pointermove', onPointerMove, true)
+  window.removeEventListener('pointerup', onPointerUp, true)
   window.removeEventListener('keydown', onKeyDown, true)
 
   const svg = state.svg
@@ -357,6 +362,6 @@ export function beginShapeDraw(opts: {
     startX: 0,
     startY: 0,
   }
-  window.addEventListener('mousedown', onMouseDownCapture, true)
+  window.addEventListener('pointerdown', onPointerDownCapture, true)
   window.addEventListener('keydown', onKeyDown, true)
 }

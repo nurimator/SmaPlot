@@ -7,6 +7,7 @@ import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
 import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag, isPropertyTabMode } from './transform.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import { updatePlotVisual, drawPlot } from './drawPlot.ts'
+import { isShapeDrawing } from './../ShapeDraw.ts'
 import { showTitleDialog } from './../TitleDialog.ts'
 import { showArrowDialog } from './../ArrowDialog.ts'
 import type { SelectableObject } from './selection.ts'
@@ -63,6 +64,19 @@ export function setActiveGroupDrag(
   drag: { items: GroupDragItem[]; startX: number; startY: number; lastDx?: number; lastDy?: number } | null
 ): void {
   activeGroupDrag = drag
+}
+
+export function isGroupDragActive(): boolean {
+  return activeGroupDrag !== null
+}
+
+export function capturePointerForDrag(pointerId: number, svg: SVGSVGElement): void {
+  activePointerId = pointerId
+  capturedSvg = svg
+  try {
+    if (!svg.hasPointerCapture(pointerId)) svg.setPointerCapture(pointerId)
+  } catch {
+  }
 }
 
 let _cachedTitleOverlay: HTMLElement | null = null
@@ -718,7 +732,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   })
 
   document.addEventListener('pointerdown', (e: PointerEvent) => {
-    if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
+    if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode() || isShapeDrawing()) return
     const target = e.target as SVGElement
     const dir = target.getAttribute('data-dir')
     const svg = target.closest<SVGSVGElement>('.plot-svg')

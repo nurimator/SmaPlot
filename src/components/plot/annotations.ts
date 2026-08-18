@@ -10,7 +10,7 @@ import {
   setSelectedPlotSvg,
 } from './selection.ts'
 import { isPropertyTabMode } from './transform.ts'
-import { buildGroupDragItems, setActiveGroupDrag } from './drag.ts'
+import { buildGroupDragItems, capturePointerForDrag, setActiveGroupDrag } from './drag.ts'
 import { updatePlotVisual } from './drawPlot.ts'
 import { showArrowDialog } from './../ArrowDialog.ts'
 import { showRectangleDialog } from './../RectangleDialog.ts'
@@ -50,7 +50,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
 
     const isSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
-    const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: MouseEvent) => {
+    const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: PointerEvent) => {
       if (e.button !== 0) return
       if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
@@ -97,6 +97,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           startX: e.clientX,
           startY: e.clientY,
         })
+        capturePointerForDrag(e.pointerId, svg)
         document.body.style.userSelect = 'none'
         return
       }
@@ -117,6 +118,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         startX: e.clientX,
         startY: e.clientY,
       })
+      capturePointerForDrag(e.pointerId, svg)
       document.body.style.userSelect = 'none'
     }
 
@@ -148,7 +150,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         shadowElem.setAttribute('stroke', 'none')
         shadowElem.setAttribute('pointer-events', 'all')
         shadowElem.style.cursor = 'pointer'
-        shadowElem.addEventListener('mousedown', handleMouseDown('line'))
+        shadowElem.addEventListener('pointerdown', handleMouseDown('line'))
         shadowElem.addEventListener('dblclick', (e: MouseEvent) => {
           e.stopPropagation()
           e.preventDefault()
@@ -185,7 +187,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const rectDash = getLineDashArray(aLine.style, Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2))))
       if (rectDash !== 'none') rectElem.setAttribute('stroke-dasharray', rectDash)
       rectElem.style.cursor = 'pointer'
-      rectElem.addEventListener('mousedown', handleMouseDown('line'))
+      rectElem.addEventListener('pointerdown', handleMouseDown('line'))
       rectElem.addEventListener('dblclick', (e: MouseEvent) => {
         e.stopPropagation()
         e.preventDefault()
@@ -256,7 +258,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         dimCaps.setAttribute('stroke-linecap', 'round')
         dimCaps.setAttribute('stroke-linejoin', 'round')
         dimCaps.style.cursor = 'pointer'
-        dimCaps.addEventListener('mousedown', handleMouseDown('line'))
+        dimCaps.addEventListener('pointerdown', handleMouseDown('line'))
         dimCaps.addEventListener('dblclick', handleArrowDblClick)
         svg.appendChild(dimCaps)
 
@@ -270,7 +272,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         dimLine.setAttribute('stroke-linejoin', 'round')
         if (dashArray !== 'none') dimLine.setAttribute('stroke-dasharray', dashArray)
         dimLine.style.cursor = 'pointer'
-        dimLine.addEventListener('mousedown', handleMouseDown('line'))
+        dimLine.addEventListener('pointerdown', handleMouseDown('line'))
         dimLine.addEventListener('dblclick', handleArrowDblClick)
         svg.appendChild(dimLine)
       } else if (len > 1e-4) {
@@ -312,7 +314,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           headElem.setAttribute('stroke-miterlimit', '10')
           headElem.setAttribute('stroke-linecap', 'butt')
           headElem.style.cursor = 'pointer'
-          headElem.addEventListener('mousedown', handleMouseDown('end'))
+          headElem.addEventListener('pointerdown', handleMouseDown('end'))
           headElem.addEventListener('dblclick', handleArrowDblClick)
           svg.appendChild(headElem)
 
@@ -341,7 +343,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           headElem.setAttribute('stroke-miterlimit', '10')
           headElem.setAttribute('stroke-linecap', 'butt')
           headElem.style.cursor = 'pointer'
-          headElem.addEventListener('mousedown', handleMouseDown('start'))
+          headElem.addEventListener('pointerdown', handleMouseDown('start'))
           headElem.addEventListener('dblclick', handleArrowDblClick)
           svg.appendChild(headElem)
 
@@ -358,7 +360,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         lineElem.setAttribute('fill', 'none')
         if (dashArray !== 'none') lineElem.setAttribute('stroke-dasharray', dashArray)
         lineElem.style.cursor = 'pointer'
-        lineElem.addEventListener('mousedown', handleMouseDown('line'))
+        lineElem.addEventListener('pointerdown', handleMouseDown('line'))
         lineElem.addEventListener('dblclick', handleArrowDblClick)
         svg.appendChild(lineElem)
       } else {
@@ -372,7 +374,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         l.setAttribute('stroke-linecap', 'round')
         if (dashArray !== 'none') l.setAttribute('stroke-dasharray', dashArray)
         l.style.cursor = 'pointer'
-        l.addEventListener('mousedown', handleMouseDown('line'))
+        l.addEventListener('pointerdown', handleMouseDown('line'))
         l.addEventListener('dblclick', handleArrowDblClick)
         svg.appendChild(l)
       }
@@ -391,7 +393,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         highlightEl.style.top = `${ry1 - 0.5}px`
         highlightEl.style.width = `${rw + 1}px`
         highlightEl.style.height = `${rh + 1}px`
-        highlightEl.addEventListener('mousedown', handleMouseDown('line'))
+        highlightEl.addEventListener('pointerdown', handleMouseDown('line'))
         highlightEl.addEventListener('dblclick', (e: MouseEvent) => {
           e.stopPropagation()
           const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')
@@ -402,25 +404,25 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const handleTL = createOverlayEl('ov-handle')
         handleTL.style.left = `${rx1 - 2}px`
         handleTL.style.top = `${ry1 - 2}px`
-        handleTL.addEventListener('mousedown', handleMouseDown('start'))
+        handleTL.addEventListener('pointerdown', handleMouseDown('start'))
         ov.appendChild(handleTL)
 
         const handleTR = createOverlayEl('ov-handle')
         handleTR.style.left = `${rx1 + rw - 2}px`
         handleTR.style.top = `${ry1 - 2}px`
-        handleTR.addEventListener('mousedown', handleMouseDown('start'))
+        handleTR.addEventListener('pointerdown', handleMouseDown('start'))
         ov.appendChild(handleTR)
 
         const handleBL = createOverlayEl('ov-handle')
         handleBL.style.left = `${rx1 - 2}px`
         handleBL.style.top = `${ry1 + rh - 2}px`
-        handleBL.addEventListener('mousedown', handleMouseDown('end'))
+        handleBL.addEventListener('pointerdown', handleMouseDown('end'))
         ov.appendChild(handleBL)
 
         const handleBR = createOverlayEl('ov-handle')
         handleBR.style.left = `${rx1 + rw - 2}px`
         handleBR.style.top = `${ry1 + rh - 2}px`
-        handleBR.addEventListener('mousedown', handleMouseDown('end'))
+        handleBR.addEventListener('pointerdown', handleMouseDown('end'))
         ov.appendChild(handleBR)
       } else {
         const len = Math.hypot(x2 - x1, y2 - y1) || 1
@@ -433,7 +435,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         cyanLineEl.style.width = `${len}px`
         cyanLineEl.style.transformOrigin = '0 50%'
         cyanLineEl.style.transform = `rotate(${angle}deg)`
-        cyanLineEl.addEventListener('mousedown', handleMouseDown('line'))
+        cyanLineEl.addEventListener('pointerdown', handleMouseDown('line'))
         cyanLineEl.addEventListener('dblclick', (e: MouseEvent) => {
           e.stopPropagation()
           const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')
@@ -444,13 +446,13 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const handle1 = createOverlayEl('ov-handle')
         handle1.style.left = `${x1 - 2}px`
         handle1.style.top = `${y1 - 2}px`
-        handle1.addEventListener('mousedown', handleMouseDown('start'))
+        handle1.addEventListener('pointerdown', handleMouseDown('start'))
         ov.appendChild(handle1)
 
         const handle2 = createOverlayEl('ov-handle')
         handle2.style.left = `${x2 - 2}px`
         handle2.style.top = `${y2 - 2}px`
-        handle2.addEventListener('mousedown', handleMouseDown('end'))
+        handle2.addEventListener('pointerdown', handleMouseDown('end'))
         ov.appendChild(handle2)
       }
     }

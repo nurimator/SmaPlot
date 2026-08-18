@@ -13,8 +13,10 @@ export {
 export { drawPlot, updatePlotVisual } from './drawPlot.ts'
 export {
   buildGroupDragItems,
+  capturePointerForDrag,
   getActiveDrag,
   initPlotDragListeners,
+  isGroupDragActive,
   setActiveGroupDrag,
   startGroupDrag,
   startPlotDrag,
