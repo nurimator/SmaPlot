@@ -73,7 +73,6 @@ export {
   hasIndependentRAxis,
   hasIndependentUAxis,
   makeDefaultPlotDoc,
-  recalculateBaseScale,
   setPlotBaseScale,
   setPlotSmpDoc,
   setPlotSmpMeta,

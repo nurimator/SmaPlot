@@ -1,5 +1,7 @@
 import type { NiceScaleResult } from '../types.ts'
 
+export const AUTO_AXIS_TICKS = 15
+
 export function niceScale(min: number, max: number, maxTicks: number): NiceScaleResult {
   if (min === max) {
     min -= 1
@@ -20,6 +22,16 @@ export function niceScale(min: number, max: number, maxTicks: number): NiceScale
   const niceMin = Math.floor(min / niceStep) * niceStep
   const niceMax = Math.ceil(max / niceStep) * niceStep
   return { min: niceMin, max: niceMax, step: niceStep }
+}
+
+export function niceAxisBounds(min: number, max: number): NiceScaleResult {
+  return niceDataRange(min, max)
+}
+
+function niceDataRange(min: number, max: number, maxTicks = AUTO_AXIS_TICKS): NiceScaleResult {
+  const r = niceScale(min, max, maxTicks)
+  const clean = (v: number) => parseFloat(v.toPrecision(12))
+  return { min: clean(r.min), max: clean(r.max), step: clean(r.step) }
 }
 
 export interface AutoStepResult {

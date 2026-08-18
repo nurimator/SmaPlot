@@ -1,5 +1,5 @@
 import type { Dataset, SmpAxisSpec, SmpMetadata, SmpPlotDoc } from '../../types.ts'
-import { computeAutoStep } from '../../utils/scale.ts'
+import { computeAutoStep, niceAxisBounds } from '../../utils/scale.ts'
 import { getProcessedDataset } from './dataset.ts'
 import { getExplicitSelectedPlotSvg, getMultiSelectedSvgs, getSelectedPlotSvg } from './selection.ts'
 import { PLOT_MARGIN } from './svg.ts'
@@ -304,49 +304,6 @@ export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
   return doc
 }
 
-export function recalculateBaseScale(
-  svg: SVGSVGElement,
-  target: 'all' | 'x' | 'y' = 'all'
-): void {
-  const datasets = svgDataMap.get(svg) || []
-
-  const processedDatasets: Dataset[] = datasets.map((ds) => getProcessedDataset(ds))
-
-  let xMin = Infinity,
-    xMax = -Infinity
-  let yMin = Infinity,
-    yMax = -Infinity
-
-  for (const ds of processedDatasets) {
-    for (let i = 0; i < ds.x.length; i++) {
-      if (ds.x[i] < xMin) xMin = ds.x[i]
-      if (ds.x[i] > xMax) xMax = ds.x[i]
-      if (ds.y[i] < yMin) yMin = ds.y[i]
-      if (ds.y[i] > yMax) yMax = ds.y[i]
-    }
-  }
-
-  if (xMin === Infinity || xMax === -Infinity) {
-    xMin = 0
-    xMax = 10
-  }
-  if (yMin === Infinity || yMax === -Infinity) {
-    yMin = 0
-    yMax = 10
-  }
-  if (yMin > 0) yMin = 0
-
-  const existing = svgBaseScaleMap.get(svg) || { xMin, xMax, yMin, yMax }
-
-  if (target === 'all') {
-    svgBaseScaleMap.set(svg, { xMin, xMax, yMin, yMax })
-  } else if (target === 'x') {
-    svgBaseScaleMap.set(svg, { ...existing, xMin, xMax })
-  } else if (target === 'y') {
-    svgBaseScaleMap.set(svg, { ...existing, yMin, yMax })
-  }
-}
-
 export function getTargetPlotSvgs(specificSvg?: SVGSVGElement | null): SVGSVGElement[] {
   if (specificSvg && document.body.contains(specificSvg)) {
     return [specificSvg]
@@ -423,6 +380,18 @@ export function clearPlotScale(
     }
     if (yMin > 0) yMin = 0
 
+    const rawXMin = xMin
+    const rawXMax = xMax
+    const rawYMin = yMin
+    const rawYMax = yMax
+
+    const nx = niceAxisBounds(rawXMin, rawXMax)
+    xMin = nx.min
+    xMax = nx.max
+    const ny = niceAxisBounds(rawYMin, rawYMax)
+    yMin = ny.min
+    yMax = ny.max
+
     const doc = svgSmpDocMap.get(svg)
     if (doc) {
       if (target === 'all' || target === 'x') {
@@ -430,7 +399,7 @@ export function clearPlotScale(
         doc.axisX.min = reversed ? xMax : xMin
         doc.axisX.max = reversed ? xMin : xMax
         doc.axisX.autoStep = true
-        const autoX = computeAutoStep(xMin, xMax)
+        const autoX = computeAutoStep(rawXMin, rawXMax)
         doc.axisX.step = autoX.increment
         doc.axisX.subDivs = autoX.division
         if (doc.syncWithU !== false && doc.axisTop) {
@@ -446,7 +415,7 @@ export function clearPlotScale(
         doc.axisY.min = reversed ? yMax : yMin
         doc.axisY.max = reversed ? yMin : yMax
         doc.axisY.autoStep = true
-        const autoY = computeAutoStep(yMin, yMax)
+        const autoY = computeAutoStep(rawYMin, rawYMax)
         doc.axisY.step = autoY.increment
         doc.axisY.subDivs = autoY.division
         if (doc.syncWithR !== false && doc.axisRight) {
@@ -462,7 +431,7 @@ export function clearPlotScale(
         doc.axisTop.min = reversed ? xMax : xMin
         doc.axisTop.max = reversed ? xMin : xMax
         doc.axisTop.autoStep = true
-        const autoU = computeAutoStep(xMin, xMax)
+        const autoU = computeAutoStep(rawXMin, rawXMax)
         doc.axisTop.step = autoU.increment
         doc.axisTop.subDivs = autoU.division
       }
@@ -471,7 +440,7 @@ export function clearPlotScale(
         doc.axisRight.min = reversed ? yMax : yMin
         doc.axisRight.max = reversed ? yMin : yMax
         doc.axisRight.autoStep = true
-        const autoR = computeAutoStep(yMin, yMax)
+        const autoR = computeAutoStep(rawYMin, rawYMax)
         doc.axisRight.step = autoR.increment
         doc.axisRight.subDivs = autoR.division
       }

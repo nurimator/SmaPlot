@@ -1,5 +1,5 @@
 import type { Dataset } from '../../types.ts'
-import { computeAutoStep } from '../../utils/scale.ts'
+import { computeAutoStep, niceAxisBounds } from '../../utils/scale.ts'
 import { renderAnnotations } from './annotations.ts'
 import { renderAxes } from './axes.ts'
 import { renderPlotCrossbar } from './crossbar.ts'
@@ -56,11 +56,14 @@ export function drawPlot(
     }
     if (origYMin > 0) origYMin = 0
 
+    const niceX = niceAxisBounds(origXMin, origXMax)
+    const origYRange = niceAxisBounds(origYMin, origYMax)
+
     svgBaseScaleMap.set(svg, {
-      xMin: origXMin,
-      xMax: origXMax,
-      yMin: origYMin,
-      yMax: origYMax,
+      xMin: niceX.min,
+      xMax: niceX.max,
+      yMin: origYRange.min,
+      yMax: origYRange.max,
     })
   }
 
