@@ -189,7 +189,7 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     showSubTicks: true,
     showLabels: true,
     insideTicks: true,
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'Segoe UI, sans-serif',
     fontSize: 24,
     fontWeight: 400,
   }
@@ -203,7 +203,7 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     showSubTicks: true,
     showLabels: true,
     insideTicks: true,
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'Segoe UI, sans-serif',
     fontSize: 24,
     fontWeight: 400,
   }
@@ -279,7 +279,7 @@ export function ensureSmpDoc(svg: SVGSVGElement): SmpPlotDoc {
     showSubTicks: true,
     showLabels: true,
     insideTicks: true,
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'Segoe UI, sans-serif',
     fontSize: 24,
     fontWeight: 400,
   })

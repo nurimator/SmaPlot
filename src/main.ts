@@ -65,7 +65,10 @@ import { initTouchGestures, wasTouchInteractionRecent } from './utils/touchGestu
 import { initSheetSwipe } from './utils/sheetSwipe.ts'
 import { registerSW } from 'virtual:pwa-register'
 
+declare const __APP_VERSION__: string
+
 const titlebarEl = document.querySelector<HTMLElement>('.titlebar')
+const APP_VERSION = __APP_VERSION__
 const menubarEl = document.querySelector<HTMLElement>('.menubar')!
 const toolbarEl = document.querySelector<HTMLElement>('.toolbar')!
 const graphAreaEl = document.querySelector<HTMLElement>('.graph-area')!
@@ -119,6 +122,10 @@ if (workspaceEl && graphAreaEl) {
 }
 
 if (titlebarEl) initTitlebar(titlebarEl)
+
+const initialAppTitleEl = document.querySelector<HTMLElement>('.app-title')
+if (initialAppTitleEl) initialAppTitleEl.textContent = `SmaPlot v${APP_VERSION} - Untitled`
+document.title = `SmaPlot v${APP_VERSION} - Untitled`
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (constantOverlayEl) initConstantDialog(constantOverlayEl)
@@ -152,9 +159,9 @@ function handleSaveProject(customFileName?: string): void {
 
   const appTitleEl = document.querySelector<HTMLElement>('.app-title')
   if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot - ${fileName}`
+    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
   }
-  document.title = `SmaPlot - ${fileName}`
+  document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
 
   const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
   if (statusFileEl) {
@@ -186,9 +193,10 @@ async function handleSaveAsProject(): Promise<void> {
 
     const appTitleEl = document.querySelector<HTMLElement>('.app-title')
     if (appTitleEl) {
-      appTitleEl.textContent = `SmaPlot - ${fileName}`
+      appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
     }
-    document.title = `SmaPlot - ${fileName}`
+    document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
+
 
     const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
     if (statusFileEl) {
@@ -220,9 +228,9 @@ async function handleNewProject(): Promise<void> {
 
   const appTitleEl = document.querySelector<HTMLElement>('.app-title')
   if (appTitleEl) {
-    appTitleEl.textContent = 'SmaPlot - Untitled'
+    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - Untitled`
   }
-  document.title = 'SmaPlot - Untitled'
+  document.title = `SmaPlot v${APP_VERSION} - Untitled`
 
   const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
   if (statusFileEl) {
@@ -275,6 +283,32 @@ function openAxisTitleDialog(axis: 'x' | 'y' | 'u' | 'r'): void {
 }
 
 let trimmingActive = false
+
+const AUTO_UPDATE_KEY = 'smaplot:auto-update'
+
+const loadAutoUpdatePref = (): boolean => {
+  try {
+    return localStorage.getItem(AUTO_UPDATE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+let autoUpdateEnabled = loadAutoUpdatePref()
+
+const saveAutoUpdatePref = (on: boolean): void => {
+  try {
+    localStorage.setItem(AUTO_UPDATE_KEY, on ? 'true' : 'false')
+  } catch {}
+}
+
+const updateAutoUpdateUI = (): void => {
+  document.querySelectorAll<HTMLElement>('[data-action="auto_update"]').forEach((el) => {
+    el.textContent = `Auto Update: ${autoUpdateEnabled ? 'ON' : 'OFF'}`
+  })
+}
+
+updateAutoUpdateUI()
 
 const updateTrimUI = (active: boolean) => {
   document.querySelectorAll<HTMLElement>('[data-action="trimming"]').forEach((el) => {
@@ -437,6 +471,18 @@ if (menubarEl) {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'about') {
       showAboutDialog()
+    } else if (action === 'auto_update') {
+      autoUpdateEnabled = !autoUpdateEnabled
+      updateAutoUpdateUI()
+      saveAutoUpdatePref(autoUpdateEnabled)
+      if (autoUpdateEnabled) {
+        if (refreshPending) showPwaToast()
+        if (swRegistration) void swRegistration.update().catch(() => {})
+      } else {
+        hidePwaToast()
+      }
+    } else if (action === 'install') {
+      void triggerInstall()
     }
   })
 }
@@ -706,14 +752,22 @@ const pwaToast = document.querySelector<HTMLElement>('#pwaUpdateToast')
 const pwaUpdateBtn = document.querySelector<HTMLElement>('#pwaUpdateBtn')
 const pwaDismissBtn = document.querySelector<HTMLElement>('#pwaDismissBtn')
 
-const hidePwaToast = () => {
+const showPwaToast = (): void => {
+  if (pwaToast) pwaToast.style.display = 'flex'
+}
+
+const hidePwaToast = (): void => {
   if (pwaToast) pwaToast.style.display = 'none'
 }
 
-registerSW({
+let swRegistration: ServiceWorkerRegistration | null = null
+let refreshPending = false
+
+const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    if (pwaToast) pwaToast.style.display = 'flex'
+    refreshPending = true
+    if (autoUpdateEnabled) showPwaToast()
   },
   onOfflineReady() {
     const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
@@ -724,13 +778,44 @@ registerSW({
       }, 4000)
     }
   },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) swRegistration = registration
+  },
 })
 
 pwaUpdateBtn?.addEventListener('click', () => {
   hidePwaToast()
-  location.reload()
+  updateSW()
 })
 pwaDismissBtn?.addEventListener('click', hidePwaToast)
+
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+let deferredInstallPrompt: InstallPromptEvent | null = null
+const installMenuItem = document.querySelector<HTMLElement>('.install-item')
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  deferredInstallPrompt = e as InstallPromptEvent
+  installMenuItem?.classList.add('is-visible')
+})
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null
+  installMenuItem?.classList.remove('is-visible')
+})
+
+const triggerInstall = async (): Promise<void> => {
+  const promptEvent = deferredInstallPrompt
+  if (!promptEvent) return
+  promptEvent.prompt()
+  await promptEvent.userChoice
+  deferredInstallPrompt = null
+  installMenuItem?.classList.remove('is-visible')
+}
 
 window.addEventListener('dragover', (e) => e.preventDefault())
 window.addEventListener('drop', (e) => e.preventDefault())
@@ -893,6 +978,7 @@ if (mobileMenuBtn && menubarEl) {
     if (!item) return
     if (item.closest('.menu-submenu')) return
     if (item.classList.contains('has-submenu')) return
+    if (item.hasAttribute('data-keep-open')) return
     closeDrawer()
   })
 

@@ -7,12 +7,6 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
     <title>SmaPlot - Untitled</title>
   </head>
   <body>
@@ -183,9 +177,11 @@
             Help
             <div class="menu-dropdown">
               <div class="dropdown-item" data-action="help">Help<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="auto_update" data-keep-open>Auto Update</div>
               <div class="dropdown-item" data-action="about">About</div>
             </div>
           </div>
+          <div class="menu-item install-item" data-menu="install">Install</div>
         </div>
       </nav>
 
@@ -726,7 +722,7 @@
                     <label class="title-field-label">Font</label>
                     <select id="axisFontFamily" class="form-select full-width">
                       <option value="Times New Roman" selected>Times New Roman</option>
-                      <option value="Inter, sans-serif">Inter</option>
+                      <option value="Segoe UI, sans-serif">Segoe UI</option>
                       <option value="Arial, sans-serif">Arial</option>
                       <option value="Cambria, serif">Cambria</option>
                       <option value="Courier New, monospace">Courier New</option>
@@ -853,7 +849,7 @@
                     <option value="Times New Roman" selected>Times New Roman</option>
                     <option value="Cambria">Cambria</option>
                     <option value="Arial">Arial</option>
-                    <option value="Inter, sans-serif">Inter</option>
+                    <option value="Segoe UI, sans-serif">Segoe UI</option>
                   </select>
                 </div>
                 <div class="form-field-stacked">
@@ -1344,7 +1340,10 @@
 
     <!-- PWA Update Toast -->
     <div class="pwa-update-toast" id="pwaUpdateToast" style="display: none;">
-      <span>A new version of SmaPlot is available.</span>
+      <div class="pwa-update-text">
+        <span>A new version of SmaPlot is available.</span>
+        <span class="pwa-update-note">Update will reload the app — save your work first.</span>
+      </div>
       <div class="pwa-update-actions">
         <button class="btn btn-primary btn-sm" id="pwaUpdateBtn">Update</button>
         <button class="btn btn-secondary btn-sm" id="pwaDismissBtn">Dismiss</button>

@@ -58,7 +58,7 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
     minorWidth: 0.4,
     minorColor: '#000000',
     minorStyle: 'solid',
-    fontFamily: 'Times New Roman, Inter, sans-serif',
+    fontFamily: 'Times New Roman, Segoe UI, sans-serif',
     fontSize: 24,
     fontWeight: 400,
     fontStyle: 'regular',

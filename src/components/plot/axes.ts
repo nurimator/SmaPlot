@@ -55,7 +55,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const xMajorTicks = getMajorTicks(ctx.xMin, ctx.xMax, ctx.xStep)
   const xMinorTicks = getMinorTicks(ctx.xMin, ctx.xMax, ctx.xStep, subDivsX, xMajorTicks)
 
-  const xFontFamily = smpDoc?.axisX.fontFamily || 'Times New Roman, Inter, sans-serif'
+  const xFontFamily = smpDoc?.axisX.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
   const xRenderFontSize = Math.max(7, Math.round((smpDoc?.axisX.fontSize || 24) * 0.72))
   const xFontWeight = smpDoc?.axisX.fontWeight || 400
   const xFontStyle = smpDoc?.axisX.fontStyle || 'regular'
@@ -291,7 +291,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const yMajorTicks = getMajorTicks(ctx.yMin, ctx.yMax, ctx.yStep)
   const yMinorTicks = getMinorTicks(ctx.yMin, ctx.yMax, ctx.yStep, subDivsY, yMajorTicks)
 
-  const yFontFamily = smpDoc?.axisY.fontFamily || 'Times New Roman, Inter, sans-serif'
+  const yFontFamily = smpDoc?.axisY.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
   const yRenderFontSize = Math.max(7, Math.round((smpDoc?.axisY.fontSize || 24) * 0.72))
   const yFontWeight = smpDoc?.axisY.fontWeight || 400
   const yFontStyle = smpDoc?.axisY.fontStyle || 'regular'

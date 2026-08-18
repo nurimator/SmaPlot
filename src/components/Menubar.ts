@@ -62,7 +62,7 @@ export function initMenubar(
             dropdownItem.closest('.dropdown-item.has-submenu')?.classList.remove('open')
             onMenuClick(action)
           } else if (action !== 'clear_scale') {
-            closeAllDropdowns()
+            if (!dropdownItem.hasAttribute('data-keep-open')) closeAllDropdowns()
             onMenuClick(action)
           }
         }

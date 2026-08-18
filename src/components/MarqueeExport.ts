@@ -172,7 +172,7 @@ export function generateMarqueeSvg(
       const texts = clone.querySelectorAll('text')
       texts.forEach(txt => {
         if (!txt.hasAttribute('font-family')) {
-          txt.setAttribute('font-family', 'Inter, system-ui, sans-serif')
+          txt.setAttribute('font-family', 'Segoe UI, system-ui, sans-serif')
         }
 
         if (txt.hasAttribute('text-anchor')) {
