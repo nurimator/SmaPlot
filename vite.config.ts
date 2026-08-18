@@ -3,6 +3,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 
 export default defineConfig({
+  base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
@@ -27,16 +28,16 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'fullscreen',
         display_override: ['window-controls-overlay'],
-        start_url: '/',
+        start_url: './',
         icons: [
           {
-            src: '/favicon/web-app-manifest-192x192.png',
+            src: './favicon/web-app-manifest-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable',
           },
           {
-            src: '/favicon/web-app-manifest-512x512.png',
+            src: './favicon/web-app-manifest-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
