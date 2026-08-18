@@ -1,6 +1,7 @@
 import { showContextMenu, hideContextMenu } from './ContextMenu.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 import { getCurrentProjectFileName } from '../utils/projectState.ts'
+import { PLOT_MARGIN } from './plot/svg.ts'
 
 function getExportBaseName(): string {
   return getCurrentProjectFileName().replace(/\.SMP$/i, '')
@@ -63,7 +64,7 @@ export function generateMarqueeSvg(
       clone.removeAttribute('style')
       clone.classList.remove('plot-svg')
 
-      const margin = { l: 65, r: 25, t: 25, b: 55 }
+      const margin = PLOT_MARGIN
       const plotW = Math.max(10, widthPx - margin.l - margin.r)
       const plotH = Math.max(10, heightPx - margin.t - margin.b)
       const innerBoxBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')

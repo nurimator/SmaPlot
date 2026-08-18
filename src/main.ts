@@ -10,7 +10,7 @@ import {
   addDatasetToPlot,
   clearAllPlots,
   clearPlotScale,
-  createPlot,
+  createDefaultPlot,
   deleteSelectedObjects,
   exportPlotToSmpDoc,
   getActiveDrag,
@@ -224,7 +224,7 @@ async function handleNewProject(): Promise<void> {
   setCurrentProjectFileName('untitled.SMP')
   setProjectUntitled(true)
   clearAllPlots(graphAreaEl)
-  await createPlot(graphAreaEl, 40, 40, [])
+  await createDefaultPlot(graphAreaEl)
 
   const appTitleEl = document.querySelector<HTMLElement>('.app-title')
   if (appTitleEl) {
@@ -430,7 +430,7 @@ if (menubarEl) {
     } else if (action === 'new') {
       await handleNewProject()
     } else if (action === 'new_plot') {
-      await createPlot(graphAreaEl, 40, 40, [])
+      await createDefaultPlot(graphAreaEl)
       pushUndoState()
     } else if (action === 'insert_legend') {
       await handleInsertLegend()
@@ -503,9 +503,9 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
     if (deleteSelectedObjects()) pushUndoState()
   } else if (action === 'new') {
     await handleNewProject()
-  } else if (action === 'new_plot' || title === 'New Plot') {
-    await createPlot(graphAreaEl, 40, 40, [])
-    pushUndoState()
+    } else if (action === 'new_plot' || title === 'New Plot') {
+      await createDefaultPlot(graphAreaEl)
+      pushUndoState()
   } else if (action === 'open' || title === 'Open') {
     if (globalFileInput) globalFileInput.click()
   } else if (action === 'save' || title === 'Save') {
@@ -557,7 +557,7 @@ if (globalFileInput) {
       } else if (ext === 'txt' || file.type.startsWith('text/')) {
         let svg = getSelectedPlotSvg()
         if (!svg) {
-          svg = await createPlot(graphAreaEl, 40, 40, [])
+          svg = await createDefaultPlot(graphAreaEl)
         }
         const reader = new FileReader()
         reader.onload = (evt) => {
@@ -847,7 +847,7 @@ workspaceEl.addEventListener('drop', async (e: DragEvent) => {
     } else if (ext === 'txt' || file.type.startsWith('text/')) {
       let svg = getSelectedPlotSvg()
       if (!svg) {
-        svg = await createPlot(graphAreaEl, 40, 40, [])
+        svg = await createDefaultPlot(graphAreaEl)
       }
       const reader = new FileReader()
       reader.onload = (evt) => {

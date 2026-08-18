@@ -252,13 +252,23 @@ export function wirePlotInteractions(svg: SVGSVGElement): void {
   })
 }
 
+export const DEFAULT_FRAME = { left: 100, top: 100, width: 300, height: 250 }
+const DEFAULT_PLOT_LEFT = DEFAULT_FRAME.left - PLOT_MARGIN.l
+const DEFAULT_PLOT_TOP = DEFAULT_FRAME.top - PLOT_MARGIN.t
+const DEFAULT_PLOT_WIDTH = DEFAULT_FRAME.width + PLOT_MARGIN.l + PLOT_MARGIN.r
+const DEFAULT_PLOT_HEIGHT = DEFAULT_FRAME.height + PLOT_MARGIN.t + PLOT_MARGIN.b
+
+export async function createDefaultPlot(graphArea: HTMLElement): Promise<SVGSVGElement> {
+  return createPlot(graphArea, DEFAULT_PLOT_LEFT, DEFAULT_PLOT_TOP, [], DEFAULT_PLOT_WIDTH, DEFAULT_PLOT_HEIGHT)
+}
+
 export async function createPlot(
   graphArea: HTMLElement,
   x: number,
   y: number,
   initialDatasets: Dataset[] = [],
-  width: number = 400,
-  height: number = 300
+  width: number = DEFAULT_PLOT_WIDTH,
+  height: number = DEFAULT_PLOT_HEIGHT
 ): Promise<SVGSVGElement> {
   incBoxCount()
 

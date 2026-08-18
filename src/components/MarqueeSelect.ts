@@ -1,5 +1,5 @@
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
-import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitsRectBorder, isObjectSelected, isPropertyTabMode, isReadValueMode, isTrimmingMode, setObjectSelection } from './plot/index.ts'
+import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitTestAxisArea, hitsRectBorder, isObjectSelected, isPropertyTabMode, isReadValueMode, isTrimmingMode, setObjectSelection } from './plot/index.ts'
 import type { SelectableObject } from './plot/index.ts'
 import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
@@ -78,8 +78,18 @@ export function updateMarqueeSelectBox(
   setObjectSelection(hits)
 }
 
-export function handleSelectClickOrTap(startGraphX: number, startGraphY: number): void {
-  const hit = hitTestPoint(startGraphX, startGraphY)
+export function handleSelectClickOrTap(startGraphX: number, startGraphY: number, clientX?: number, clientY?: number): void {
+  let hit = hitTestPoint(startGraphX, startGraphY)
+  if (!hit && clientX !== undefined && clientY !== undefined) {
+    const objs = getSelectableObjects()
+    for (let i = objs.length - 1; i >= 0; i--) {
+      const o = objs[i]
+      if (o.obj.kind === 'plot' && hitTestAxisArea(o.obj.svg, clientX, clientY)) {
+        hit = o.obj
+        break
+      }
+    }
+  }
   const now = Date.now()
 
   if (
@@ -183,7 +193,7 @@ export function initMarqueeSelect(graphAreaEl: HTMLElement): void {
     window.getSelection()?.removeAllRanges()
     clearMarqueeSelectBox()
     if (!hasMoved) {
-      handleSelectClickOrTap(startGraphX, startGraphY)
+      handleSelectClickOrTap(startGraphX, startGraphY, startClientX, startClientY)
     }
   })
 

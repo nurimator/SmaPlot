@@ -383,7 +383,7 @@ export function initTouchGestures(options: TouchGesturesOptions): void {
           lastTapSvg = null
         }
 
-        handleSelectClickOrTap(startGraphX, startGraphY)
+        handleSelectClickOrTap(startGraphX, startGraphY, startClientX, startClientY)
       }
     },
     { passive: true }

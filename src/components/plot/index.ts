@@ -25,6 +25,7 @@ export { renderLegend } from './legend.ts'
 export {
   addDatasetToPlot,
   clearAllPlots,
+  createDefaultPlot,
   createPlot,
   loadSmpProject,
   removeDatasetFromAllPlots,

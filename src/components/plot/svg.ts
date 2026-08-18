@@ -16,7 +16,7 @@ export function starPoints(cx: number, cy: number, r: number): string {
   return pts.join(' ')
 }
 
-export const PLOT_MARGIN = { l: 65, r: 25, t: 25, b: 55 }
+export const PLOT_MARGIN = { l: 20, r: 20, t: 20, b: 20 }
 
 export const BORDER_TOL = 2
 
