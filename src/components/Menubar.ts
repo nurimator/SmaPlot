@@ -1,4 +1,5 @@
 import { canClearAxis } from './plot/index.ts'
+import { initAccessKeyMode } from './shortcut.ts'
 
 export function updateMenubarItemStates(container: HTMLElement): void {
   const uItem = container.querySelector<HTMLElement>('[data-action="clear_scale_u"]')
@@ -90,6 +91,8 @@ export function initMenubar(
       closeAllDropdowns()
     }
   })
+
+  initAccessKeyMode(container, onMenuClick, closeAllDropdowns)
 
   refreshStates()
 }

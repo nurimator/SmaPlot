@@ -1,6 +1,7 @@
 import './style.css'
 import { initTitlebar } from './components/Titlebar.ts'
 import { initMenubar, closeAllMenuDropdowns } from './components/Menubar.ts'
+import { initAppShortcuts } from './components/shortcut.ts'
 import { bindActionButtons, initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { initMarqueeExport } from './components/MarqueeExport.ts'
@@ -876,73 +877,43 @@ graphAreaEl.addEventListener('contextmenu', (e) => {
   showContextMenu(ctxMenuEl, e.clientX, e.clientY)
 })
 
+const appRootEl = document.getElementById('app')
+document.addEventListener('contextmenu', (e) => {
+  if (appRootEl?.contains(e.target as Node)) e.preventDefault()
+})
+
 document.addEventListener('click', (e: MouseEvent) => {
   const target = e.target as HTMLElement
   if (target.closest('#ctxMenu')) return
   hideContextMenu(ctxMenuEl)
 })
-document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.key === 'Escape') hideContextMenu(ctxMenuEl)
-
-  const activeEl = document.activeElement
-  const isEditable =
-    activeEl &&
-    (activeEl.tagName === 'INPUT' ||
-      activeEl.tagName === 'TEXTAREA' ||
-      (activeEl as HTMLElement).isContentEditable)
-
-  if (isEditable) return
-
-  const key = e.key.toLowerCase()
-  const isCtrlOrCmd = e.ctrlKey || e.metaKey
-
-  if (key === 'delete' || key === 'backspace' || (isCtrlOrCmd && key === 'd')) {
-    e.preventDefault()
-    if (deleteSelectedObjects()) {
-      pushUndoState()
-    }
-  } else if (isCtrlOrCmd && key === 'z') {
-    e.preventDefault()
-    if (e.shiftKey) {
-      redo(graphAreaEl)
-    } else {
-      undo(graphAreaEl)
-    }
-  } else if (isCtrlOrCmd && key === 'y') {
-    e.preventDefault()
-    redo(graphAreaEl)
-  } else if (isCtrlOrCmd && key === 's') {
-    e.preventDefault()
-    if (e.shiftKey) {
-      handleSaveAsProject()
-    } else {
-      handleSaveProject()
-    }
-  } else if (isCtrlOrCmd && key === 'o') {
-    e.preventDefault()
-    if (globalFileInput) globalFileInput.click()
-  } else if (isCtrlOrCmd && (e.key === '=' || e.key === '+')) {
-    e.preventDefault()
-    const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
-    const currentPct = zoomSliderEl ? Number(zoomSliderEl.value) : 100
-    const nextPct = Math.max(50, Math.min(500, Math.round((currentPct + 10) / 10) * 10))
-    if (workspaceEl && graphAreaEl) {
-      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
-    }
-  } else if (isCtrlOrCmd && (e.key === '-' || e.key === '_')) {
-    e.preventDefault()
-    const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
-    const currentPct = zoomSliderEl ? Number(zoomSliderEl.value) : 100
-    const nextPct = Math.max(50, Math.min(500, Math.round((currentPct - 10) / 10) * 10))
-    if (workspaceEl && graphAreaEl) {
-      setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
-    }
-  } else if (isCtrlOrCmd && e.key === '0') {
-    e.preventDefault()
-    if (workspaceEl && graphAreaEl) {
-      resetCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
-    }
+// ── Keyboard shortcuts ──
+const doZoomStep = (delta: number): void => {
+  const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
+  const currentPct = zoomSliderEl ? Number(zoomSliderEl.value) : 100
+  const nextPct = Math.max(50, Math.min(500, Math.round((currentPct + delta) / 10) * 10))
+  if (workspaceEl && graphAreaEl) {
+    setCanvasZoom((nextPct / 100) * ZOOM_BASE, workspaceEl, graphAreaEl, statusCoordsEl)
   }
+}
+
+initAppShortcuts({
+  deleteSelectedObjects,
+  pushUndoState,
+  undo: () => undo(graphAreaEl),
+  redo: () => redo(graphAreaEl),
+  handleSaveProject,
+  handleSaveAsProject,
+  openFileDialog: () => {
+    if (globalFileInput) globalFileInput.click()
+  },
+  hideContextMenu: () => hideContextMenu(ctxMenuEl),
+  zoomStep: doZoomStep,
+  resetZoom: () => {
+    if (workspaceEl && graphAreaEl) resetCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
+  },
+  openXAxis: () => showAxisDialog(axisOverlayEl, 'x'),
+  openYAxis: () => showAxisDialog(axisOverlayEl, 'y'),
 })
 
 // ── Mobile: header + footer bars ──

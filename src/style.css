@@ -173,6 +173,15 @@ body.os-mac .titlebar {
   color: var(--slate-900);
 }
 
+.menu-accel {
+  color: var(--slate-600);
+  transition: color 0.1s;
+}
+
+body.accesskey-mode .menu-accel {
+  color: #2563eb;
+}
+
 .install-item { display: none; }
 .install-item.is-visible { display: block; }
 
