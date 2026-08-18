@@ -55,7 +55,15 @@ SmaPlot is functional but intentionally incomplete. Expect the following:
 
 Contributions that close these gaps are very welcome — see [Contributing](#contributing).
 
-## Getting started
+## Installation
+
+### Web / PWA
+
+SmaPlot runs as an installable Progressive Web App. When it is installable, an **Install** item automatically appears in the app's menu bar — click it to install SmaPlot as a standalone desktop-style app (no manual build required).
+
+If the menu item is not shown (e.g. the browser suppresses the install prompt), use the browser's built-in **Install** / **Add to Home Screen** option (address-bar install icon or the app menu) in a supported browser such as Chrome, Edge, or Firefox.
+
+### From source
 
 Prerequisites: a recent [Node.js](https://nodejs.org/) (with npm) installed.
 
@@ -66,7 +74,13 @@ cd sma4win-replica
 
 # install dependencies
 npm install
+```
 
+## Getting started
+
+Prerequisites: a recent [Node.js](https://nodejs.org/) (with npm) installed.
+
+```bash
 # start the Vite dev server (web/PWA)
 npm run dev
 
@@ -85,7 +99,7 @@ The native desktop app lives on the `tauri` branch, which uses **Tauri v2**. You
 
 ```bash
 git checkout tauri
-npm install
+npm install            # install dependencies (run once, see Installation)
 npm run tauri:dev     # run the desktop app in development
 npm run tauri:build   # build a native installer (.exe, .msi, .dmg, .deb, ...)
 ```
