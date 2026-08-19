@@ -113,6 +113,9 @@ function lineTypeToCode(lt?: string): number {
 
 function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+  const seriesTag = ds.smpSeriesName || ds.smpDataName || `${cleanName}.txt`
+  const srcPathRaw = ds.filePath || seriesTag
+  const srcPath = /^[A-Za-z]:/.test(srcPathRaw) ? srcPathRaw : `${SMP_FALLBACK_DIR}${srcPathRaw.replace(/^.*[\\/]/, '')}`
   const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || COLOR_BLACK_HEX)
   const symCode = plotTypeToCode(ds.options?.plotType)
   const dotColorBgr = hexToBgr(ds.options?.dotColor || ds.options?.lineColor || ds.color || COLOR_BLACK_HEX)
@@ -126,8 +129,8 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
   return [
-    `[${ds.smpSeriesName || `${cleanName}.txt`}]`,
-    ds.filePath || `${SMP_FALLBACK_DIR}${cleanName}.txt`,
+    `[${seriesTag}]`,
+    srcPath,
     SERIES_COUNT_LINE(pointCount),
     SERIES_STYLE_LINE(stylePrefix, bgrColor),
     SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
@@ -471,7 +474,8 @@ function dataSectionLines(datasets: Dataset[]): string[] {
 
     const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
     const headerInfo = ds.smpDataHeaderRest || nowStamp
-    lines.push(`[${ds.smpDataName || `${cleanName}.txt`}] ${headerInfo}`)
+    const dataTag = ds.smpDataName || ds.smpSeriesName || `${cleanName}.txt`
+    lines.push(`[${dataTag}] ${headerInfo}`)
 
     const rows: string[][] =
       ds.rawLines && ds.rawLines.length > 0
@@ -482,13 +486,14 @@ function dataSectionLines(datasets: Dataset[]): string[] {
       for (const row of rows) {
         lines.push(row.length >= 2 ? `${row[0]}\t${row[1]}` : row[0])
       }
-      lines.push('[End of Data]')
-    } else {
-      lines.push('[End of Data]')
     }
+    lines.push('[End of Data]')
   }
 
+  lines.push('')
+  lines.push('')
   return lines
+
 }
 
 export function serializeSmpProject(docs: SmpPlotDoc[]): string {
@@ -497,7 +502,7 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
 
   const chunks: string[] = [
     HEADER_SMA_FILE,
-    `${docs.length} 0 0 0 0 100`,
+    ` ${docs.length} 0 0 0 0 100`,
     ...docs.map((doc) => serializeSmpDoc(doc, true, false)),
   ]
 
@@ -505,7 +510,8 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
   const seen = new Set<string>()
   for (const doc of docs) {
     for (const ds of doc.datasets || []) {
-      const dataKey = ds.smpDataName || ds.name
+      const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+      const dataKey = ds.smpDataName || ds.smpSeriesName || `${cleanName}.txt`
       if (!seen.has(dataKey)) {
         seen.add(dataKey)
         allDatasets.push(ds)
