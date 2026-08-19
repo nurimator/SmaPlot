@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-08-19
+
+### Fixed
+
+#### SMP export compatibility
+- Fixed project files exported from SmaPlot triggering a "duplicate data overwrite"
+  warning when opened in the original Sma4Win application, especially for projects
+  that contain more than one plot frame reusing the same dataset.
+- Ensured each dataset is written only once in the exported file, even when it is
+  shared by multiple plot frames, so Sma4Win no longer sees conflicting copies.
+- Corrected the file header and ending so exported `.SMP` projects follow the exact
+  native Sma4Win format and load cleanly without prompts.
+
 ## [0.1.0] - 2026-08-19
 
 Initial release of SmaPlot, an open-source, web-based alternative to the legacy
@@ -95,4 +108,5 @@ Sma4Win plotting software with native `.SMP` project format compatibility.
 - Vite + TypeScript build pipeline (`tsc` typecheck then `vite build`).
 - MIT License and project documentation.
 
+[0.1.1]: https://github.com/nurimator/SmaPlot/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nurimator/SmaPlot/releases/tag/v0.1.0

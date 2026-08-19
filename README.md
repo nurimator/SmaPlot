@@ -69,8 +69,8 @@ Prerequisites are a recent [Node.js](https://nodejs.org/) (with npm).
 
 ```bash
 # clone the repository
-git clone <your-fork-or-this-repo-url> sma4win-replica
-cd sma4win-replica
+git clone <your-fork-or-this-repo-url> smaplot
+cd smaplot
 
 # install dependencies
 npm install
