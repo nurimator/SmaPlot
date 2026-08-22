@@ -121,7 +121,7 @@
               </div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="trimming">Trimming</div>
-              <div class="dropdown-item" data-action="frame">Frame<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="frame">Frame</div>
               <div class="dropdown-item" data-action="zoom_rate">Zoom rate<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
               <div class="dropdown-separator"></div>
               <div class="dropdown-item" data-action="display_all">Display All<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
@@ -290,7 +290,7 @@
           <div class="context-menu-item" data-ctx="uaxis">U-Axis</div>
           <div class="context-menu-item" data-ctx="raxis">R-Axis</div>
           <div class="context-separator"></div>
-          <div class="context-menu-item" data-ctx="frame">Frame<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+          <div class="context-menu-item" data-ctx="frame">Frame</div>
           <div class="context-separator"></div>
           <div class="context-menu-item" data-ctx="string">String</div>
           <div class="context-menu-item" data-ctx="arrow">Arrow</div>
@@ -781,6 +781,185 @@
           </div>
         </div>
       </div>
+
+    <!-- Graph Property / Frame Modal Overlay -->
+    <div class="modal-overlay" id="frameOverlay" style="display: none;">
+      <div class="frame-dialog" id="frameDialog">
+        <div class="dialog-header">
+          <span class="dialog-title">Graph Property</span>
+          <div class="header-btns">
+            <button class="dialog-close-btn" id="closeFrameDialogBtn" title="Close"><span class="icon icon-x"></span></button>
+          </div>
+        </div>
+        <div class="dialog-tabs">
+          <button class="tab-btn active" data-tab="frame-props">Frame</button>
+          <button class="tab-btn" data-tab="frame-title">Title</button>
+          <button class="tab-btn" data-tab="frame-scale">Scale</button>
+        </div>
+        <div class="dialog-content">
+          <!-- Tab: Frame -->
+          <div class="tab-content active" id="tab-frame-props">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div class="prop-form-row">
+                <label class="title-field-label" for="frameLeftMargin">Left margin (mm):</label>
+                <input type="number" id="frameLeftMargin" value="20" class="form-input-num" style="width: 80px;" />
+              </div>
+              <div class="prop-form-row">
+                <label class="title-field-label" for="frameTopMargin">Top margin (mm):</label>
+                <input type="number" id="frameTopMargin" value="85" class="form-input-num" style="width: 80px;" />
+              </div>
+              <div class="prop-form-row">
+                <label class="title-field-label" for="frameWidthInput">Width (mm):</label>
+                <input type="number" id="frameWidthInput" value="100" min="10" class="form-input-num" style="width: 80px;" />
+              </div>
+              <div class="prop-form-row">
+                <label class="title-field-label" for="frameHeightInput">Height (mm):</label>
+                <input type="number" id="frameHeightInput" value="100" min="10" class="form-input-num" style="width: 80px;" />
+              </div>
+            </div>
+
+            <!-- line width, line color, back sharing 3 equal columns -->
+            <div class="prop-grid-3col" style="margin-top: 10px;">
+              <div class="form-field-stacked" style="align-items: center; text-align: center;">
+                <label class="title-field-label">line width</label>
+                <input type="number" id="frameLineWidth" value="0.4" step="0.1" min="0.1" class="form-input-num full-width" style="text-align: center;" />
+              </div>
+              <div class="form-field-stacked" style="align-items: center; text-align: center;">
+                <label class="title-field-label">line color</label>
+                <input type="color" id="frameLineColor" value="#000000" class="color-picker-box full-width" />
+              </div>
+              <div class="form-field-stacked" style="align-items: center; text-align: center;">
+                <label class="title-field-label">back</label>
+                <input type="color" id="frameBgColor" value="#ffffff" class="color-picker-box full-width" />
+              </div>
+            </div>
+
+            <fieldset class="axis-fieldset" style="margin-top: 10px;">
+              <legend>Type</legend>
+              <div class="axis-radio-grid" style="display: flex; justify-content: space-between; gap: 6px;">
+                <label class="radio-label"><input type="radio" name="frameTypeRadio" value="1" checked /> Frame</label>
+                <label class="radio-label"><input type="radio" name="frameTypeRadio" value="0" /> Section</label>
+                <label class="radio-label"><input type="radio" name="frameTypeRadio" value="2" /> Frame (plain)</label>
+                <label class="radio-label"><input type="radio" name="frameTypeRadio" value="3" /> Axis</label>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- Tab: Title -->
+          <div class="tab-content" id="tab-frame-title" style="display: none;">
+            <div class="form-field-stacked">
+              <label class="title-field-label" for="frameTitleString">Title</label>
+              <input type="text" id="frameTitleString" class="form-input-text full-width" placeholder="Graph title" />
+            </div>
+
+            <div class="prop-grid-2col" style="margin-top: 8px;">
+              <div class="form-field-stacked">
+                <label class="title-field-label" for="frameTitleFont">Font</label>
+                <select id="frameTitleFont" class="form-select full-width">
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Courier New">Courier New</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+              <div class="form-field-stacked">
+                <label class="title-field-label" for="frameTitleSize">Size</label>
+                <input type="number" id="frameTitleSize" value="16" min="6" max="72" class="form-input-num full-width" />
+              </div>
+            </div>
+
+            <div class="prop-grid-3col" style="margin-top: 8px;">
+              <div class="form-field-stacked">
+                <label class="title-field-label" for="frameTitleStyle">Style</label>
+                <select id="frameTitleStyle" class="form-select full-width">
+                  <option value="regular">Regular</option>
+                  <option value="bold">Bold</option>
+                  <option value="italic">Italic</option>
+                  <option value="bold-italic">Bold Italic</option>
+                </select>
+              </div>
+              <div class="form-field-stacked">
+                <label class="title-field-label" for="frameTitleAlign">Align</label>
+                <select id="frameTitleAlign" class="form-select full-width">
+                  <option value="center">Center</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+              <div class="form-field-stacked" style="align-items: center; text-align: center;">
+                <label class="title-field-label">Color</label>
+                <input type="color" id="frameTitleColor" value="#000000" class="color-picker-box full-width" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Scale -->
+          <div class="tab-content" id="tab-frame-scale" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="prop-grid-3col" style="grid-template-columns: 80px 1fr 1fr; align-items: center;">
+                <div></div>
+                <div class="title-field-label" style="text-align: center;">min</div>
+                <div class="title-field-label" style="text-align: center;">max</div>
+              </div>
+              <!-- X-axis -->
+              <div class="prop-grid-3col" style="grid-template-columns: 80px 1fr 1fr; align-items: center;">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="frameScaleCheckX" checked />
+                  <span>X-axis</span>
+                </label>
+                <input type="number" id="frameScaleMinX" class="form-input-num full-width" style="text-align: right;" />
+                <input type="number" id="frameScaleMaxX" class="form-input-num full-width" style="text-align: right;" />
+              </div>
+              <!-- Y-axis -->
+              <div class="prop-grid-3col" style="grid-template-columns: 80px 1fr 1fr; align-items: center;">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="frameScaleCheckY" checked />
+                  <span>Y-axis</span>
+                </label>
+                <input type="number" id="frameScaleMinY" class="form-input-num full-width" style="text-align: right;" />
+                <input type="number" id="frameScaleMaxY" class="form-input-num full-width" style="text-align: right;" />
+              </div>
+              <!-- U-axis -->
+              <div class="prop-grid-3col" style="grid-template-columns: 80px 1fr 1fr; align-items: center;">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="frameScaleCheckU" checked />
+                  <span>U-axis</span>
+                </label>
+                <input type="number" id="frameScaleMinU" class="form-input-num full-width" style="text-align: right;" />
+                <input type="number" id="frameScaleMaxU" class="form-input-num full-width" style="text-align: right;" />
+              </div>
+              <!-- R-axis -->
+              <div class="prop-grid-3col" style="grid-template-columns: 80px 1fr 1fr; align-items: center;">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="frameScaleCheckR" checked />
+                  <span>R-axis</span>
+                </label>
+                <input type="number" id="frameScaleMinR" class="form-input-num full-width" style="text-align: right;" />
+                <input type="number" id="frameScaleMaxR" class="form-input-num full-width" style="text-align: right;" />
+              </div>
+            </div>
+
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--slate-200);">
+              <label class="checkbox-label">
+                <input type="checkbox" id="frameSyncXU" checked />
+                <span>Sync X and U axis</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="frameSyncYR" checked />
+                <span>Sync Y and R axis</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-footer">
+          <button class="btn btn-primary" id="okFrameBtn">OK</button>
+          <button class="btn btn-secondary" id="cancelFrameBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Title / Text Editor Modal Overlay -->
     <div class="modal-overlay" id="titleOverlay" style="display: none;">

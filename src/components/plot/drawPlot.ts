@@ -131,6 +131,23 @@ export function drawPlot(
   const frameWidthMm = smpDoc?.frameWidth ?? 0.4
   const frameStrokeWidth = Math.max(0.4, Number((frameWidthMm * scaleX).toFixed(2)))
   const frameColor = smpDoc?.frameColor || '#000000'
+  const frameType = smpDoc?.frameType ?? 1
+  const isAxisOnly = frameType === 3
+  const isFramePlain = frameType === 2
+
+  const bgLower = (smpDoc?.frameBgColor || '').toLowerCase().trim()
+  const isBgWhiteOrTransparent = !bgLower || bgLower === '#ffffff' || bgLower === '#fff' || bgLower === 'white' || bgLower === 'transparent'
+
+  if (smpDoc?.frameBgColor && !isBgWhiteOrTransparent) {
+    const bgRect = createSVGElement('rect')
+    bgRect.setAttribute('x', String(margin.l))
+    bgRect.setAttribute('y', String(margin.t))
+    bgRect.setAttribute('width', String(plotW))
+    bgRect.setAttribute('height', String(plotH))
+    bgRect.setAttribute('fill', smpDoc.frameBgColor)
+    svg.appendChild(bgRect)
+  }
+
   const drawEdge = (x1: number, y1: number, x2: number, y2: number) => {
     const edge = createSVGElement('line')
     edge.setAttribute('x1', String(x1))
@@ -142,14 +159,26 @@ export function drawPlot(
     edge.setAttribute('stroke-linecap', 'butt')
     svg.appendChild(edge)
   }
+
   const showXTicks = smpDoc?.axisX.showTicks !== false
   const showYTicks = smpDoc?.axisY.showTicks !== false
-  const showUTicks = smpDoc?.axisTop?.showTicks ?? showXTicks
-  const showRTicks = smpDoc?.axisRight?.showTicks ?? showYTicks
-  if (showYTicks) drawEdge(margin.l, margin.t, margin.l, margin.t + plotH)
-  if (showUTicks) drawEdge(margin.l, margin.t, margin.l + plotW, margin.t)
-  if (showXTicks) drawEdge(margin.l, margin.t + plotH, margin.l + plotW, margin.t + plotH)
-  if (showRTicks) drawEdge(margin.l + plotW, margin.t, margin.l + plotW, margin.t + plotH)
+  const showUTicks = !isAxisOnly && !isFramePlain && (smpDoc?.axisTop?.showTicks ?? showXTicks)
+  const showRTicks = !isAxisOnly && !isFramePlain && (smpDoc?.axisRight?.showTicks ?? showYTicks)
+
+  if (isAxisOnly) {
+    const zeroY = sy(0)
+    const axisYPos = (yMin <= 0 && yMax >= 0) ? zeroY : (yMin > 0 ? margin.t + plotH : margin.t)
+    const zeroX = sx(0)
+    const axisXPos = (xMin <= 0 && xMax >= 0) ? zeroX : (xMin > 0 ? margin.l : margin.l + plotW)
+
+    if (showYTicks) drawEdge(axisXPos, margin.t, axisXPos, margin.t + plotH)
+    if (showXTicks) drawEdge(margin.l, axisYPos, margin.l + plotW, axisYPos)
+  } else {
+    if (showYTicks) drawEdge(margin.l, margin.t, margin.l, margin.t + plotH)
+    if (showXTicks) drawEdge(margin.l, margin.t + plotH, margin.l + plotW, margin.t + plotH)
+    if (showUTicks) drawEdge(margin.l, margin.t, margin.l + plotW, margin.t)
+    if (showRTicks) drawEdge(margin.l + plotW, margin.t, margin.l + plotW, margin.t + plotH)
+  }
 
   const clipId = `plot-clip-${Math.random().toString(36).substring(2, 9)}`
   const defs = createSVGElement('defs')

@@ -57,6 +57,8 @@ export interface SmpLegendItem {
   posTail?: string
   fontSize: number
   fontWeight: number
+  fontStyle?: string
+  color?: string
   align?: 'left' | 'center' | 'right'
   x2Norm?: number
   y2Norm?: number
@@ -162,6 +164,7 @@ export interface SmpPlotDoc {
   frameWidth?: number
   frameColor?: string
   frameBgColor?: string
+  frameType?: number
   graphFixed1?: string
   graphFixed2?: string
   mergeZeroLabels?: boolean

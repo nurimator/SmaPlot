@@ -186,6 +186,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let frameWidth = 0.4
     let frameColor = '#000000'
     let frameBgColor = '#ffffff'
+    let frameType = 1
     let graphFixed1 = ''
     let graphFixed2 = ''
     let mergeZeroLabels = false
@@ -369,6 +370,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
           graphFixed1 = docLines[i].trim()
           const gParts = graphFixed1.split(/\s+/)
+          if (gParts.length > 1) {
+            const ft = parseInt(gParts[1], 10)
+            if (!isNaN(ft)) frameType = ft
+          }
           if (gParts.length > 2) {
             mergeZeroLabels = gParts[2] === '1'
           }
@@ -818,7 +823,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
     const docDatasets: Dataset[] = []
     const specKeys = Object.keys(seriesSpecs)
-    const targetKeys = specKeys.length > 0 ? specKeys : Object.keys(mergedDatasetsMap)
+    const targetKeys = specKeys
 
     targetKeys.forEach((specKey) => {
       if (specKey.toLowerCase().includes('end of data')) return
@@ -915,6 +920,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       frameWidth,
       frameColor,
       frameBgColor,
+      frameType,
       graphFixed1,
       graphFixed2,
       mergeZeroLabels,

@@ -317,7 +317,8 @@ export function renderLegend(ctx: PlotRenderContext): void {
         container.style.fontSize = `${fontSz}px`
         container.style.fontFamily = item.fontFamily || 'Times New Roman, serif'
         container.style.fontWeight = String(item.fontWeight || 400)
-        container.style.color = '#000000'
+        if (item.fontStyle === 'italic') container.style.fontStyle = 'italic'
+        container.style.color = item.color || '#000000'
         container.style.display = 'inline-block'
         container.style.verticalAlign = 'top'
         container.style.userSelect = 'none'

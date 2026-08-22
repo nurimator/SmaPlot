@@ -47,6 +47,26 @@ export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
   return svgSmpDocMap.get(svg)
 }
 
+export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean): void {
+  if (axis === 'u') {
+    if (!smpDoc.axisTop) {
+      smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !synced, isSynced: synced }
+    }
+    smpDoc.syncWithU = synced
+    smpDoc.axisX.isSynced = synced
+    smpDoc.axisTop.isSynced = synced
+    if (synced) smpDoc.axisTop.showLabels = false
+  } else {
+    if (!smpDoc.axisRight) {
+      smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !synced, isSynced: synced }
+    }
+    smpDoc.syncWithR = synced
+    smpDoc.axisY.isSynced = synced
+    smpDoc.axisRight.isSynced = synced
+    if (synced) smpDoc.axisRight.showLabels = false
+  }
+}
+
 export function getPlotDatasets(svg: SVGSVGElement): Dataset[] {
   return svgDataMap.get(svg) || []
 }
@@ -240,6 +260,13 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     annotationLines: existingDoc?.annotationLines || [],
     xLabel: existingDoc?.xLabel,
     yLabel: existingDoc?.yLabel,
+    frameType: existingDoc?.frameType,
+    graphFixed1: existingDoc?.graphFixed1,
+    graphFixed2: existingDoc?.graphFixed2,
+    frameWidth: existingDoc?.frameWidth,
+    frameColor: existingDoc?.frameColor,
+    frameBgColor: existingDoc?.frameBgColor,
+    mergeZeroLabels: existingDoc?.mergeZeroLabels,
   }
 }
 

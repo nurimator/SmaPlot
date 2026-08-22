@@ -54,6 +54,7 @@ import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/
 import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initCustomSelects } from './components/CustomSelect.ts'
+import { initFrameDialog, showFrameDialog } from './components/FrameDialog.ts'
 import { hideAboutDialog, initAboutDialog, showAboutDialog } from './components/AboutDialog.ts'
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
@@ -85,6 +86,7 @@ const constantOverlayEl = document.querySelector<HTMLElement>('#constantOverlay'
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
+const frameOverlayEl = document.querySelector<HTMLElement>('#frameOverlay')
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
 const aboutOverlayEl = document.querySelector<HTMLElement>('#aboutOverlay')
@@ -133,6 +135,7 @@ if (constantOverlayEl) initConstantDialog(constantOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
+if (frameOverlayEl) initFrameDialog(frameOverlayEl)
 if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
 if (aboutOverlayEl) initAboutDialog(aboutOverlayEl)
 
@@ -445,6 +448,8 @@ if (menubarEl) {
       showAxisDialog(axisOverlayEl, 'r')
     } else if (action === 'trimming') {
       toggleTrimMode()
+    } else if (action === 'frame') {
+      if (frameOverlayEl) showFrameDialog(frameOverlayEl)
     } else if (action === 'arrow') {
       showArrowDialog(arrowOverlayEl)
     } else if (action === 'constant') {
@@ -591,6 +596,8 @@ if (ctxMenuEl) {
       showAxisDialog(axisOverlayEl, 'u')
     } else if (actionKey === 'raxis') {
       showAxisDialog(axisOverlayEl, 'r')
+    } else if (actionKey === 'frame') {
+      if (frameOverlayEl) showFrameDialog(frameOverlayEl)
     } else if (actionKey === 'string') {
       showTitleDialog(titleOverlayEl)
     } else if (actionKey === 'arrow') {

@@ -1,7 +1,7 @@
 import type { SmpAxisSpec } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { computeAutoStep } from '../utils/scale.ts'
-import { getPlotSmpDoc, getSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
+import { getPlotSmpDoc, getSelectedPlotSvg, setAxisSync, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
 type AxisTarget = 'x' | 'y' | 'u' | 'r'
@@ -153,37 +153,27 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
       const isSynced = axisSync ? axisSync.checked : true
-      smpDoc.syncWithU = isSynced
-      smpDoc.axisX.isSynced = isSynced
-      if (!smpDoc.axisTop) {
-        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !isSynced, isSynced }
-      }
-      smpDoc.axisTop.isSynced = isSynced
+      setAxisSync(smpDoc, 'u', isSynced)
+      const axisTop = smpDoc.axisTop!
 
       if (isSynced) {
         if (currentAxisTarget === 'x') {
-          syncAxisPair(smpDoc.axisX, smpDoc.axisTop)
+          syncAxisPair(smpDoc.axisX, axisTop)
         } else {
-          syncAxisPair(smpDoc.axisTop, smpDoc.axisX)
+          syncAxisPair(axisTop, smpDoc.axisX)
         }
-        smpDoc.axisTop.showLabels = false
       }
     } else if (currentAxisTarget === 'y' || currentAxisTarget === 'r') {
       const isSynced = axisSync ? axisSync.checked : true
-      smpDoc.syncWithR = isSynced
-      smpDoc.axisY.isSynced = isSynced
-      if (!smpDoc.axisRight) {
-        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !isSynced, isSynced }
-      }
-      smpDoc.axisRight.isSynced = isSynced
+      setAxisSync(smpDoc, 'r', isSynced)
+      const axisRight = smpDoc.axisRight!
 
       if (isSynced) {
         if (currentAxisTarget === 'y') {
-          syncAxisPair(smpDoc.axisY, smpDoc.axisRight)
+          syncAxisPair(smpDoc.axisY, axisRight)
         } else {
-          syncAxisPair(smpDoc.axisRight, smpDoc.axisY)
+          syncAxisPair(axisRight, smpDoc.axisY)
         }
-        smpDoc.axisRight.showLabels = false
       }
     }
 

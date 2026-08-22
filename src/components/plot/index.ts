@@ -72,6 +72,7 @@ export {
   getPlotLimits,
   getPlotSmpDoc,
   getSvgRectForSmpDoc,
+  setAxisSync,
   getTargetPlotSvgs,
   hasIndependentRAxis,
   hasIndependentUAxis,

@@ -51,6 +51,11 @@ export function renderAxes(ctx: PlotRenderContext): void {
   }
 
   // --- AXIS-0 (Bottom / X) ---
+  const frameType = smpDoc?.frameType ?? 1
+  const isSection = frameType === 0
+  const isFramePlain = frameType === 2
+  const isAxisMode = frameType === 3
+  const suppressTopRight = isFramePlain || isAxisMode
   const subDivsX = ctx.autoSubDivsX !== null ? ctx.autoSubDivsX : smpDoc?.axisX.subDivs || 5
   const xMajorTicks = getMajorTicks(ctx.xMin, ctx.xMax, ctx.xStep)
   const xMinorTicks = getMinorTicks(ctx.xMin, ctx.xMax, ctx.xStep, subDivsX, xMajorTicks)
@@ -84,6 +89,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   const bottomY = margin.t + plotH
   const topY = margin.t
+  const zeroY = sy(0)
+  const axisXBaseY = isAxisMode
+    ? (ctx.yMin <= 0 && ctx.yMax >= 0 ? zeroY : (ctx.yMin > 0 ? bottomY : topY))
+    : bottomY
 
   let xTickPathD = ''
   let xSubTickPathD = ''
@@ -93,8 +102,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xMajorTicks.forEach((v) => {
       const px = sx(v)
       if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
-        const bYStart = xMajOut ? bottomY + xMajLen : bottomY
-        const bYEnd = xMajIn ? bottomY - xMajLen : bottomY
+        const bYStart = xMajOut ? axisXBaseY + xMajLen : axisXBaseY
+        const bYEnd = isSection ? (xMajIn ? topY : axisXBaseY) : (xMajIn ? axisXBaseY - xMajLen : axisXBaseY)
         if (xMajIn || xMajOut) {
           xTickPathD += `M${px} ${bYStart}V${bYEnd}`
         }
@@ -104,8 +113,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xMinorTicks.forEach((v) => {
       const px = sx(v)
       if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
-        const bYStart = xMinOut ? bottomY + xMinLen : bottomY
-        const bYEnd = xMinIn ? bottomY - xMinLen : bottomY
+        const bYStart = xMinOut ? axisXBaseY + xMinLen : axisXBaseY
+        const bYEnd = isSection ? (xMinIn ? topY : axisXBaseY) : (xMinIn ? axisXBaseY - xMinLen : axisXBaseY)
         if (xMinIn || xMinOut) {
           xSubTickPathD += `M${px} ${bYStart}V${bYEnd}`
         }
@@ -120,7 +129,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
         label.setAttribute('x', String(px + xShiftRight))
-        label.setAttribute('y', String(bottomY + 1 + xShiftDown))
+        label.setAttribute('y', String(axisXBaseY + 1 + xShiftDown))
         label.setAttribute('text-anchor', 'middle')
         label.setAttribute('dominant-baseline', 'hanging')
         label.setAttribute('font-size', String(xRenderFontSize))
@@ -166,10 +175,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
   let subDivsU = subDivsX
   let uMajorTicks = xMajorTicks
   let uMinorTicks = xMinorTicks
-  let showUTicks = smpDoc?.axisTop?.showTicks ?? showXTicks
+  let showUTicks = suppressTopRight ? false : (smpDoc?.axisTop?.showTicks ?? showXTicks)
   let showULabels = false
 
-  if (!ctx.syncWithU && smpDoc?.axisTop) {
+  if (!suppressTopRight && !ctx.syncWithU && smpDoc?.axisTop) {
     uMin = smpDoc.axisTop.min ?? 0
     uMax = smpDoc.axisTop.max ?? 100
     uStep = Math.abs(smpDoc.axisTop.step || 0)
@@ -218,10 +227,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uMajorTicks.forEach((v) => {
       const px = su(v)
       if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
-        const tYStart = uMajOut ? topY - uMajLen : topY
-        const tYEnd = uMajIn ? topY + uMajLen : topY
-        if (uMajIn || uMajOut) {
-          uTickPathD += `M${px} ${tYStart}V${tYEnd}`
+        if (isSection && ctx.syncWithU) {
+          if (uMajOut) {
+            uTickPathD += `M${px} ${topY - uMajLen}V${topY}`
+          }
+        } else {
+          const tYStart = uMajOut ? topY - uMajLen : topY
+          const tYEnd = uMajIn ? topY + uMajLen : topY
+          if (uMajIn || uMajOut) {
+            uTickPathD += `M${px} ${tYStart}V${tYEnd}`
+          }
         }
       }
     })
@@ -229,10 +244,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uMinorTicks.forEach((v) => {
       const px = su(v)
       if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
-        const tYStart = uMinOut ? topY - uMinLen : topY
-        const tYEnd = uMinIn ? topY + uMinLen : topY
-        if (uMinIn || uMinOut) {
-          uSubTickPathD += `M${px} ${tYStart}V${tYEnd}`
+        if (isSection && ctx.syncWithU) {
+          if (uMinOut) {
+            uSubTickPathD += `M${px} ${topY - uMinLen}V${topY}`
+          }
+        } else {
+          const tYStart = uMinOut ? topY - uMinLen : topY
+          const tYEnd = uMinIn ? topY + uMinLen : topY
+          if (uMinIn || uMinOut) {
+            uSubTickPathD += `M${px} ${tYStart}V${tYEnd}`
+          }
         }
       }
     })
@@ -318,6 +339,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   const leftX = margin.l
   const rightX = margin.l + plotW
+  const zeroX = sx(0)
+  const axisYBaseX = isAxisMode
+    ? (ctx.xMin <= 0 && ctx.xMax >= 0 ? zeroX : (ctx.xMin > 0 ? leftX : rightX))
+    : leftX
 
   let yTickPathD = ''
   let ySubTickPathD = ''
@@ -327,8 +352,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
     yMajorTicks.forEach((v) => {
       const py = sy(v)
       if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
-        const lXStart = yMajOut ? leftX - yMajLen : leftX
-        const lXEnd = yMajIn ? leftX + yMajLen : leftX
+        const lXStart = yMajOut ? axisYBaseX - yMajLen : axisYBaseX
+        const lXEnd = isSection ? (yMajIn ? rightX : axisYBaseX) : (yMajIn ? axisYBaseX + yMajLen : axisYBaseX)
         if (yMajIn || yMajOut) {
           yTickPathD += `M${lXStart} ${py}H${lXEnd}`
         }
@@ -338,8 +363,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
     yMinorTicks.forEach((v) => {
       const py = sy(v)
       if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
-        const lXStart = yMinOut ? leftX - yMinLen : leftX
-        const lXEnd = yMinIn ? leftX + yMinLen : leftX
+        const lXStart = yMinOut ? axisYBaseX - yMinLen : axisYBaseX
+        const lXEnd = isSection ? (yMinIn ? rightX : axisYBaseX) : (yMinIn ? axisYBaseX + yMinLen : axisYBaseX)
         if (yMinIn || yMinOut) {
           ySubTickPathD += `M${lXStart} ${py}H${lXEnd}`
         }
@@ -354,7 +379,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
       const py = sy(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
-        label.setAttribute('x', String(leftX - 1 + yShiftRight))
+        label.setAttribute('x', String(axisYBaseX - 4 + yShiftRight))
         label.setAttribute('y', String(py + Math.round(yRenderFontSize * 0.35) + yShiftDown))
         label.setAttribute('text-anchor', 'end')
         label.setAttribute('font-size', String(yRenderFontSize))
@@ -369,8 +394,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     if (mergeZero) {
       const zLabel = createSVGElement('text')
-      zLabel.setAttribute('x', String(leftX - 1 + yShiftRight))
-      zLabel.setAttribute('y', String(bottomY + 1 + xShiftDown))
+      zLabel.setAttribute('x', String(axisYBaseX - 4 + yShiftRight))
+      zLabel.setAttribute('y', String(axisXBaseY + 1 + xShiftDown))
       zLabel.setAttribute('text-anchor', 'end')
       zLabel.setAttribute('dominant-baseline', 'hanging')
       zLabel.setAttribute('font-size', String(yRenderFontSize))
@@ -415,10 +440,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
   let subDivsR = subDivsY
   let rMajorTicks = yMajorTicks
   let rMinorTicks = yMinorTicks
-  let showRTicks = smpDoc?.axisRight?.showTicks ?? showYTicks
+  let showRTicks = suppressTopRight ? false : (smpDoc?.axisRight?.showTicks ?? showYTicks)
   let showRLabels = false
 
-  if (!ctx.syncWithR && smpDoc?.axisRight) {
+  if (!suppressTopRight && !ctx.syncWithR && smpDoc?.axisRight) {
     rMin = smpDoc.axisRight.min ?? 0
     rMax = smpDoc.axisRight.max ?? 100
     rStep = Math.abs(smpDoc.axisRight.step || 0)
@@ -467,10 +492,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rMajorTicks.forEach((v) => {
       const py = sr(v)
       if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
-        const rXStart = rMajOut ? rightX + rMajLen : rightX
-        const rXEnd = rMajIn ? rightX - rMajLen : rightX
-        if (rMajIn || rMajOut) {
-          rTickPathD += `M${rXStart} ${py}H${rXEnd}`
+        if (isSection && ctx.syncWithR) {
+          if (rMajOut) {
+            rTickPathD += `M${rightX} ${py}H${rightX + rMajLen}`
+          }
+        } else {
+          const rXStart = rMajOut ? rightX + rMajLen : rightX
+          const rXEnd = rMajIn ? rightX - rMajLen : rightX
+          if (rMajIn || rMajOut) {
+            rTickPathD += `M${rXStart} ${py}H${rXEnd}`
+          }
         }
       }
     })
@@ -478,10 +509,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rMinorTicks.forEach((v) => {
       const py = sr(v)
       if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
-        const rXStart = rMinOut ? rightX + rMinLen : rightX
-        const rXEnd = rMinIn ? rightX - rMinLen : rightX
-        if (rMinIn || rMinOut) {
-          rSubTickPathD += `M${rXStart} ${py}H${rXEnd}`
+        if (isSection && ctx.syncWithR) {
+          if (rMinOut) {
+            rSubTickPathD += `M${rightX} ${py}H${rightX + rMinLen}`
+          }
+        } else {
+          const rXStart = rMinOut ? rightX + rMinLen : rightX
+          const rXEnd = rMinIn ? rightX - rMinLen : rightX
+          if (rMinIn || rMinOut) {
+            rSubTickPathD += `M${rXStart} ${py}H${rXEnd}`
+          }
         }
       }
     })

@@ -171,6 +171,9 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const height = Math.round(doc.height || DEFAULT_PLOT_GEOM.height)
   lines.push(`${left} ${top} ${width} ${height}`)
   const gTokens = (doc.graphFixed1 || GRAPH_FIXED_1).split(/\s+/)
+  if (doc.frameType !== undefined && gTokens.length > 1) {
+    gTokens[1] = String(doc.frameType)
+  }
   if (gTokens.length > 2) gTokens[2] = doc.mergeZeroLabels ? '1' : '0'
   lines.push(gTokens.join(' '))
   if (doc.graphFixed2 && !doc.frameWidth && !doc.frameColor) {
