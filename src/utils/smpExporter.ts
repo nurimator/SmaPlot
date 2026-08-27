@@ -211,20 +211,16 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     const fixedTail = tailTokens.join(' ')
     lines.push(`${minStr} ${maxStr} ${stepStr} ${fixedTail}`)
 
-    if (axis?.rawLine2) {
-      lines.push(axis.rawLine2)
-    } else {
-      const showTicks = axis?.showTicks !== false ? 1 : 0
-      const showLabels = axis?.showLabels !== false ? 1 : 0
-      const shiftR = Math.round((axis?.shiftRight || 0) * MM_TO_SMP)
-      const shiftD = Math.round((axis?.shiftDown || 0) * MM_TO_SMP)
-      const autoSt = axis?.autoStep ? 1 : 0
-      const labelColor = axis?.labelColorCode || (AXIS_LABEL_COLOR[idx] ?? '300')
-      const l2Tail = axis?.rawLine2Tail || (idx === 0 || idx === 1 ? '100 0' : '100 0')
-      const insideTk = axis?.insideTicks ? 1 : 0
-      const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
-      lines.push(`${subDivs} 0 ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
-    }
+    const showTicks = axis?.showTicks !== false ? 1 : 0
+    const showLabels = axis?.showLabels !== false ? 1 : 0
+    const shiftR = Math.round((axis?.shiftRight || 0) * MM_TO_SMP)
+    const shiftD = Math.round((axis?.shiftDown || 0) * MM_TO_SMP)
+    const autoSt = axis?.autoStep ? 1 : 0
+    const labelColor = axis?.labelColorCode || (AXIS_LABEL_COLOR[idx] ?? '300')
+    const l2Tail = axis?.rawLine2Tail || '100 0'
+    const insideTk = axis?.insideTicks ? 1 : 0
+    const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
+    lines.push(`${subDivs} 0 ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
 
     if (axis?.rawFontExtra) {
       const fontSz = Math.round((axis?.fontSize || 24) * MM_TO_SMP)
@@ -241,29 +237,21 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     }
     lines.push(axis?.fontFamily || DEFAULT_AXIS.fontFamily)
 
-    if (axis?.rawMajLine) {
-      lines.push(axis.rawMajLine)
-    } else {
-      const majIn = axis?.majorIn !== false ? 1 : 0
-      const majOut = axis?.majorOut ? 1 : 0
-      const majLen = Math.round((axis?.majorLength ?? DEFAULT_AXIS.majorLength) / SMP_TICK_UNIT_MM)
-      const majWidth = Math.round((axis?.majorWidth ?? DEFAULT_AXIS.majorWidth) * MM_TO_SMP)
-      const majColorBgr = hexToBgr(axis?.majorColor || COLOR_BLACK_HEX)
-      const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
-      lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
-    }
+    const majIn = axis?.majorIn !== false ? 1 : 0
+    const majOut = axis?.majorOut ? 1 : 0
+    const majLen = Math.round((axis?.majorLength ?? DEFAULT_AXIS.majorLength) / SMP_TICK_UNIT_MM)
+    const majWidth = Math.round((axis?.majorWidth ?? DEFAULT_AXIS.majorWidth) * MM_TO_SMP)
+    const majColorBgr = hexToBgr(axis?.majorColor || COLOR_BLACK_HEX)
+    const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
+    lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
 
-    if (axis?.rawMinLine) {
-      lines.push(axis.rawMinLine)
-    } else {
-      const minIn = axis?.minorIn !== false ? 1 : 0
-      const minOut = axis?.minorOut ? 1 : 0
-      const minLen = Math.round((axis?.minorLength ?? DEFAULT_AXIS.minorLength) / SMP_TICK_UNIT_MM)
-      const minWidth = Math.round((axis?.minorWidth ?? DEFAULT_AXIS.minorWidth) * MM_TO_SMP)
-      const minColorBgr = hexToBgr(axis?.minorColor || COLOR_BLACK_HEX)
-      const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
-      lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
-    }
+    const minIn = axis?.minorIn !== false ? 1 : 0
+    const minOut = axis?.minorOut ? 1 : 0
+    const minLen = Math.round((axis?.minorLength ?? DEFAULT_AXIS.minorLength) / SMP_TICK_UNIT_MM)
+    const minWidth = Math.round((axis?.minorWidth ?? DEFAULT_AXIS.minorWidth) * MM_TO_SMP)
+    const minColorBgr = hexToBgr(axis?.minorColor || COLOR_BLACK_HEX)
+    const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
+    lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
     lines.push('')
   }
 

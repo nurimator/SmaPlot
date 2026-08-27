@@ -3,7 +3,7 @@ import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 
 export function renderAxes(ctx: PlotRenderContext): void {
-  const { svg, margin, plotW, plotH, scaleX, sx, sy, smpDoc } = ctx
+  const { svg, margin, plotW, plotH, scaleX, scaleY, sx, sy, smpDoc } = ctx
 
   const formatLabel = (v: number, addPlus?: boolean): string => {
     const base = formatTick(v)
@@ -65,8 +65,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const xFontWeight = smpDoc?.axisX.fontWeight || 400
   const xFontStyle = smpDoc?.axisX.fontStyle || 'regular'
   const xLabelColor = smpDoc?.axisX.labelColor || '#000000'
-  const xShiftRight = smpDoc?.axisX.shiftRight || 0
-  const xShiftDown = smpDoc?.axisX.shiftDown || 0
+  const xShiftRight = (smpDoc?.axisX.shiftRight || 0) * scaleX
+  const xShiftDown = (smpDoc?.axisX.shiftDown || 0) * scaleY
 
   const showXTicks = smpDoc?.axisX.showTicks !== false
   const showXLabels = showXTicks && (smpDoc?.axisX.showLabels !== false)
@@ -149,8 +149,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xTickPath.setAttribute('stroke', xMajColor)
     xTickPath.setAttribute('stroke-width', String(xMajW))
     xTickPath.setAttribute('stroke-linecap', 'butt')
-    if (xMajStyle === 'dashed') xTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (xMajStyle === 'dotted') xTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (xMajStyle === 'dashed') xTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (xMajStyle === 'dotted') xTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     xTickPath.setAttribute('fill', 'none')
     svg.appendChild(xTickPath)
   }
@@ -160,8 +162,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xSubTickPath.setAttribute('stroke', xMinColor)
     xSubTickPath.setAttribute('stroke-width', String(xMinW))
     xSubTickPath.setAttribute('stroke-linecap', 'butt')
-    if (xMinStyle === 'dashed') xSubTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (xMinStyle === 'dotted') xSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (xMinStyle === 'dashed') xSubTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (xMinStyle === 'dotted') xSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     xSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(xSubTickPath)
   }
@@ -202,8 +206,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const uFontWeight = uSpec?.fontWeight || 400
   const uFontStyle = uSpec?.fontStyle || 'regular'
   const uLabelColor = uSpec?.labelColor || '#000000'
-  const uShiftRight = uSpec?.shiftRight || 0
-  const uShiftDown = uSpec?.shiftDown || 0
+  const uShiftRight = (uSpec?.shiftRight || 0) * scaleX
+  const uShiftDown = (uSpec?.shiftDown || 0) * scaleY
 
   const uMajIn = uSpec?.majorIn ?? (uSpec?.insideTicks !== false)
   const uMajOut = uSpec?.majorOut ?? false
@@ -285,8 +289,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uTickPath.setAttribute('stroke', uMajColor)
     uTickPath.setAttribute('stroke-width', String(uMajW))
     uTickPath.setAttribute('stroke-linecap', 'butt')
-    if (uMajStyle === 'dashed') uTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (uMajStyle === 'dotted') uTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (uMajStyle === 'dashed') uTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (uMajStyle === 'dotted') uTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     uTickPath.setAttribute('fill', 'none')
     svg.appendChild(uTickPath)
   }
@@ -296,8 +302,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uSubTickPath.setAttribute('stroke', uMinColor)
     uSubTickPath.setAttribute('stroke-width', String(uMinW))
     uSubTickPath.setAttribute('stroke-linecap', 'butt')
-    if (uMinStyle === 'dashed') uSubTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (uMinStyle === 'dotted') uSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (uMinStyle === 'dashed') uSubTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (uMinStyle === 'dotted') uSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     uSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(uSubTickPath)
   }
@@ -317,8 +325,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const yFontWeight = smpDoc?.axisY.fontWeight || 400
   const yFontStyle = smpDoc?.axisY.fontStyle || 'regular'
   const yLabelColor = smpDoc?.axisY.labelColor || '#000000'
-  const yShiftRight = smpDoc?.axisY.shiftRight || 0
-  const yShiftDown = smpDoc?.axisY.shiftDown || 0
+  const yShiftRight = (smpDoc?.axisY.shiftRight || 0) * scaleX
+  const yShiftDown = (smpDoc?.axisY.shiftDown || 0) * scaleY
 
   const showYTicks = smpDoc?.axisY.showTicks !== false
   const showYLabels = showYTicks && (smpDoc?.axisY.showLabels !== false)
@@ -414,8 +422,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     yTickPath.setAttribute('stroke', yMajColor)
     yTickPath.setAttribute('stroke-width', String(yMajW))
     yTickPath.setAttribute('stroke-linecap', 'butt')
-    if (yMajStyle === 'dashed') yTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (yMajStyle === 'dotted') yTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (yMajStyle === 'dashed') yTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (yMajStyle === 'dotted') yTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     yTickPath.setAttribute('fill', 'none')
     svg.appendChild(yTickPath)
   }
@@ -425,8 +435,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     ySubTickPath.setAttribute('stroke', yMinColor)
     ySubTickPath.setAttribute('stroke-width', String(yMinW))
     ySubTickPath.setAttribute('stroke-linecap', 'butt')
-    if (yMinStyle === 'dashed') ySubTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (yMinStyle === 'dotted') ySubTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (yMinStyle === 'dashed') ySubTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (yMinStyle === 'dotted') ySubTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     ySubTickPath.setAttribute('fill', 'none')
     svg.appendChild(ySubTickPath)
   }
@@ -467,8 +479,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const rFontWeight = rSpec?.fontWeight || 400
   const rFontStyle = rSpec?.fontStyle || 'regular'
   const rLabelColor = rSpec?.labelColor || '#000000'
-  const rShiftRight = rSpec?.shiftRight || 0
-  const rShiftDown = rSpec?.shiftDown || 0
+  const rShiftRight = (rSpec?.shiftRight || 0) * scaleX
+  const rShiftDown = (rSpec?.shiftDown || 0) * scaleY
 
   const rMajIn = rSpec?.majorIn ?? (rSpec?.insideTicks !== false)
   const rMajOut = rSpec?.majorOut ?? false
@@ -549,8 +561,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rTickPath.setAttribute('stroke', rMajColor)
     rTickPath.setAttribute('stroke-width', String(rMajW))
     rTickPath.setAttribute('stroke-linecap', 'butt')
-    if (rMajStyle === 'dashed') rTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (rMajStyle === 'dotted') rTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (rMajStyle === 'dashed') rTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (rMajStyle === 'dotted') rTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     rTickPath.setAttribute('fill', 'none')
     svg.appendChild(rTickPath)
   }
@@ -560,8 +574,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rSubTickPath.setAttribute('stroke', rMinColor)
     rSubTickPath.setAttribute('stroke-width', String(rMinW))
     rSubTickPath.setAttribute('stroke-linecap', 'butt')
-    if (rMinStyle === 'dashed') rSubTickPath.setAttribute('stroke-dasharray', '4 4')
-    else if (rMinStyle === 'dotted') rSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    if (isSection) {
+      if (rMinStyle === 'dashed') rSubTickPath.setAttribute('stroke-dasharray', '4 4')
+      else if (rMinStyle === 'dotted') rSubTickPath.setAttribute('stroke-dasharray', '2 2')
+    }
     rSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(rSubTickPath)
   }

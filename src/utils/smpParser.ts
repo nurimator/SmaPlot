@@ -420,7 +420,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
         i++
         if (i < docLines.length) {
-          axisSpec.rawLine2 = docLines[i].trim()
           const parts2 = docLines[i].trim().split(/\s+/)
           if (parts2.length >= 1) {
             const divs = parseInt(parts2[0], 10)
@@ -438,8 +437,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts2.length >= 8) {
             const sr = parseFloat(parts2[6])
             const sd = parseFloat(parts2[7])
-            if (!isNaN(sr)) axisSpec.shiftRight = Math.round(sr / 100)
-            if (!isNaN(sd)) axisSpec.shiftDown = Math.round(sd / 100)
+            if (!isNaN(sr)) axisSpec.shiftRight = sr / 100
+            if (!isNaN(sd)) axisSpec.shiftDown = sd / 100
           }
           if (parts2.length >= 10) {
             axisSpec.labelColorCode = parts2[9]
@@ -448,7 +447,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               axisSpec.fontSize = Math.round(fsVal / 50)
             }
           }
-          axisSpec.rawLine2Tail = parts2.length >= 12 ? '100 0' : '100'
+          axisSpec.rawLine2Tail = parts2.length >= 11 ? parts2.slice(10).join(' ') : '100 0'
           i++
         }
 
@@ -482,7 +481,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
 
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-          axisSpec.rawMajLine = docLines[i].trim()
           const parts5 = docLines[i].trim().split(/\s+/)
           if (parts5.length >= 5) {
             axisSpec.majorIn = parts5[0] === '1'
@@ -492,8 +490,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             axisSpec.majorWidth = (parseFloat(parts5[3]) / 100) || 0.4
             const cInt = parseInt(parts5[4], 10)
             if (!isNaN(cInt)) axisSpec.majorColor = bgrToHex(cInt)
-            if (parts5.length >= 7 && parts5[6] !== '2') {
-              axisSpec.majorStyle = parts5[6] === '3' ? 'dotted' : 'solid'
+            if (parts5.length >= 7) {
+              axisSpec.majorStyle = parts5[6] === '2' ? 'dashed' : parts5[6] === '3' ? 'dotted' : 'solid'
             } else {
               axisSpec.majorStyle = 'solid'
             }
@@ -502,7 +500,6 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
 
         if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-          axisSpec.rawMinLine = docLines[i].trim()
           const parts6 = docLines[i].trim().split(/\s+/)
           if (parts6.length >= 5) {
             axisSpec.minorIn = parts6[0] === '1'
@@ -511,8 +508,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             axisSpec.minorWidth = (parseFloat(parts6[3]) / 100) || 0.4
             const cInt = parseInt(parts6[4], 10)
             if (!isNaN(cInt)) axisSpec.minorColor = bgrToHex(cInt)
-            if (parts6.length >= 7 && parts6[6] !== '3') {
-              axisSpec.minorStyle = parts6[6] === '2' ? 'dashed' : 'solid'
+            if (parts6.length >= 7) {
+              axisSpec.minorStyle = parts6[6] === '2' ? 'dashed' : parts6[6] === '3' ? 'dotted' : 'solid'
             } else {
               axisSpec.minorStyle = 'solid'
             }

@@ -107,13 +107,10 @@ export interface SmpAxisSpec {
   // Native Sma4Win metadata preservation
   rawFixedTail?: string
   rawFormatSci?: boolean
-  rawLine2?: string
   rawLine2Tail?: string
   rawFontExtra?: string
   charset?: number
   labelColorCode?: string
-  rawMajLine?: string
-  rawMinLine?: string
 }
 
 export interface SmpLineAnnotation {

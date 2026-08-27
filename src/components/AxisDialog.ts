@@ -33,6 +33,22 @@ function syncAxisPair(source: SmpAxisSpec, target: SmpAxisSpec): void {
   target.minorWidth = source.minorWidth
   target.minorColor = source.minorColor
   target.minorStyle = source.minorStyle
+
+  target.shiftRight = source.shiftRight
+  target.shiftDown = source.shiftDown
+
+  target.fontSize = source.fontSize
+  target.fontFamily = source.fontFamily
+  target.fontWeight = source.fontWeight
+  target.fontStyle = source.fontStyle
+  target.labelColor = source.labelColor
+  target.labelColorCode = source.labelColorCode
+  target.addPlusSign = source.addPlusSign
+
+  target.rawFormatSci = source.rawFormatSci
+  target.rawFixedTail = source.rawFixedTail
+  target.rawLine2Tail = source.rawLine2Tail
+  target.rawFontExtra = source.rawFontExtra
 }
 
 export function initAxisDialog(overlayEl: HTMLElement): void {
