@@ -908,6 +908,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     }
     axisY.isSynced = isRSynced
 
+    const cleanLegendItems = legendItems.filter((it) => !(it.legendType === 3 && it.type === 'text'))
+
     docs.push({
       name: docBlock.name,
       left: docLeft,
@@ -928,7 +930,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       axisRight,
       syncWithU: isUSynced,
       syncWithR: isRSynced,
-      legendItems,
+      legendItems: cleanLegendItems,
       annotationLines,
       othersZerosLine,
       othersSymbolLine,

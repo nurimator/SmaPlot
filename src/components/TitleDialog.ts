@@ -54,7 +54,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
     const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
     const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
-    const sizeEl = overlayEl.querySelector<HTMLSelectElement>('#titleSize')
+    const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
     const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
     const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
 
@@ -286,7 +286,7 @@ export function showTitleDialog(
       const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
       const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
       const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
-      const sizeEl = overlayEl.querySelector<HTMLSelectElement>('#titleSize')
+      const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
       const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
 
@@ -306,15 +306,7 @@ export function showTitleDialog(
       }
 
       if (sizeEl) {
-        const sizeValStr = String(item.fontSize || 16)
-        const hasOption = Array.from(sizeEl.options).some((o) => o.value === sizeValStr)
-        if (!hasOption) {
-          const opt = document.createElement('option')
-          opt.value = sizeValStr
-          opt.textContent = sizeValStr
-          sizeEl.appendChild(opt)
-        }
-        sizeEl.value = sizeValStr
+        sizeEl.value = String(item.fontSize || 16)
       }
 
       if (fontEl) {
@@ -338,7 +330,7 @@ export function showTitleDialog(
       const rotEl = overlayEl.querySelector<HTMLSelectElement>('#titleRotate')
       const posXEl = overlayEl.querySelector<HTMLInputElement>('#titlePosX')
       const posYEl = overlayEl.querySelector<HTMLInputElement>('#titlePosY')
-      const sizeEl = overlayEl.querySelector<HTMLSelectElement>('#titleSize')
+      const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
       const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
       const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"][value="left"]')
@@ -353,13 +345,6 @@ export function showTitleDialog(
 
       const presetSize = preset ? String(preset.fontSize) : '16'
       if (sizeEl) {
-        const hasOption = Array.from(sizeEl.options).some((o) => o.value === presetSize)
-        if (!hasOption) {
-          const opt = document.createElement('option')
-          opt.value = presetSize
-          opt.textContent = presetSize
-          sizeEl.appendChild(opt)
-        }
         sizeEl.value = presetSize
       }
 

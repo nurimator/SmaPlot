@@ -40,6 +40,16 @@ export interface Dataset {
   options?: PlotVisualOptions
 }
 
+export interface SmpFrameTitle {
+  text: string
+  fontFamily: string
+  fontSize: number
+  bold: boolean
+  italic: boolean
+  align: 'left' | 'center' | 'right'
+  color: string
+}
+
 export interface SmpLegendItem {
   type?: 'text' | 'annotation'
   legendType?: number
@@ -154,6 +164,7 @@ export interface SmpPlotDoc {
   syncWithR?: boolean
   legendItems: SmpLegendItem[]
   annotationLines?: SmpLineAnnotation[]
+  frameTitle?: SmpFrameTitle
   othersZerosLine?: string
   othersSymbolLine?: string
   xLabel?: string

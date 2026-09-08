@@ -286,7 +286,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   formatAxis(2, axisTopExport)
   formatAxis(3, axisRightExport)
 
-  const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])]
+  const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])].filter(
+    (it) => !(it.legendType === 3 && it.type === 'text' && !(it.rawLine && it.rawLine.startsWith('3')))
+  )
+  // frameTitle is stored-only until native mapping is proven; never export as [LEGEND] 3 (native rectangle).
   if (legendItems.length === 0) {
     if (doc.xLabel) {
       legendItems.push({

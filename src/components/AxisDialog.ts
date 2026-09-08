@@ -367,7 +367,9 @@ export function showAxisDialog(
       if (axisFontFamily) axisFontFamily.value = spec.fontFamily || 'Times New Roman'
       if (axisLabelColor) axisLabelColor.value = spec.labelColor || '#000000'
       if (axisFontStyle) axisFontStyle.value = spec.fontStyle || (spec.fontWeight >= 600 ? 'bold' : 'regular')
-      if (axisFontSize) axisFontSize.value = String(spec.fontSize || 24)
+      if (axisFontSize) {
+        axisFontSize.value = String(spec.fontSize || 24)
+      }
       if (axisShiftRight) axisShiftRight.value = String(spec.shiftRight || 0)
       if (axisShiftDown) axisShiftDown.value = String(spec.shiftDown || 0)
       if (axisAddPlusSign) axisAddPlusSign.checked = spec.addPlusSign ?? false

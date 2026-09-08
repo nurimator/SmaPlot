@@ -148,6 +148,7 @@ export function captureWorkspaceDigest(): string {
             rawLine: item.rawLine || null,
           })),
           annotationLines: (doc.annotationLines || []).map((aLine) => ({ ...aLine })),
+          frameTitle: doc.frameTitle ? { ...doc.frameTitle } : null,
           xLabel: doc.xLabel || null,
           yLabel: doc.yLabel || null,
           datasets: datasets.map((ds) => ({
@@ -258,6 +259,7 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     syncWithR,
     legendItems: existingDoc?.legendItems || [],
     annotationLines: existingDoc?.annotationLines || [],
+    frameTitle: existingDoc?.frameTitle ? { ...existingDoc.frameTitle } : undefined,
     xLabel: existingDoc?.xLabel,
     yLabel: existingDoc?.yLabel,
     frameType: existingDoc?.frameType,

@@ -1916,6 +1916,94 @@ body.accesskey-mode .menu-accel {
   width: 100%;
 }
 
+/* ===== Custom Combobox (Editable Input + Custom Dropdown) ===== */
+.custom-combobox {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  transition: all 0.12s ease;
+}
+
+.custom-combobox.full-width {
+  width: 100%;
+}
+
+.custom-combobox.width-sm {
+  width: 78px;
+}
+
+.custom-combobox:focus-within {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.custom-combobox-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 6px 0 8px !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--slate-800);
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide native browser spin buttons (up/down arrows on number inputs) */
+.custom-combobox-input::-webkit-outer-spin-button,
+.custom-combobox-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-combobox-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 100%;
+  border: none;
+  border-left: 1px solid var(--slate-200);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s;
+}
+
+.custom-combobox-toggle:hover {
+  background-color: var(--slate-100);
+}
+
+.custom-combobox-toggle::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.6px solid var(--slate-500);
+  border-bottom: 1.6px solid var(--slate-500);
+  transform: translateY(-25%) rotate(45deg);
+  pointer-events: none;
+  transition: transform 0.12s ease;
+}
+
+.custom-combobox-toggle.open::after {
+  transform: translateY(25%) rotate(-135deg);
+}
+
 /* Single Unified Button Style */
 .btn,
 .btn-sm {

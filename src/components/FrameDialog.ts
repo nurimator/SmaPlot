@@ -1,4 +1,4 @@
-import type { SmpLegendItem, SmpPlotDoc } from '../types.ts'
+import type { SmpFrameTitle, SmpPlotDoc } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, PLOT_MARGIN, SMP_SCALE, setAxisSync, syncPlotOverlay, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
@@ -48,16 +48,14 @@ interface TitleReadState {
 }
 
 function readTitleState(smpDoc: SmpPlotDoc): TitleReadState {
-  const item = smpDoc.legendItems.find((it) => it.legendType === 3 || (it.type === 'text' && it.legendType !== 4 && it.legendType !== 5))
-  const isBold = (item?.fontWeight || 400) >= 600
-  const isItalic = item?.fontStyle === 'italic'
+  const item = smpDoc.frameTitle
   return {
     text: item?.text || '',
     fontFamily: item?.fontFamily || 'Times New Roman',
     fontSize: item?.fontSize || 16,
-    bold: isBold,
-    italic: isItalic,
-    align: (item?.align as 'left' | 'center' | 'right') || 'center',
+    bold: item?.bold ?? false,
+    italic: item?.italic ?? false,
+    align: item?.align || 'center',
     color: item?.color || '#000000',
   }
 }
@@ -113,35 +111,28 @@ export function initFrameDialog(overlayEl: HTMLElement): void {
   const frameSyncXU = overlayEl.querySelector<HTMLInputElement>('#frameSyncXU')
   const frameSyncYR = overlayEl.querySelector<HTMLInputElement>('#frameSyncYR')
 
-  const findOrCreateTitleItem = (smpDoc: SmpPlotDoc): SmpLegendItem => {
-    let item = smpDoc.legendItems.find((it) => it.legendType === 3)
-    if (!item) {
-      item = smpDoc.legendItems.find((it) => it.type === 'text' && it.legendType !== 4 && it.legendType !== 5)
-    }
-    if (!item) {
-      item = {
-        type: 'text',
-        legendType: 3,
+  const getOrCreateFrameTitle = (smpDoc: SmpPlotDoc): SmpFrameTitle => {
+    if (!smpDoc.frameTitle) {
+      smpDoc.frameTitle = {
         text: '',
-        rawText: '',
-        xNorm: 5000,
-        yNorm: -800,
-        rotation: 0,
-        fontSize: 16,
         fontFamily: 'Times New Roman',
-        fontWeight: 400,
+        fontSize: 16,
+        bold: false,
+        italic: false,
         align: 'center',
+        color: '#000000',
       }
-      smpDoc.legendItems.push(item)
     }
-    return item
+    return smpDoc.frameTitle
   }
 
   const populateTitleInputs = (smpDoc: SmpPlotDoc) => {
     const t = readTitleState(smpDoc)
     if (titleStringInput) titleStringInput.value = t.text
     if (titleFontSelect) titleFontSelect.value = t.fontFamily
-    if (titleSizeInput) titleSizeInput.value = String(t.fontSize)
+    if (titleSizeInput) {
+      titleSizeInput.value = String(t.fontSize || 16)
+    }
     if (titleStyleSelect) {
       if (t.bold && t.italic) titleStyleSelect.value = 'bold-italic'
       else if (t.bold) titleStyleSelect.value = 'bold'
@@ -159,15 +150,14 @@ export function initFrameDialog(overlayEl: HTMLElement): void {
     if (!smpDoc) return
 
     const titleText = titleStringInput?.value || ''
-    const item = findOrCreateTitleItem(smpDoc)
+    const item = getOrCreateFrameTitle(smpDoc)
     item.text = titleText
-    item.rawText = titleText
     item.fontFamily = titleFontSelect?.value || 'Times New Roman'
     item.fontSize = parseInt(titleSizeInput?.value || '16', 10) || 16
 
     const styleVal = titleStyleSelect?.value || 'regular'
-    item.fontWeight = styleVal.includes('bold') ? 700 : 400
-    item.fontStyle = styleVal.includes('italic') ? 'italic' : 'normal'
+    item.bold = styleVal.includes('bold')
+    item.italic = styleVal.includes('italic')
     item.align = (titleAlignSelect?.value as 'left' | 'center' | 'right') || 'center'
     item.color = titleColorInput?.value || '#000000'
 
@@ -439,6 +429,7 @@ function restoreSnapshot(): void {
 
   if (!('axisTop' in snap) && smpDoc.axisTop) delete smpDoc.axisTop
   if (!('axisRight' in snap) && smpDoc.axisRight) delete smpDoc.axisRight
+  if (!('frameTitle' in snap) && smpDoc.frameTitle) delete smpDoc.frameTitle
 
   const frameLeft = smpDoc.left * SMP_SCALE
   const frameTop = smpDoc.top * SMP_SCALE

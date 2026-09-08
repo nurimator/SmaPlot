@@ -745,7 +745,26 @@
                   </div>
                   <div class="form-field-stacked">
                     <label class="title-field-label">Size</label>
-                    <input type="number" id="axisFontSize" value="24" min="6" max="72" class="form-input-num full-width" />
+                    <div class="custom-combobox full-width">
+                      <input type="number" id="axisFontSize" class="custom-combobox-input" value="24" min="1" max="144" />
+                      <select class="custom-combobox-select" tabindex="-1" aria-label="Select axis font size">
+                        <option value="8">8</option>
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                        <option value="14">14</option>
+                        <option value="16">16</option>
+                        <option value="18">18</option>
+                        <option value="20">20</option>
+                        <option value="22">22</option>
+                        <option value="24" selected>24</option>
+                        <option value="26">26</option>
+                        <option value="28">28</option>
+                        <option value="30">30</option>
+                        <option value="32">32</option>
+                        <option value="34">34</option>
+                        <option value="36">36</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -866,7 +885,26 @@
               </div>
               <div class="form-field-stacked">
                 <label class="title-field-label" for="frameTitleSize">Size</label>
-                <input type="number" id="frameTitleSize" value="16" min="6" max="72" class="form-input-num full-width" />
+                <div class="custom-combobox full-width">
+                  <input type="number" id="frameTitleSize" class="custom-combobox-input" value="16" min="1" max="144" />
+                  <select class="custom-combobox-select" tabindex="-1" aria-label="Select frame title size">
+                    <option value="8">8</option>
+                    <option value="10">10</option>
+                    <option value="12">12</option>
+                    <option value="14">14</option>
+                    <option value="16" selected>16</option>
+                    <option value="18">18</option>
+                    <option value="20">20</option>
+                    <option value="22">22</option>
+                    <option value="24">24</option>
+                    <option value="26">26</option>
+                    <option value="28">28</option>
+                    <option value="30">30</option>
+                    <option value="32">32</option>
+                    <option value="34">34</option>
+                    <option value="36">36</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1013,14 +1051,26 @@
               <div class="title-font-grid">
                 <div class="form-field-stacked">
                   <label class="title-field-label">Size</label>
-                  <select id="titleSize" class="form-select width-sm">
-                    <option value="10">10</option>
-                    <option value="12">12</option>
-                    <option value="14">14</option>
-                    <option value="16" selected>16</option>
-                    <option value="18">18</option>
-                    <option value="20">20</option>
-                  </select>
+                  <div class="custom-combobox width-sm">
+                    <input type="number" id="titleSize" class="custom-combobox-input" value="16" min="1" max="144" />
+                    <select class="custom-combobox-select" tabindex="-1" aria-label="Select text size">
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="12">12</option>
+                      <option value="14">14</option>
+                      <option value="16" selected>16</option>
+                      <option value="18">18</option>
+                      <option value="20">20</option>
+                      <option value="22">22</option>
+                      <option value="24">24</option>
+                      <option value="26">26</option>
+                      <option value="28">28</option>
+                      <option value="30">30</option>
+                      <option value="32">32</option>
+                      <option value="34">34</option>
+                      <option value="36">36</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="form-field-stacked">
                   <label class="title-field-label">Font</label>
