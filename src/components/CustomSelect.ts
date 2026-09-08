@@ -1,5 +1,6 @@
 import { createSVGElement } from './plot/svg.ts'
 import { createSeriesSymbol, createArrowShapeSymbol } from './plot/symbols.ts'
+import { DIAMOND_FAMILY, TRIANGLE_FAMILY } from '../utils/smpMarkerCodes.ts'
 
 interface OpenPopup {
   popup: HTMLElement
@@ -23,9 +24,24 @@ function buildIconSvg(symbol: SVGElement | null): string {
   return svg.outerHTML
 }
 
+export function iconRadius(value: string): number {
+  if (value === 'step_h' || value === 'step_v') return 2.5
+  if (
+    value === 'circle_whisker_r' ||
+    value === 'circle_whisker_l' ||
+    value === 'circle_whisker_d' ||
+    value === 'circle_whisker_u'
+  ) {
+    return 2.5
+  }
+  if (DIAMOND_FAMILY.has(value)) return 3.5
+  if (TRIANGLE_FAMILY.has(value)) return 4
+  return 4.5
+}
+
 function optionIconHtml(opt: HTMLOptionElement): string {
   if (opt.dataset.symbol === 'series') {
-    return buildIconSvg(createSeriesSymbol(opt.value, 6, 6, 4.5, '#475569', '#ffffff'))
+    return buildIconSvg(createSeriesSymbol(opt.value, 6, 6, iconRadius(opt.value), '#475569', '#ffffff'))
   }
   if (opt.dataset.symbol === 'arrow') {
     return buildIconSvg(createArrowShapeSymbol(opt.value))

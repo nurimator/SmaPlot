@@ -1,8 +1,8 @@
 import { renderSmpTextToHtml } from '../../utils/smpSymbolMapper.ts'
 import { isSeriesLegendText } from './dataset.ts'
-import { createOverlayEl, createSVGElement, starPoints } from './svg.ts'
+import { createOverlayEl, createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
-import { getLineDashArray } from './symbols.ts'
+import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
 import { getPlotOverlay } from './state.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import {
@@ -150,119 +150,17 @@ export function renderLegend(ctx: PlotRenderContext): void {
           legGroup.appendChild(legLine)
 
           const plotType = ds?.options?.plotType || 'no_dot'
-          if (plotType !== 'no_dot' && plotType !== 'none') {
+          if (plotType !== 'no_dot' && plotType !== 'none' && plotType !== 'bar') {
             const dotColor = ds?.options?.dotColor || color
             const paintColor = ds?.options?.paintColor || '#ffffff'
             const r = Math.max(3, ds?.options?.size || 3.5)
             const cx = renderPx + 9
-
-            if (plotType === 'circle' || plotType === 'filled_circle') {
-              const circle = createSVGElement('circle')
-              circle.setAttribute('cx', String(cx))
-              circle.setAttribute('cy', String(legY))
-              circle.setAttribute('r', String(r))
-              circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
-              circle.setAttribute('stroke', dotColor)
-              circle.setAttribute('stroke-width', '1')
-              circle.style.cursor = isSelected ? 'move' : 'pointer'
-              circle.addEventListener('mousedown', handleLegendMouseDown)
-              circle.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(circle)
-            } else if (plotType === 'square' || plotType === 'filled_square') {
-              const rect = createSVGElement('rect')
-              rect.setAttribute('x', String(cx - r))
-              rect.setAttribute('y', String(legY - r))
-              rect.setAttribute('width', String(r * 2))
-              rect.setAttribute('height', String(r * 2))
-              rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
-              rect.setAttribute('stroke', dotColor)
-              rect.setAttribute('stroke-width', '1')
-              rect.style.cursor = isSelected ? 'move' : 'pointer'
-              rect.addEventListener('mousedown', handleLegendMouseDown)
-              rect.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(rect)
-            } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
-              const poly = createSVGElement('polygon')
-              const p1 = `${cx},${legY - r}`
-              const p2 = `${cx - r},${legY + r}`
-              const p3 = `${cx + r},${legY + r}`
-              poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-              poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
-              poly.setAttribute('stroke', dotColor)
-              poly.setAttribute('stroke-width', '1')
-              poly.style.cursor = isSelected ? 'move' : 'pointer'
-              poly.addEventListener('mousedown', handleLegendMouseDown)
-              poly.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(poly)
-            } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
-              const poly = createSVGElement('polygon')
-              const p1 = `${cx - r},${legY - r}`
-              const p2 = `${cx + r},${legY - r}`
-              const p3 = `${cx},${legY + r}`
-              poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-              poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
-              poly.setAttribute('stroke', dotColor)
-              poly.setAttribute('stroke-width', '1')
-              poly.style.cursor = isSelected ? 'move' : 'pointer'
-              poly.addEventListener('mousedown', handleLegendMouseDown)
-              poly.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(poly)
-            } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
-              const poly = createSVGElement('polygon')
-              const p1 = `${cx},${legY - r}`
-              const p2 = `${cx + r},${legY}`
-              const p3 = `${cx},${legY + r}`
-              const p4 = `${cx - r},${legY}`
-              poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
-              poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
-              poly.setAttribute('stroke', dotColor)
-              poly.setAttribute('stroke-width', '1')
-              poly.style.cursor = isSelected ? 'move' : 'pointer'
-              poly.addEventListener('mousedown', handleLegendMouseDown)
-              poly.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(poly)
-            } else if (plotType === 'star') {
-              const poly = createSVGElement('polygon')
-              poly.setAttribute('points', starPoints(cx, legY, r))
-              poly.setAttribute('fill', paintColor)
-              poly.setAttribute('stroke', dotColor)
-              poly.setAttribute('stroke-width', '1')
-              poly.style.cursor = isSelected ? 'move' : 'pointer'
-              poly.addEventListener('mousedown', handleLegendMouseDown)
-              poly.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(poly)
-            } else if (plotType === 'plus' || plotType === 'cross') {
-              const g = createSVGElement('g')
-              const l1 = createSVGElement('line')
-              const l2 = createSVGElement('line')
-              if (plotType === 'plus') {
-                l1.setAttribute('x1', String(cx - r))
-                l1.setAttribute('y1', String(legY))
-                l1.setAttribute('x2', String(cx + r))
-                l1.setAttribute('y2', String(legY))
-                l2.setAttribute('x1', String(cx))
-                l2.setAttribute('y1', String(legY - r))
-                l2.setAttribute('x2', String(cx))
-                l2.setAttribute('y2', String(legY + r))
-              } else {
-                l1.setAttribute('x1', String(cx - r))
-                l1.setAttribute('y1', String(legY - r))
-                l1.setAttribute('x2', String(cx + r))
-                l1.setAttribute('y2', String(legY + r))
-                l2.setAttribute('x1', String(cx - r))
-                l2.setAttribute('y1', String(legY + r))
-                l2.setAttribute('x2', String(cx + r))
-                l2.setAttribute('y2', String(legY - r))
-              }
-              for (const line of [l1, l2]) {
-                line.setAttribute('stroke', dotColor)
-                line.setAttribute('stroke-width', '1')
-                g.appendChild(line)
-              }
-              g.style.cursor = isSelected ? 'move' : 'pointer'
-              g.addEventListener('mousedown', handleLegendMouseDown)
-              g.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(g)
+            const symbol = createSeriesSymbol(plotType, cx, legY, r, dotColor, paintColor, 1)
+            if (symbol) {
+              symbol.style.cursor = isSelected ? 'move' : 'pointer'
+              symbol.addEventListener('mousedown', handleLegendMouseDown)
+              symbol.addEventListener('dblclick', openTitleModal)
+              legGroup.appendChild(symbol)
             }
           }
           }

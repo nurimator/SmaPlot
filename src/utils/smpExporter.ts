@@ -1,5 +1,6 @@
 import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
 import { unicodeToSmp } from './smpSymbolMapper.ts'
+import { PLOT_TO_SYM_CODE } from './smpMarkerCodes.ts'
 
 const MM_TO_SMP = 100
 const SMP_TICK_UNIT_MM = 0.02
@@ -81,22 +82,8 @@ function formatFloatSci(val: number): string {
 }
 
 function plotTypeToCode(pt?: string): number {
-  switch (pt) {
-    case 'filled_circle': return 1
-    case 'circle': return 2
-    case 'filled_triangle': return 3
-    case 'triangle': return 4
-    case 'filled_square': return 5
-    case 'square': return 6
-    case 'filled_triangle_down': return 7
-    case 'triangle_down': return 8
-    case 'filled_diamond': return 9
-    case 'diamond': return 10
-    case 'plus': return 11
-    case 'cross': return 12
-    case 'star': return 41
-    default: return 0
-  }
+  if (!pt) return 0
+  return PLOT_TO_SYM_CODE[pt] ?? 0
 }
 
 function lineTypeToCode(lt?: string): number {

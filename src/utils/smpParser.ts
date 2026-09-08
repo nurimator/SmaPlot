@@ -1,5 +1,6 @@
 import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
 import { smpToUnicode } from './smpSymbolMapper.ts'
+import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -204,6 +205,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     let yLabel: string | undefined
 
     let currentSection = ''
+    let inDataBlock = false
     let i = 0
 
     while (i < docLines.length) {
@@ -216,11 +218,33 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       }
 
       if (line.startsWith('[') && line.endsWith(']')) {
-        currentSection = line.slice(1, -1).trim()
+        const inner = line.slice(1, -1).trim()
+        if (inDataBlock) {
+          if (
+            inner === 'GRAPH' ||
+            inner === 'LEGEND' ||
+            inner === 'OTHERS' ||
+            inner === 'MASKS' ||
+            inner === 'DATA' ||
+            inner.startsWith('AXIS-')
+          ) {
+            inDataBlock = false
+          } else {
+            i++
+            continue
+          }
+        }
+        currentSection = inner
+        if (currentSection === 'DATA') inDataBlock = true
         i++
         if (currentSection === 'LEGEND' && i < docLines.length && /^\d+$/.test(docLines[i].trim())) {
           i++
         }
+        continue
+      }
+
+      if (inDataBlock) {
+        i++
         continue
       }
 
@@ -273,19 +297,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts.length >= 2) {
             const symCode = parseInt(parts[1], 10)
             if (!isNaN(symCode)) {
-              if (symCode === 1) plotType = 'filled_circle'
-              else if (symCode === 2) plotType = 'circle'
-              else if (symCode === 3) plotType = 'filled_triangle'
-              else if (symCode === 4) plotType = 'triangle'
-              else if (symCode === 5) plotType = 'filled_square'
-              else if (symCode === 6) plotType = 'square'
-              else if (symCode === 7) plotType = 'filled_triangle_down'
-              else if (symCode === 8) plotType = 'triangle_down'
-              else if (symCode === 9) plotType = 'filled_diamond'
-              else if (symCode === 10) plotType = 'diamond'
-              else if (symCode === 11) plotType = 'plus'
-              else if (symCode === 12) plotType = 'cross'
-              else if (symCode === 41) plotType = 'star'
+              const mapped = SYM_CODE_TO_PLOT[symCode]
+              if (mapped !== undefined) plotType = mapped
             }
           }
           if (parts.length >= 3) {

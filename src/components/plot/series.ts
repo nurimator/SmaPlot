@@ -1,6 +1,25 @@
-import { createSVGElement, starPoints } from './svg.ts'
+import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
-import { getLineDashArray } from './symbols.ts'
+import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
+
+function buildStepOverlayPath(
+  xs: number[],
+  ys: number[],
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  mode: 'step_h' | 'step_v'
+): string {
+  let d = `M ${dsSx(xs[0]).toFixed(1)},${dsSy(ys[0]).toFixed(1)}`
+  for (let i = 1; i < xs.length; i++) {
+    const px = dsSx(xs[i]).toFixed(1)
+    const py = dsSy(ys[i]).toFixed(1)
+    const prevPx = dsSx(xs[i - 1]).toFixed(1)
+    const prevPy = dsSy(ys[i - 1]).toFixed(1)
+    if (mode === 'step_h') d += ` L ${prevPx},${py} L ${px},${py}`
+    else d += ` L ${px},${prevPy} L ${px},${py}`
+  }
+  return d
+}
 
 export function renderSeries(ctx: PlotRenderContext): void {
   const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr } = ctx
@@ -82,99 +101,34 @@ export function renderSeries(ctx: PlotRenderContext): void {
         dsScaleGroup.appendChild(path)
       }
 
-      if (plotType !== 'no_dot') {
+      // step
+      if ((plotType === 'step_h' || plotType === 'step_v') && ds.x.length > 1) {
+        const markerSw = parseFloat(strokeWidth)
+        const overlay = createSVGElement('path')
+        overlay.setAttribute('d', buildStepOverlayPath(ds.x, ds.y, dsSx, dsSy, plotType))
+        overlay.setAttribute('fill', 'none')
+        overlay.setAttribute('stroke', dotColor)
+        overlay.setAttribute('stroke-width', String(markerSw))
+        overlay.setAttribute('vector-effect', 'non-scaling-stroke')
+        overlay.setAttribute('stroke-linejoin', 'round')
+        overlay.setAttribute('stroke-linecap', 'round')
+        dsGroup.appendChild(overlay)
+      }
+
+      if (
+        plotType !== 'no_dot' &&
+        plotType !== 'none' &&
+        plotType !== 'bar' &&
+        plotType !== 'step_h' &&
+        plotType !== 'step_v'
+      ) {
         const step = Math.max(1, opts.pitch || 1)
+        const markerSw = parseFloat(strokeWidth)
         for (let i = 0; i < ds.x.length; i += step) {
           const px = dsSx(ds.x[i])
           const py = dsSy(ds.y[i])
-
-          if (plotType === 'circle' || plotType === 'filled_circle') {
-            const circle = createSVGElement('circle')
-            circle.setAttribute('cx', String(px))
-            circle.setAttribute('cy', String(py))
-            circle.setAttribute('r', String(dotSize))
-            circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
-            circle.setAttribute('stroke', dotColor)
-            circle.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(circle)
-          } else if (plotType === 'square' || plotType === 'filled_square') {
-            const rect = createSVGElement('rect')
-            rect.setAttribute('x', String(px - dotSize))
-            rect.setAttribute('y', String(py - dotSize))
-            rect.setAttribute('width', String(dotSize * 2))
-            rect.setAttribute('height', String(dotSize * 2))
-            rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
-            rect.setAttribute('stroke', dotColor)
-            rect.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(rect)
-          } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px},${py - dotSize}`
-            const p2 = `${px - dotSize},${py + dotSize}`
-            const p3 = `${px + dotSize},${py + dotSize}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-            poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px - dotSize},${py - dotSize}`
-            const p2 = `${px + dotSize},${py - dotSize}`
-            const p3 = `${px},${py + dotSize}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-            poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px},${py - dotSize}`
-            const p2 = `${px + dotSize},${py}`
-            const p3 = `${px},${py + dotSize}`
-            const p4 = `${px - dotSize},${py}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
-            poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'star') {
-            const poly = createSVGElement('polygon')
-            poly.setAttribute('points', starPoints(px, py, dotSize))
-            poly.setAttribute('fill', paintColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'plus' || plotType === 'cross') {
-            const g = createSVGElement('g')
-            const l1 = createSVGElement('line')
-            const l2 = createSVGElement('line')
-            if (plotType === 'plus') {
-              l1.setAttribute('x1', String(px - dotSize))
-              l1.setAttribute('y1', String(py))
-              l1.setAttribute('x2', String(px + dotSize))
-              l1.setAttribute('y2', String(py))
-              l2.setAttribute('x1', String(px))
-              l2.setAttribute('y1', String(py - dotSize))
-              l2.setAttribute('x2', String(px))
-              l2.setAttribute('y2', String(py + dotSize))
-            } else {
-              l1.setAttribute('x1', String(px - dotSize))
-              l1.setAttribute('y1', String(py - dotSize))
-              l1.setAttribute('x2', String(px + dotSize))
-              l1.setAttribute('y2', String(py + dotSize))
-              l2.setAttribute('x1', String(px - dotSize))
-              l2.setAttribute('y1', String(py + dotSize))
-              l2.setAttribute('x2', String(px + dotSize))
-              l2.setAttribute('y2', String(py - dotSize))
-            }
-            for (const line of [l1, l2]) {
-              line.setAttribute('stroke', dotColor)
-              line.setAttribute('stroke-width', '1')
-              g.appendChild(line)
-            }
-            dsGroup.appendChild(g)
-          }
+          const symbol = createSeriesSymbol(plotType, px, py, dotSize, dotColor, paintColor, markerSw)
+          if (symbol) dsGroup.appendChild(symbol)
         }
       }
     }
