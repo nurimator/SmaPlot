@@ -1,7 +1,7 @@
 import './style.css'
 import { initTitlebar } from './components/Titlebar.ts'
 import { initMenubar, closeAllMenuDropdowns } from './components/Menubar.ts'
-import { initAppShortcuts } from './components/shortcut.ts'
+import { initAppShortcuts, registerShortcut } from './components/shortcut.ts'
 import { bindActionButtons, initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { initMarqueeExport } from './components/MarqueeExport.ts'
@@ -52,6 +52,14 @@ import type { TitlePreset } from './components/TitleDialog.ts'
 import type { Dataset } from './types.ts'
 import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
+import { hideAnalyzeDialog, initAnalyzeDialog, showAnalyzeDialog } from './components/AnalyzeDialog.ts'
+import type { AnalyzeTab } from './components/AnalyzeDialog.ts'
+import {
+  copyAnalyzeResults,
+  resolveAnalyzeSvg,
+  runAnalyzeClear,
+  runAnalyzeRepeat,
+} from './components/AnalyzeOps.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initCustomSelects } from './components/CustomSelect.ts'
 import { initFrameDialog, showFrameDialog } from './components/FrameDialog.ts'
@@ -83,6 +91,7 @@ const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const constantOverlayEl = document.querySelector<HTMLElement>('#constantOverlay')!
+const analyzeOverlayEl = document.querySelector<HTMLElement>('#analyzeOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
@@ -132,6 +141,7 @@ document.title = `SmaPlot v${APP_VERSION} - Untitled`
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (constantOverlayEl) initConstantDialog(constantOverlayEl)
+if (analyzeOverlayEl) initAnalyzeDialog(analyzeOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
@@ -454,6 +464,86 @@ if (menubarEl) {
       showArrowDialog(arrowOverlayEl)
     } else if (action === 'constant') {
       showConstantDialog(constantOverlayEl)
+    } else if (
+      action === 'ls_poly' || action === 'ls_exp' || action === 'ls_log' ||
+      action === 'ls_power' || action === 'ls' || action === 'least_square_fit'
+    ) {
+      const tab: AnalyzeTab = action === 'least_square_fit' ? 'general' : 'fit'
+      showAnalyzeDialog(analyzeOverlayEl, tab)
+      if (action === 'ls_exp' || action === 'ls_log' || action === 'ls_power' || action === 'ls_poly') {
+        const modelSel = document.querySelector<HTMLSelectElement>('#analyzeFitModel')
+        if (modelSel) {
+          if (action === 'ls_exp') modelSel.value = 'exp'
+          else if (action === 'ls_log') modelSel.value = 'log'
+          else if (action === 'ls_power') modelSel.value = 'power'
+          else modelSel.value = 'poly'
+        }
+      }
+    } else if (action === 'ls_general') {
+      showAnalyzeDialog(analyzeOverlayEl, 'general')
+    } else if (action === 'ls_eval') {
+      if (isReadValueOpen() && readValueOverlayEl) {
+        hideReadValueDialog(readValueOverlayEl)
+      } else {
+        handleReadValue()
+      }
+    } else if (
+      action === 'spline_cubic' || action === 'spline_param' ||
+      action === 'spline_closed' || action === 'spline'
+    ) {
+      showAnalyzeDialog(analyzeOverlayEl, 'spline')
+      const modeSel = document.querySelector<HTMLSelectElement>('#analyzeSplineMode')
+      if (modeSel) {
+        if (action === 'spline_param') modeSel.value = 'parametric'
+        else if (action === 'spline_closed') modeSel.value = 'parametric_closed'
+        else modeSel.value = 'cubic'
+      }
+    } else if (
+      action === 'ext_gauss' || action === 'ext_lorentz' || action === 'ext_peak' ||
+      action === 'ext_fft' || action === 'ext_ifft' || action === 'extension'
+    ) {
+      if (action === 'ext_ifft') {
+        alert('IFFT reconstructs the signal from its spectrum; use FFT result with Copy, then Draw Function to re-import.')
+      }
+      showAnalyzeDialog(analyzeOverlayEl, 'special')
+      const kindSel = document.querySelector<HTMLSelectElement>('#analyzeSpecialKind')
+      if (kindSel) {
+        if (action === 'ext_gauss') kindSel.value = 'gauss'
+        else if (action === 'ext_lorentz') kindSel.value = 'lorentz'
+        else if (action === 'ext_peak') kindSel.value = 'peak'
+        else if (action === 'ext_fft' || action === 'ext_ifft') kindSel.value = 'fft'
+      }
+    } else if (action === 'analyze_repeat' || action === 'one_more') {
+      const svg = resolveAnalyzeSvg()
+      if (!svg) {
+        alert('No plot available.')
+      } else {
+        const res = runAnalyzeRepeat(svg)
+        if (res === null) showAnalyzeDialog(analyzeOverlayEl, 'fit')
+      }
+    } else if (action === 'analyze_clear') {
+      const svg = resolveAnalyzeSvg()
+      if (svg) {
+        const n = runAnalyzeClear(svg)
+        if (n === 0) alert('No analyze results to clear.')
+      } else {
+        alert('No plot available.')
+      }
+    } else if (action === 'function_a') {
+      showAnalyzeDialog(analyzeOverlayEl, 'function')
+    } else if (action === 'setup_constants') {
+      showConstantDialog(constantOverlayEl)
+    } else if (action === 'copy_clipboard') {
+      const svg = resolveAnalyzeSvg()
+      if (svg) {
+        void copyAnalyzeResults(svg).then((text) => {
+          alert(`Copied ${text.split('\n').length} line(s) to clipboard.`)
+        })
+      } else {
+        alert('No plot available.')
+      }
+    } else if (action === 'analyze_result') {
+      showAnalyzeDialog(analyzeOverlayEl, 'result')
     } else if (action === 'rectangle') {
       showRectangleDialog(rectOverlayEl)
     } else if (action === 'read_value' || action === 'read-value') {
@@ -923,6 +1013,20 @@ initAppShortcuts({
   openYAxis: () => showAxisDialog(axisOverlayEl, 'y'),
 })
 
+registerShortcut({ key: 'b', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  showAnalyzeDialog(analyzeOverlayEl, 'fit')
+})
+registerShortcut({ key: 'g', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  showConstantDialog(constantOverlayEl)
+})
+registerShortcut({ key: 'a', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  const svg = resolveAnalyzeSvg()
+  if (svg && runAnalyzeRepeat(svg) === null) showAnalyzeDialog(analyzeOverlayEl, 'fit')
+})
+
 // ── Mobile: header + footer bars ──
 const mobileHeaderEl = document.querySelector<HTMLElement>('#mobileHeader')
 const mobileNavEl = document.querySelector<HTMLElement>('#mobileNav')
@@ -979,6 +1083,7 @@ registerDialogCloser(axisOverlayEl, hideAxisDialog)
 registerDialogCloser(titleOverlayEl, hideTitleDialog)
 registerDialogCloser(arrowOverlayEl, hideArrowDialog)
 registerDialogCloser(constantOverlayEl, hideConstantDialog)
+registerDialogCloser(analyzeOverlayEl, hideAnalyzeDialog)
 registerDialogCloser(rectOverlayEl, hideRectangleDialog)
 registerDialogCloser(readValueOverlayEl, hideReadValueDialog)
 registerDialogCloser(colorPickerOverlayEl, hideColorPickerDialog)

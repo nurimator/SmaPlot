@@ -151,17 +151,52 @@
           <div class="menu-item" data-menu="analyze" data-accesskey="a">
             Analyze<span class="menu-accel"> (A)</span>
             <div class="menu-dropdown">
-              <div class="dropdown-item" data-action="ls">LS<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="least_square_fit">Least square fit<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="spline">Spline<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="extension">Extension<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="one_more">One more...<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item has-submenu">
+                <div class="submenu-header">
+                  <span>Least Squares(L)</span>
+                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                </div>
+                <div class="menu-submenu">
+                  <div class="dropdown-item" data-action="ls_poly">Polynomial(P) Ctrl+B</div>
+                  <div class="dropdown-item" data-action="ls_exp">Exponential(E)</div>
+                  <div class="dropdown-item" data-action="ls_log">Logarithmic(L)</div>
+                  <div class="dropdown-item" data-action="ls_power">Power</div>
+                  <div class="dropdown-item" data-action="ls_general">General Function(F)</div>
+                  <div class="dropdown-separator"></div>
+                  <div class="dropdown-item" data-action="ls_eval">Evaluate Value</div>
+                </div>
+              </div>
+              <div class="dropdown-item has-submenu">
+                <div class="submenu-header">
+                  <span>Spline(S)</span>
+                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                </div>
+                <div class="menu-submenu">
+                  <div class="dropdown-item" data-action="spline_cubic">Cubic Spline(S)</div>
+                  <div class="dropdown-item" data-action="spline_param">Parametric Spline</div>
+                  <div class="dropdown-item" data-action="spline_closed">Parametric Spline (Closed)</div>
+                </div>
+              </div>
+              <div class="dropdown-item has-submenu">
+                <div class="submenu-header">
+                  <span>Special(E)</span>
+                  <span class="icon icon-chevron-right dropdown-arrow" style="width:14px;height:14px"></span>
+                </div>
+                <div class="menu-submenu">
+                  <div class="dropdown-item" data-action="ext_gauss">Gaussian fitting</div>
+                  <div class="dropdown-item" data-action="ext_lorentz">Lorentzian fitting</div>
+                  <div class="dropdown-item" data-action="ext_fft">FFT</div>
+                  <div class="dropdown-item" data-action="ext_ifft">IFFT</div>
+                  <div class="dropdown-item" data-action="ext_peak">Peak Detect</div>
+                </div>
+              </div>
+              <div class="dropdown-item" data-action="analyze_repeat">Repeat Ctrl+A</div>
+              <div class="dropdown-item" data-action="analyze_clear">Clear</div>
               <div class="dropdown-separator"></div>
-              <div class="dropdown-item" data-action="analyze_clear">Clear<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="function_a">Function(A)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
-              <div class="dropdown-item" data-action="setup_constants">Setup constant values(P)<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="function_a">Draw Function(A)</div>
+              <div class="dropdown-item" data-action="setup_constants">Setup Constants(P) Ctrl+G</div>
               <div class="dropdown-separator"></div>
-              <div class="dropdown-item" data-action="copy_clipboard">Copy to Clipboard<span class="menu-soon-icon" aria-label="coming soon"><span class="icon icon-alert-triangle"></span></span></div>
+              <div class="dropdown-item" data-action="copy_clipboard">Copy to Clipboard</div>
             </div>
           </div>
           <div class="menu-item" data-menu="option" data-accesskey="o">
@@ -327,9 +362,10 @@
               </div>
             </div>
             <div class="dialog-tabs">
-              <button class="tab-btn active" data-tab="file">file</button>
-              <button class="tab-btn" data-tab="plot">plot</button>
-              <button class="tab-btn" data-tab="more">more...</button>
+              <button class="tab-btn active" data-tab="file">file</button>           
+              <button class="tab-btn" data-tab="plot">plot</button>                  
+              <button class="tab-btn" data-tab="more">more...</button>               
+              <button class="tab-btn" data-tab="curve">curve</button>
             </div>
             <div class="dialog-content">
               <!-- Tab: file -->
@@ -569,6 +605,74 @@
                       <option>CSV Raw Data</option>
                     </select>
                   </div>
+                </div>
+              </div>
+
+              <!-- Tab: curve -->
+              <div class="tab-content" id="tab-curve">
+                <div class="file-banner-row">
+                  <div class="file-path-banner">
+                    <span id="propCurveFilePathText">No file loaded</span>
+                  </div>
+                  <div class="banner-actions">
+                    <button class="btn btn-sm" id="propSaveBtn3">Save</button>
+                  </div>
+                </div>
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurveFrom">From:</label>
+                    <input type="number" id="propCurveFrom" value="0" step="any" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurveWidth">width</label>
+                    <input type="number" id="propCurveWidth" value="0.4" min="0.1" max="20" step="0.1" class="form-input-num full-width" />
+                  </div>
+                </div>
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurveTo">To:</label>
+                    <input type="number" id="propCurveTo" value="10" step="any" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurvePitch">Pitch</label>
+                    <input type="number" id="propCurvePitch" value="3" min="1" max="10" step="0.5" class="form-input-num full-width" />
+                  </div>
+                </div>
+                <div class="prop-grid-2col">
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurveDivision">Division:</label>
+                    <input type="number" id="propCurveDivision" value="100" min="1" max="4999" class="form-input-num full-width" />
+                  </div>
+                  <div class="form-field-stacked">
+                    <label class="title-field-label" for="propCurveColor">color</label>
+                    <input type="color" id="propCurveColor" value="#000000" class="color-picker-box full-width" />
+                  </div>
+                </div>
+                <div class="form-field-stacked" style="margin-top: 8px;">
+                  <label class="title-field-label" for="propCurveLineType">Line type</label>
+                  <select id="propCurveLineType" class="form-select full-width">
+                    <option value="solid" selected>Solid</option>
+                    <option value="dash">Dashed</option>
+                    <option value="dotted">dotted</option>
+                    <option value="dash_dot">Dash Dot</option>
+                    <option value="dash_dot_dot">dash Dot Dot</option>
+                    <option value="face">face</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-top: 8px;">
+                  <label><input type="checkbox" id="propCurveOutrange" /> outrange data use</label>
+                </div>
+                <fieldset class="axis-fieldset" style="margin-top: 8px;">
+                  <legend>increment</legend>
+                  <div style="display: flex; gap: 12px;">
+                    <label class="checkbox-label"><input type="radio" name="propCurveIncrement" value="0" checked /> Linea</label>
+                    <label class="checkbox-label"><input type="radio" name="propCurveIncrement" value="1" /> exp</label>
+                    <label class="checkbox-label"><input type="radio" name="propCurveIncrement" value="2" /> invert</label>
+                  </div>
+                </fieldset>
+                <div class="form-field-stacked" style="margin-top: 8px;">
+                  <label class="title-field-label">Model</label>
+                  <div id="propCurveModel" style="font-size: 12px; color: var(--text-muted);">Spline interpolation</div>
                 </div>
               </div>
             </div>
@@ -1339,13 +1443,141 @@
     <div class="modal-overlay" id="constantOverlay" style="display: none;">
       <div class="dialog-window constant-dialog" id="constantDialog" style="width: 320px;">
         <div class="dialog-header">
-          <div class="dialog-title">Constant</div>
+          <div class="dialog-title">Constant (a..i)</div>
           <button class="dialog-close-btn" id="closeConstantDialogBtn"><span class="icon icon-x"></span></button>
         </div>
         <div class="dialog-body constant-dialog-body" style="padding: 16px;">
-          <p class="constant-coming-soon" style="margin: 0; color: var(--text-muted); font-size: 13px;">coming soon</p>
-          <div class="constant-actions" style="margin-top: 16px; display: flex; justify-content: flex-end;">
+          <div id="constantInputs" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;"></div>
+          <div class="constant-actions" style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="btn btn-secondary btn-sm" id="constantCopyBtn">Copy</button>
+            <button class="btn btn-secondary btn-sm" id="constantPasteBtn">Paste</button>
+            <button class="btn btn-secondary btn-sm" id="constantCancelBtn">Cancel</button>
             <button class="btn btn-primary btn-sm" id="constantOkBtn">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analyze Modal Overlay -->
+    <div class="modal-overlay" id="analyzeOverlay" style="display: none;">
+      <div class="dialog-window analyze-dialog" id="analyzeDialog" style="width: 460px;">
+        <div class="dialog-header">
+          <div class="dialog-title">Analyze</div>
+          <button class="dialog-close-btn" id="closeAnalyzeDialogBtn"><span class="icon icon-x"></span></button>
+        </div>
+        <div class="dialog-body analyze-dialog-body" style="padding: 16px;">
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <label class="title-field-label" style="flex: 0 0 auto;">Dataset:</label>
+            <select id="analyzeDataset" class="form-input-text" style="flex: 1;"></select>
+          </div>
+          <div class="tab-bar" id="analyzeTabBar" style="display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;">
+            <button class="btn btn-sm tab-btn" data-atab="fit">Fit</button>
+            <button class="btn btn-sm tab-btn" data-atab="general">General</button>
+            <button class="btn btn-sm tab-btn" data-atab="spline">Spline</button>
+            <button class="btn btn-sm tab-btn" data-atab="special">Special</button>
+            <button class="btn btn-sm tab-btn" data-atab="function">Function</button>
+            <button class="btn btn-sm tab-btn" data-atab="result">Result</button>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="fit">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Model:</label>
+              <select id="analyzeFitModel" class="form-input-text" style="flex: 1;">
+                <option value="linear">Linear (a*x+b)</option>
+                <option value="poly">Polynomial</option>
+                <option value="exp">Exponential (ln y=a+bx)</option>
+                <option value="log">Logarithmic (y=a+b ln x)</option>
+                <option value="power">Power (ln y=a+b ln x)</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Degree:</label>
+              <input type="number" id="analyzePolyDegree" value="1" min="1" max="6" class="form-input-num" style="width: 80px;" />
+              <label class="title-field-label">Division:</label>
+              <input type="number" id="analyzeFitDivision" value="101" min="2" max="2000" class="form-input-num" style="width: 80px;" />
+            </div>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="general" style="display: none;">
+            <div style="margin-bottom: 8px;">
+              <label class="title-field-label">Function f(x) — use a..i as parameters:</label>
+              <input type="text" id="analyzeUserExpr" value="a*exp(b*x)" class="form-input-text full-width" />
+            </div>
+            <div style="margin-bottom: 8px;">
+              <label class="title-field-label">Derivatives df/da, df/db, ... (optional, one per line):</label>
+              <textarea id="analyzeUserDerivs" class="form-input-text full-width" rows="2">exp(b*x)
+a*x*exp(b*x)</textarea>
+            </div>
+            <div style="margin-bottom: 8px;">
+              <label class="checkbox-label"><input type="checkbox" id="analyzeUseDocConstants" checked /> Use plot constants (a..i) as initial values</label>
+            </div>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="spline" style="display: none;">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Mode:</label>
+              <select id="analyzeSplineMode" class="form-input-text" style="flex: 1;">
+                <option value="cubic">Cubic Spline</option>
+                <option value="parametric">Parametric Spline</option>
+                <option value="parametric_closed">Parametric Spline (Closed)</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Division:</label>
+              <input type="number" id="analyzeSplineDivision" value="101" min="2" max="5000" class="form-input-num" style="width: 80px;" />
+            </div>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="special" style="display: none;">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Method:</label>
+              <select id="analyzeSpecialKind" class="form-input-text" style="flex: 1;">
+                <option value="gauss">Gaussian fitting</option>
+                <option value="lorentz">Lorentzian fitting</option>
+                <option value="peak">Peak Detect</option>
+                <option value="smooth">Smooth (FFT low-pass)</option>
+                <option value="fft">FFT magnitude</option>
+                <option value="max">GetMax</option>
+                <option value="min">GetMin</option>
+              </select>
+            </div>
+            <div id="analyzeGaussBox">
+              <div style="margin-bottom: 8px;">
+                <label class="title-field-label">Peaks (Int, Pos, Width — up to 6):</label>
+                <div id="analyzePeakGrid" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; font-size: 12px;"></div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+                <label class="checkbox-label"><input type="checkbox" id="analyzeFitOffset" checked /> Fit offset</label>
+                <label class="title-field-label">Offset:</label>
+                <input type="number" id="analyzeOffset" value="0" step="any" class="form-input-num" style="width: 90px;" />
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">Threshold:</label>
+              <input type="number" id="analyzeThreshold" value="0" step="any" class="form-input-num" style="width: 90px;" />
+              <label class="title-field-label">Cutoff:</label>
+              <input type="number" id="analyzeCutoff" value="10" step="any" class="form-input-num" style="width: 90px;" />
+            </div>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="function" style="display: none;">
+            <div style="margin-bottom: 8px;">
+              <label class="title-field-label">y = f(x) — sin, cos, exp, log, sqrt, pi, a..i:</label>
+              <input type="text" id="analyzeFuncExpr" value="sin(pi*x/180)" class="form-input-text full-width" />
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <label class="title-field-label">X min:</label>
+              <input type="number" id="analyzeFuncXMin" value="-200" step="any" class="form-input-num" style="width: 90px;" />
+              <label class="title-field-label">X max:</label>
+              <input type="number" id="analyzeFuncXMax" value="200" step="any" class="form-input-num" style="width: 90px;" />
+              <label class="title-field-label">N:</label>
+              <input type="number" id="analyzeFuncCount" value="200" min="2" max="2000" class="form-input-num" style="width: 70px;" />
+            </div>
+          </div>
+          <div class="analyze-tab-panel" data-apanel="result" style="display: none;">
+            <textarea id="analyzeResultText" class="form-input-text full-width" rows="8" readonly></textarea>
+          </div>
+          <div id="analyzeStatus" style="min-height: 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px;"></div>
+          <div style="margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="btn btn-secondary btn-sm" id="analyzeClearBtn">Clear</button>
+            <button class="btn btn-secondary btn-sm" id="analyzeCopyBtn">Copy</button>
+            <button class="btn btn-secondary btn-sm" id="analyzeCancelBtn">Close</button>
+            <button class="btn btn-primary btn-sm" id="analyzeApplyBtn">Apply</button>
           </div>
         </div>
       </div>

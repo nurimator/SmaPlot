@@ -1,6 +1,7 @@
 import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
 import { smpToUnicode } from './smpSymbolMapper.ts'
 import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
+import { sampleFunction as sampleFunctionSpec } from './analyze/functionSeries.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -25,9 +26,13 @@ interface SmpSeriesSpec {
   yExpr: string
   filePath?: string
   stylePrefix?: number
+  countLine?: string
   zerosLine?: string
   fixed5?: string
   exprFlag?: string
+  userFunctionFlags?: string
+  userFunctionExpr?: string
+  userFunctionDerivs?: string[]
 }
 
 export interface ParseSmpResult {
@@ -73,6 +78,18 @@ function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: 
   const datasetsMap: Record<string, { x: number[]; y: number[]; rawLines: string[][]; headerRest?: string }> = {}
   let activeDataHeader = ''
   let inDataBlock = false
+  let sawMasks = false
+
+  const isDataSectionHeader = (inner: string): boolean =>
+    inner === 'GRAPH' ||
+    inner === 'LEGEND' ||
+    inner === 'OTHERS' ||
+    inner === 'MASKS' ||
+    inner === 'DATA' ||
+    inner.startsWith('AXIS-') ||
+    inner === 'TITLE' ||
+    inner === 'ARROW' ||
+    inner === 'DOT'
 
   for (const rawLine of lines) {
     const line = rawLine.trim()
@@ -82,7 +99,25 @@ function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: 
     }
     if (line.startsWith('[OTHERS]') || line.startsWith('[MASKS]')) {
       inDataBlock = false
+      if (line.startsWith('[MASKS]')) sawMasks = true
       continue
+    }
+    if (line.startsWith('[') && line.includes(']')) {
+      const cIdx = line.indexOf(']')
+      const innerName = line.slice(1, cIdx).trim()
+      if (/\.SMP$/i.test(innerName)) {
+        sawMasks = false
+        inDataBlock = false
+        activeDataHeader = ''
+        continue
+      }
+      if (isDataSectionHeader(innerName)) {
+        inDataBlock = innerName === 'DATA'
+        continue
+      }
+      if (sawMasks && !inDataBlock) {
+        inDataBlock = true
+      }
     }
     if (!inDataBlock) continue
 
@@ -96,7 +131,7 @@ function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: 
           if (!isNaN(px) && !isNaN(py)) {
             datasetsMap[activeDataHeader].x.push(px)
             datasetsMap[activeDataHeader].y.push(py)
-            datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
+            datasetsMap[activeDataHeader].rawLines.push(parts)
           }
         }
       }
@@ -135,7 +170,7 @@ function parseDataBlockLines(lines: string[]): Record<string, { x: number[]; y: 
       if (!isNaN(px) && !isNaN(py)) {
         datasetsMap[activeDataHeader].x.push(px)
         datasetsMap[activeDataHeader].y.push(py)
-        datasetsMap[activeDataHeader].rawLines.push([parts[0], parts[1]])
+        datasetsMap[activeDataHeader].rawLines.push(parts)
       }
     }
   }
@@ -178,7 +213,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
   docBlocks.forEach((docBlock) => {
     const docLines = docBlock.lines
-    const seriesSpecs: Record<string, SmpSeriesSpec> = {}
+    const seriesSpecs: SmpSeriesSpec[] = []
 
     let docLeft = 4000
     let docTop = 4000
@@ -206,6 +241,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
     let currentSection = ''
     let inDataBlock = false
+    let seenGraph = false
     let i = 0
 
     while (i < docLines.length) {
@@ -236,6 +272,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
         currentSection = inner
         if (currentSection === 'DATA') inDataBlock = true
+        if (currentSection === 'GRAPH') seenGraph = true
         i++
         if (currentSection === 'LEGEND' && i < docLines.length && /^\d+$/.test(docLines[i].trim())) {
           i++
@@ -248,15 +285,22 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         continue
       }
 
-      if (currentSection.match(/^\d+\s+/) || (currentSection.endsWith('.txt') && !currentSection.startsWith('AXIS'))) {
+      const lowerSection = currentSection.toLowerCase()
+      const isSeriesName = currentSection.match(/^\d+\s+/) ||
+        ((lowerSection.endsWith('.txt') || lowerSection.endsWith('.dat')) && !currentSection.startsWith('AXIS'))
+      if (isSeriesName && !seenGraph) {
         const specHeader = currentSection
-        const cleanName = specHeader.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+        const cleanName = specHeader.replace(/^\d+\s+/, '').replace(/\.(txt|dat)$/i, '')
         let filePath = ''
         if (i < docLines.length) {
           filePath = docLines[i].trim()
           i++
         }
-        if (i < docLines.length) i++
+        let countLine = ''
+        if (i < docLines.length) {
+          countLine = docLines[i].trim()
+          i++
+        }
         let color = '#000000'
         let width = 0.6
         let stylePrefix = 60
@@ -286,7 +330,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           if (parts.length >= 1) {
             const penCode = parseInt(parts[0], 10)
             if (!isNaN(penCode)) {
-              if (penCode === 2) lineType = 'dash'
+              if (penCode === 0) lineType = 'no_line'
+              else if (penCode === 2) lineType = 'dash'
               else if (penCode === 3) lineType = 'dotted'
               else if (penCode === 4) lineType = 'dash_dot'
               else if (penCode === 5) lineType = 'dash_dot_dot'
@@ -348,7 +393,36 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           i++
         }
 
-        seriesSpecs[specHeader] = {
+        let userFunctionFlags: string | undefined
+        let userFunctionExpr: string | undefined
+        let userFunctionDerivs: string[] | undefined
+        if (zerosLine.trim().split(/\s+/)[2] === '6') {
+          if (i < docLines.length && !docLines[i].trim().startsWith('[') && docLines[i].trim() !== '') {
+            userFunctionFlags = docLines[i].trim()
+            i++
+          }
+          if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
+            const exprLine = docLines[i].trim()
+            if (exprLine !== '') {
+              userFunctionExpr = exprLine
+              i++
+              const derivs: string[] = []
+              for (let k = 0; k < 8 && i < docLines.length; k++) {
+                const dl = docLines[i].trim()
+                if (dl === '' || dl.startsWith('[')) break
+                if (/^[a-z]/i.test(dl) || dl.includes('*') || dl.includes('(') || dl.includes('x')) {
+                  derivs.push(dl)
+                  i++
+                } else {
+                  break
+                }
+              }
+              if (derivs.length > 0) userFunctionDerivs = derivs
+            }
+          }
+        }
+
+        seriesSpecs.push({
           name: specHeader,
           cleanName,
           color,
@@ -363,10 +437,14 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           yExpr,
           filePath,
           stylePrefix,
+          countLine,
           exprFlag,
           zerosLine,
           fixed5,
-        }
+          userFunctionFlags,
+          userFunctionExpr,
+          userFunctionDerivs,
+        })
         currentSection = ''
         continue
       }
@@ -832,48 +910,72 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     const mergedDatasetsMap = { ...globalFileDatasetsMap, ...localDatasetsMap }
 
     const docDatasets: Dataset[] = []
-    const specKeys = Object.keys(seriesSpecs)
-    const targetKeys = specKeys
 
-    targetKeys.forEach((specKey) => {
+    seriesSpecs.forEach((spec) => {
+      const specKey = spec.name
       if (specKey.toLowerCase().includes('end of data')) return
-      const cleanSpecName = specKey.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-      const spec =
-        seriesSpecs[specKey] ||
-        seriesSpecs[`[${specKey}]`] ||
-        Object.values(seriesSpecs).find((s) => s.cleanName === cleanSpecName || s.name === specKey || s.name === cleanSpecName) || {
-          name: specKey,
-          cleanName: cleanSpecName,
-          color: '#000000',
-          xExpr: 'x',
-          yExpr: 'y',
-          filePath: '',
-        }
+      const cleanSpecName = spec.cleanName
 
       const rawDataKey =
         Object.keys(mergedDatasetsMap).find((k) => {
-          const cleanK = k.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+          const cleanK = k.replace(/^\d+\s+/, '').replace(/\.(txt|dat)$/i, '')
           return k === specKey || k === spec.name || cleanK === cleanSpecName
         }) || specKey
 
       const data = mergedDatasetsMap[rawDataKey] || { x: [], y: [], rawLines: [] }
 
+      let seriesX = [...data.x]
+      let seriesY = [...data.y]
+      let seriesRawLines = [...data.rawLines]
+      let funcKind: string | undefined
+      const flagKind = parseInt((spec.countLine || '').trim().split(/\s+/)[0] || '0', 10)
+      const hasFormula = spec.yExpr && spec.yExpr !== 'y' && /[a-z(]/.test(spec.yExpr)
+      if (seriesX.length === 0 && flagKind === 3 && hasFormula) {
+        const zParts = (spec.zerosLine || '').trim().split(/\s+/)
+        let fxMin = axisX && isFinite(axisX.min) ? axisX.min : 0
+        let fxMax = axisX && isFinite(axisX.max) ? axisX.max : 10
+        if (zParts.length >= 6) {
+          const a = parseFloat(zParts[4])
+          const b = parseFloat(zParts[5])
+          if (isFinite(a) && isFinite(b) && a !== b) {
+            fxMin = Math.min(a, b)
+            fxMax = Math.max(a, b)
+          }
+        }
+        const sampled = sampleFunctionSpec(spec.yExpr, fxMin, fxMax, 200)
+        if (sampled.x.length > 0) {
+          seriesX = sampled.x
+          seriesY = sampled.y
+          seriesRawLines = sampled.x.map((vx, idx) => [String(vx), String(sampled.y[idx] ?? 0)])
+          funcKind = 'function'
+        }
+      }
+
       const ds: Dataset = {
         name: spec.cleanName,
         color: spec.color,
-        x: [...data.x],
-        y: [...data.y],
-        rawLines: [...data.rawLines],
+        x: seriesX,
+        y: seriesY,
+        rawLines: seriesRawLines,
         fileName: docBlock.name,
         filePath: spec.filePath || `${docBlock.name} > ${spec.name}`,
         smpSeriesName: spec.name,
         smpDataName: rawDataKey,
         smpDataHeaderRest: data.headerRest,
         smpSeriesStylePrefix: spec.stylePrefix,
+        smpSeriesCountLine: spec.countLine || undefined,
         smpSeriesZerosLine: spec.zerosLine,
         smpSeriesFixed5: spec.fixed5,
         smpSeriesFillLine: spec.fillLine,
         smpExprFlag: spec.exprFlag,
+        derivedKind: funcKind,
+        smpUserFunction: spec.userFunctionExpr
+          ? {
+              flagsLine: spec.userFunctionFlags,
+              expr: spec.userFunctionExpr,
+              derivs: spec.userFunctionDerivs || [],
+            }
+          : undefined,
         options: {
           show: true,
           lineColor: spec.color,

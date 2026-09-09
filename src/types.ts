@@ -20,11 +20,19 @@ export interface PlotVisualOptions {
   axisY?: 'y' | 'r'
 }
 
+export interface SmpUserFunction {
+  flagsLine?: string
+  expr: string
+  derivs: string[]
+}
+
 export interface Dataset {
   name: string
   color: string
   x: number[]
   y: number[]
+  yPlus?: number[]
+  yMinus?: number[]
   rawContent?: string
   rawLines?: string[][]
   fileName?: string
@@ -33,10 +41,14 @@ export interface Dataset {
   smpDataName?: string
   smpDataHeaderRest?: string
   smpSeriesStylePrefix?: number
+  smpSeriesCountLine?: string
   smpSeriesZerosLine?: string
   smpSeriesFixed5?: string
   smpSeriesFillLine?: string
   smpExprFlag?: string
+  smpUserFunction?: SmpUserFunction
+  derivedFrom?: string
+  derivedKind?: string
   options?: PlotVisualOptions
 }
 
@@ -149,6 +161,12 @@ export interface SmpLineAnnotation {
   rawLineStr?: string
 }
 
+export interface AnalyzeLastConfig {
+  action: string
+  srcName: string
+  params: Record<string, number | string | boolean>
+}
+
 export interface SmpPlotDoc {
   name: string
   left: number
@@ -156,6 +174,9 @@ export interface SmpPlotDoc {
   width: number
   height: number
   datasets: Dataset[]
+  analyzeConstants?: number[]
+  analyzeLastAction?: string
+  analyzeLastConfig?: AnalyzeLastConfig
   axisX: SmpAxisSpec
   axisY: SmpAxisSpec
   axisTop?: SmpAxisSpec

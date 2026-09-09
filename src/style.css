@@ -2676,7 +2676,7 @@ body.shape-drawing * {
 
   /* Submenu: in-flow block — no position, no border, no background box.
      Explicitly set display:none here so the rule takes effect even when
-     the touch :hover pseudo-class sticks after a tap (see override below). */
+     the touch :hover state sticks after a tap (see override below). */
   .menubar.menu-drawer-open .menu-submenu {
     display: none;
     position: static;

@@ -1,6 +1,11 @@
 import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
+import { resolveErrorBars } from '../../utils/analyze/errorBars.ts'
+import { computeCurvePoints, getCurveDrawStyle, shouldDrawCurve } from '../../utils/analyze/curveRender.ts'
+import { evaluateMathExpr } from '../../utils/dataset.ts'
+import { getRawDatasetCoords } from './dataset.ts'
+import type { Dataset, PlotVisualOptions } from '../../types.ts'
 
 function buildStepOverlayPath(
   xs: number[],
@@ -19,6 +24,88 @@ function buildStepOverlayPath(
     else d += ` L ${px},${prevPy} L ${px},${py}`
   }
   return d
+}
+
+function renderErrorBars(
+  ds: Dataset,
+  opts: PlotVisualOptions,
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  dsScaleGroup: SVGElement,
+  strokeColor: string
+): void {
+  const errBars = resolveErrorBars(ds)
+  if (!errBars) return
+  const raw = getRawDatasetCoords(ds)
+  const yTrans = opts.yTransCheck && opts.yExpr && opts.yExpr !== 'y'
+  const capHalf = 5
+  for (let i = 0; i < ds.x.length; i++) {
+    const up = errBars.yPlus[i]
+    const dn = errBars.yMinus[i]
+    if (typeof up !== 'number' || typeof dn !== 'number' || isNaN(up) || isNaN(dn)) continue
+    const rawY = raw.y[i] ?? ds.y[i]
+    let topV = ds.y[i] + up
+    let botV = ds.y[i] + dn
+    if (yTrans) {
+      const baseT = evaluateMathExpr(opts.yExpr as string, rawY, 'y')
+      topV = baseT + (evaluateMathExpr(opts.yExpr as string, rawY + up, 'y') - baseT)
+      botV = baseT + (evaluateMathExpr(opts.yExpr as string, rawY + dn, 'y') - baseT)
+    }
+    const px = dsSx(ds.x[i])
+    const pyTop = dsSy(topV)
+    const pyBot = dsSy(botV)
+    const barLine = createSVGElement('line')
+    barLine.setAttribute('x1', String(px))
+    barLine.setAttribute('y1', String(pyTop))
+    barLine.setAttribute('x2', String(px))
+    barLine.setAttribute('y2', String(pyBot))
+    barLine.setAttribute('stroke', strokeColor)
+    barLine.setAttribute('stroke-width', '1')
+    barLine.setAttribute('vector-effect', 'non-scaling-stroke')
+    dsScaleGroup.appendChild(barLine)
+    for (const py of [pyTop, pyBot]) {
+      const cap = createSVGElement('line')
+      cap.setAttribute('x1', String(px - capHalf))
+      cap.setAttribute('y1', String(py))
+      cap.setAttribute('x2', String(px + capHalf))
+      cap.setAttribute('y2', String(py))
+      cap.setAttribute('stroke', strokeColor)
+      cap.setAttribute('stroke-width', '1')
+      cap.setAttribute('vector-effect', 'non-scaling-stroke')
+      dsScaleGroup.appendChild(cap)
+    }
+  }
+}
+
+function renderCurveOverlay(
+  ds: Dataset,
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  dsScaleGroup: SVGElement,
+  scaleX: number
+): void {
+  if (!shouldDrawCurve(ds)) return
+  const curve = computeCurvePoints(ds)
+  if (!curve || curve.x.length <= 1) return
+  const style = getCurveDrawStyle(ds)
+  const curveWidthPx = Math.max(0.4, Number((style.width * scaleX).toFixed(2)))
+  const pts: string[] = []
+  for (let i = 0; i < curve.x.length; i++) {
+    const cx = curve.x[i]
+    const cy = curve.y[i]
+    if (!isFinite(cx) || !isFinite(cy)) continue
+    pts.push(`${dsSx(cx).toFixed(1)},${dsSy(cy).toFixed(1)}`)
+  }
+  if (pts.length <= 1) return
+  const path = createSVGElement('polyline')
+  path.setAttribute('points', pts.join(' '))
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', style.color)
+  path.setAttribute('stroke-width', String(curveWidthPx))
+  const dash = getLineDashArray(style.lineType, curveWidthPx)
+  if (dash) path.setAttribute('stroke-dasharray', dash)
+  path.setAttribute('vector-effect', 'non-scaling-stroke')
+  dsScaleGroup.appendChild(path)
 }
 
 export function renderSeries(ctx: PlotRenderContext): void {
@@ -131,6 +218,9 @@ export function renderSeries(ctx: PlotRenderContext): void {
           if (symbol) dsGroup.appendChild(symbol)
         }
       }
+
+      renderErrorBars(ds, opts, dsSx, dsSy, dsScaleGroup, strokeColor)
+      renderCurveOverlay(ds, dsSx, dsSy, dsScaleGroup, scaleX)
     }
   }
 }

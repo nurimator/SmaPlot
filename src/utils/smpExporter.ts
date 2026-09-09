@@ -88,6 +88,8 @@ function plotTypeToCode(pt?: string): number {
 
 function lineTypeToCode(lt?: string): number {
   switch (lt) {
+    case 'no_line':
+    case 'none': return 0
     case 'dash':
     case 'dashed': return 2
     case 'dotted': return 3
@@ -115,10 +117,10 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
-  return [
+  const out: string[] = [
     `[${seriesTag}]`,
     srcPath,
-    SERIES_COUNT_LINE(pointCount),
+    ds.smpSeriesCountLine || SERIES_COUNT_LINE(pointCount),
     SERIES_STYLE_LINE(stylePrefix, bgrColor),
     SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
     ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX)),
@@ -127,9 +129,14 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
     yExpr,
     zerosLine,
     fixed5,
-    '',
-    '',
   ]
+  if (ds.smpUserFunction) {
+    if (ds.smpUserFunction.flagsLine) out.push(ds.smpUserFunction.flagsLine)
+    out.push(ds.smpUserFunction.expr)
+    for (const d of ds.smpUserFunction.derivs || []) out.push(d)
+  }
+  out.push('', '')
+  return out
 }
 
 export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData = true): string {
@@ -465,7 +472,7 @@ function dataSectionLines(datasets: Dataset[]): string[] {
 
     if (rows.length > 0) {
       for (const row of rows) {
-        lines.push(row.length >= 2 ? `${row[0]}\t${row[1]}` : row[0])
+        lines.push(row.join('\t'))
       }
     }
     lines.push('[End of Data]')
