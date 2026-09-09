@@ -1,3 +1,5 @@
+import { CJK_MAPPING } from './smpCjkMapper.ts'
+
 export interface SymbolEntry {
   encodedStr: string
   unicodeChar: string
@@ -11,7 +13,7 @@ export function getCategory(desc: string): string {
   if (desc.includes('CYRILLIC CAPITAL')) return 'Cyrillic Capital'
   if (desc.includes('CYRILLIC SMALL')) return 'Cyrillic Small'
   if (desc.includes('BOX DRAWINGS')) return 'Box Drawings'
-  if (desc.includes('IDEOGRAPHIC') || desc.includes('KATAKANA')) return 'CJK Symbols'
+  if (desc.includes('IDEOGRAPHIC') || desc.includes('KATAKANA') || desc.includes('HIRAGANA')) return 'CJK Symbols'
   if (desc.includes('FULLWIDTH') || desc.includes('HALFWIDTH')) return 'Fullwidth/Halfwidth'
   return 'Math & Symbols'
 }
@@ -253,6 +255,247 @@ const characterMapping = [
     ['\u266D', '\u0081\u00F3', 'MUSIC FLAT SIGN'],
     ['\u266F', '\u0081\u00F2', 'MUSIC SHARP SIGN'],
 
+    ['\u3041', '\u201A\u0178', 'HIRAGANA LETTER SMALL A'],
+    ['\u3042', '\u201A\u00A0', 'HIRAGANA LETTER A'],
+    ['\u3043', '\u201A\u00A1', 'HIRAGANA LETTER SMALL I'],
+    ['\u3044', '\u201A\u00A2', 'HIRAGANA LETTER I'],
+    ['\u3045', '\u201A\u00A3', 'HIRAGANA LETTER SMALL U'],
+    ['\u3046', '\u201A\u00A4', 'HIRAGANA LETTER U'],
+    ['\u3047', '\u201A\u00A5', 'HIRAGANA LETTER SMALL E'],
+    ['\u3048', '\u201A\u00A6', 'HIRAGANA LETTER E'],
+    ['\u3049', '\u201A\u00A7', 'HIRAGANA LETTER SMALL O'],
+    ['\u304A', '\u201A\u00A8', 'HIRAGANA LETTER O'],
+    ['\u304B', '\u201A\u00A9', 'HIRAGANA LETTER KA'],
+    ['\u304C', '\u201A\u00AA', 'HIRAGANA LETTER GA'],
+    ['\u304D', '\u201A\u00AB', 'HIRAGANA LETTER KI'],
+    ['\u304E', '\u201A\u00AC', 'HIRAGANA LETTER GI'],
+    ['\u304F', '\u201A\u00AD', 'HIRAGANA LETTER KU'],
+    ['\u3050', '\u201A\u00AE', 'HIRAGANA LETTER GU'],
+    ['\u3051', '\u201A\u00AF', 'HIRAGANA LETTER KE'],
+    ['\u3052', '\u201A\u00B0', 'HIRAGANA LETTER GE'],
+    ['\u3053', '\u201A\u00B1', 'HIRAGANA LETTER KO'],
+    ['\u3054', '\u201A\u00B2', 'HIRAGANA LETTER GO'],
+    ['\u3055', '\u201A\u00B3', 'HIRAGANA LETTER SA'],
+    ['\u3056', '\u201A\u00B4', 'HIRAGANA LETTER ZA'],
+    ['\u3057', '\u201A\u00B5', 'HIRAGANA LETTER SI'],
+    ['\u3058', '\u201A\u00B6', 'HIRAGANA LETTER ZI'],
+    ['\u3059', '\u201A\u00B7', 'HIRAGANA LETTER SU'],
+    ['\u305A', '\u201A\u00B8', 'HIRAGANA LETTER ZU'],
+    ['\u305B', '\u201A\u00B9', 'HIRAGANA LETTER SE'],
+    ['\u305C', '\u201A\u00BA', 'HIRAGANA LETTER ZE'],
+    ['\u305D', '\u201A\u00BB', 'HIRAGANA LETTER SO'],
+    ['\u305E', '\u201A\u00BC', 'HIRAGANA LETTER ZO'],
+    ['\u305F', '\u201A\u00BD', 'HIRAGANA LETTER TA'],
+    ['\u3060', '\u201A\u00BE', 'HIRAGANA LETTER DA'],
+    ['\u3061', '\u201A\u00BF', 'HIRAGANA LETTER TI'],
+    ['\u3062', '\u201A\u00C0', 'HIRAGANA LETTER DI'],
+    ['\u3063', '\u201A\u00C1', 'HIRAGANA LETTER SMALL TU'],
+    ['\u3064', '\u201A\u00C2', 'HIRAGANA LETTER TU'],
+    ['\u3065', '\u201A\u00C3', 'HIRAGANA LETTER DU'],
+    ['\u3066', '\u201A\u00C4', 'HIRAGANA LETTER TE'],
+    ['\u3067', '\u201A\u00C5', 'HIRAGANA LETTER DE'],
+    ['\u3068', '\u201A\u00C6', 'HIRAGANA LETTER TO'],
+    ['\u3069', '\u201A\u00C7', 'HIRAGANA LETTER DO'],
+    ['\u306A', '\u201A\u00C8', 'HIRAGANA LETTER NA'],
+    ['\u306B', '\u201A\u00C9', 'HIRAGANA LETTER NI'],
+    ['\u306C', '\u201A\u00CA', 'HIRAGANA LETTER NU'],
+    ['\u306D', '\u201A\u00CB', 'HIRAGANA LETTER NE'],
+    ['\u306E', '\u201A\u00CC', 'HIRAGANA LETTER NO'],
+    ['\u306F', '\u201A\u00CD', 'HIRAGANA LETTER HA'],
+    ['\u3070', '\u201A\u00CE', 'HIRAGANA LETTER BA'],
+    ['\u3071', '\u201A\u00CF', 'HIRAGANA LETTER PA'],
+    ['\u3072', '\u201A\u00D0', 'HIRAGANA LETTER HI'],
+    ['\u3073', '\u201A\u00D1', 'HIRAGANA LETTER BI'],
+    ['\u3074', '\u201A\u00D2', 'HIRAGANA LETTER PI'],
+    ['\u3075', '\u201A\u00D3', 'HIRAGANA LETTER HU'],
+    ['\u3076', '\u201A\u00D4', 'HIRAGANA LETTER BU'],
+    ['\u3077', '\u201A\u00D5', 'HIRAGANA LETTER PU'],
+    ['\u3078', '\u201A\u00D6', 'HIRAGANA LETTER HE'],
+    ['\u3079', '\u201A\u00D7', 'HIRAGANA LETTER BE'],
+    ['\u307A', '\u201A\u00D8', 'HIRAGANA LETTER PE'],
+    ['\u307B', '\u201A\u00D9', 'HIRAGANA LETTER HO'],
+    ['\u307C', '\u201A\u00DA', 'HIRAGANA LETTER BO'],
+    ['\u307D', '\u201A\u00DB', 'HIRAGANA LETTER PO'],
+    ['\u307E', '\u201A\u00DC', 'HIRAGANA LETTER MA'],
+    ['\u307F', '\u201A\u00DD', 'HIRAGANA LETTER MI'],
+    ['\u3080', '\u201A\u00DE', 'HIRAGANA LETTER MU'],
+    ['\u3081', '\u201A\u00DF', 'HIRAGANA LETTER ME'],
+    ['\u3082', '\u201A\u00E0', 'HIRAGANA LETTER MO'],
+    ['\u3083', '\u201A\u00E1', 'HIRAGANA LETTER SMALL YA'],
+    ['\u3084', '\u201A\u00E2', 'HIRAGANA LETTER YA'],
+    ['\u3085', '\u201A\u00E3', 'HIRAGANA LETTER SMALL YU'],
+    ['\u3086', '\u201A\u00E4', 'HIRAGANA LETTER YU'],
+    ['\u3087', '\u201A\u00E5', 'HIRAGANA LETTER SMALL YO'],
+    ['\u3088', '\u201A\u00E6', 'HIRAGANA LETTER YO'],
+    ['\u3089', '\u201A\u00E7', 'HIRAGANA LETTER RA'],
+    ['\u308A', '\u201A\u00E8', 'HIRAGANA LETTER RI'],
+    ['\u308B', '\u201A\u00E9', 'HIRAGANA LETTER RU'],
+    ['\u308C', '\u201A\u00EA', 'HIRAGANA LETTER RE'],
+    ['\u308D', '\u201A\u00EB', 'HIRAGANA LETTER RO'],
+    ['\u308E', '\u201A\u00EC', 'HIRAGANA LETTER SMALL WA'],
+    ['\u308F', '\u201A\u00ED', 'HIRAGANA LETTER WA'],
+    ['\u3090', '\u201A\u00EE', 'HIRAGANA LETTER WI'],
+    ['\u3091', '\u201A\u00EF', 'HIRAGANA LETTER WE'],
+    ['\u3092', '\u201A\u00F0', 'HIRAGANA LETTER WO'],
+    ['\u3093', '\u201A\u00F1', 'HIRAGANA LETTER N'],
+    ['\u309B', '\u0081J', 'KATAKANA-HIRAGANA VOICED SOUND MARK'],
+    ['\u309C', '\u0081K', 'KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK'],
+    ['\u309D', '\u0081T', 'HIRAGANA ITERATION MARK'],
+    ['\u309E', '\u0081U', 'HIRAGANA VOICED ITERATION MARK'],
+
+    ['\u30A1', '\u0192@', 'KATAKANA LETTER SMALL A'],
+    ['\u30A2', '\u0192A', 'KATAKANA LETTER A'],
+    ['\u30A3', '\u0192B', 'KATAKANA LETTER SMALL I'],
+    ['\u30A4', '\u0192C', 'KATAKANA LETTER I'],
+    ['\u30A5', '\u0192D', 'KATAKANA LETTER SMALL U'],
+    ['\u30A6', '\u0192E', 'KATAKANA LETTER U'],
+    ['\u30A7', '\u0192F', 'KATAKANA LETTER SMALL E'],
+    ['\u30A8', '\u0192G', 'KATAKANA LETTER E'],
+    ['\u30A9', '\u0192H', 'KATAKANA LETTER SMALL O'],
+    ['\u30AA', '\u0192I', 'KATAKANA LETTER O'],
+    ['\u30AB', '\u0192J', 'KATAKANA LETTER KA'],
+    ['\u30AC', '\u0192K', 'KATAKANA LETTER GA'],
+    ['\u30AD', '\u0192L', 'KATAKANA LETTER KI'],
+    ['\u30AE', '\u0192M', 'KATAKANA LETTER GI'],
+    ['\u30AF', '\u0192N', 'KATAKANA LETTER KU'],
+    ['\u30B0', '\u0192O', 'KATAKANA LETTER GU'],
+    ['\u30B1', '\u0192P', 'KATAKANA LETTER KE'],
+    ['\u30B2', '\u0192Q', 'KATAKANA LETTER GE'],
+    ['\u30B3', '\u0192R', 'KATAKANA LETTER KO'],
+    ['\u30B4', '\u0192S', 'KATAKANA LETTER GO'],
+    ['\u30B5', '\u0192T', 'KATAKANA LETTER SA'],
+    ['\u30B6', '\u0192U', 'KATAKANA LETTER ZA'],
+    ['\u30B7', '\u0192V', 'KATAKANA LETTER SI'],
+    ['\u30B8', '\u0192W', 'KATAKANA LETTER ZI'],
+    ['\u30B9', '\u0192X', 'KATAKANA LETTER SU'],
+    ['\u30BA', '\u0192Y', 'KATAKANA LETTER ZU'],
+    ['\u30BB', '\u0192Z', 'KATAKANA LETTER SE'],
+    ['\u30BC', '\u0192[', 'KATAKANA LETTER ZE'],
+    ['\u30BD', '\u0192\\', 'KATAKANA LETTER SO'],
+    ['\u30BE', '\u0192]', 'KATAKANA LETTER ZO'],
+    ['\u30BF', '\u0192^', 'KATAKANA LETTER TA'],
+    ['\u30C0', '\u0192_', 'KATAKANA LETTER DA'],
+    ['\u30C1', '\u0192`', 'KATAKANA LETTER TI'],
+    ['\u30C2', '\u0192a', 'KATAKANA LETTER DI'],
+    ['\u30C3', '\u0192b', 'KATAKANA LETTER SMALL TU'],
+    ['\u30C4', '\u0192c', 'KATAKANA LETTER TU'],
+    ['\u30C5', '\u0192d', 'KATAKANA LETTER DU'],
+    ['\u30C6', '\u0192e', 'KATAKANA LETTER TE'],
+    ['\u30C7', '\u0192f', 'KATAKANA LETTER DE'],
+    ['\u30C8', '\u0192g', 'KATAKANA LETTER TO'],
+    ['\u30C9', '\u0192h', 'KATAKANA LETTER DO'],
+    ['\u30CA', '\u0192i', 'KATAKANA LETTER NA'],
+    ['\u30CB', '\u0192j', 'KATAKANA LETTER NI'],
+    ['\u30CC', '\u0192k', 'KATAKANA LETTER NU'],
+    ['\u30CD', '\u0192l', 'KATAKANA LETTER NE'],
+    ['\u30CE', '\u0192m', 'KATAKANA LETTER NO'],
+    ['\u30CF', '\u0192n', 'KATAKANA LETTER HA'],
+    ['\u30D0', '\u0192o', 'KATAKANA LETTER BA'],
+    ['\u30D1', '\u0192p', 'KATAKANA LETTER PA'],
+    ['\u30D2', '\u0192q', 'KATAKANA LETTER HI'],
+    ['\u30D3', '\u0192r', 'KATAKANA LETTER BI'],
+    ['\u30D4', '\u0192s', 'KATAKANA LETTER PI'],
+    ['\u30D5', '\u0192t', 'KATAKANA LETTER HU'],
+    ['\u30D6', '\u0192u', 'KATAKANA LETTER BU'],
+    ['\u30D7', '\u0192v', 'KATAKANA LETTER PU'],
+    ['\u30D8', '\u0192w', 'KATAKANA LETTER HE'],
+    ['\u30D9', '\u0192x', 'KATAKANA LETTER BE'],
+    ['\u30DA', '\u0192y', 'KATAKANA LETTER PE'],
+    ['\u30DB', '\u0192z', 'KATAKANA LETTER HO'],
+    ['\u30DC', '\u0192{', 'KATAKANA LETTER BO'],
+    ['\u30DD', '\u0192|', 'KATAKANA LETTER PO'],
+    ['\u30DE', '\u0192}', 'KATAKANA LETTER MA'],
+    ['\u30DF', '\u0192~', 'KATAKANA LETTER MI'],
+    ['\u30E0', '\u0192\u20AC', 'KATAKANA LETTER MU'],
+    ['\u30E1', '\u0192\u0081', 'KATAKANA LETTER ME'],
+    ['\u30E2', '\u0192\u201A', 'KATAKANA LETTER MO'],
+    ['\u30E3', '\u0192\u0192', 'KATAKANA LETTER SMALL YA'],
+    ['\u30E4', '\u0192\u201E', 'KATAKANA LETTER YA'],
+    ['\u30E5', '\u0192\u2026', 'KATAKANA LETTER SMALL YU'],
+    ['\u30E6', '\u0192\u2020', 'KATAKANA LETTER YU'],
+    ['\u30E7', '\u0192\u2021', 'KATAKANA LETTER SMALL YO'],
+    ['\u30E8', '\u0192\u02C6', 'KATAKANA LETTER YO'],
+    ['\u30E9', '\u0192\u2030', 'KATAKANA LETTER RA'],
+    ['\u30EA', '\u0192\u0160', 'KATAKANA LETTER RI'],
+    ['\u30EB', '\u0192\u2039', 'KATAKANA LETTER RU'],
+    ['\u30EC', '\u0192\u0152', 'KATAKANA LETTER RE'],
+    ['\u30ED', '\u0192\u008D', 'KATAKANA LETTER RO'],
+    ['\u30EE', '\u0192\u017D', 'KATAKANA LETTER SMALL WA'],
+    ['\u30EF', '\u0192\u008F', 'KATAKANA LETTER WA'],
+    ['\u30F0', '\u0192\u0090', 'KATAKANA LETTER WI'],
+    ['\u30F1', '\u0192\u2018', 'KATAKANA LETTER WE'],
+    ['\u30F2', '\u0192\u2019', 'KATAKANA LETTER WO'],
+    ['\u30F3', '\u0192\u201C', 'KATAKANA LETTER N'],
+    ['\u30F4', '\u0192\u201D', 'KATAKANA LETTER VU'],
+    ['\u30F5', '\u0192\u2022', 'KATAKANA LETTER SMALL KA'],
+    ['\u30F6', '\u0192\u2013', 'KATAKANA LETTER SMALL KE'],
+    ['\u30FB', '\u0081E', 'KATAKANA MIDDLE DOT'],
+    ['\u30FC', '\u0081[', 'KATAKANA-HIRAGANA PROLONGED SOUND MARK'],
+    ['\u30FD', '\u0081R', 'KATAKANA ITERATION MARK'],
+    ['\u30FE', '\u0081S', 'KATAKANA VOICED ITERATION MARK'],
+
+    ['\uFF66', '\u00A6', 'HALFWIDTH KATAKANA LETTER WO'],
+    ['\uFF67', '\u00A7', 'HALFWIDTH KATAKANA LETTER SMALL A'],
+    ['\uFF68', '\u00A8', 'HALFWIDTH KATAKANA LETTER SMALL I'],
+    ['\uFF69', '\u00A9', 'HALFWIDTH KATAKANA LETTER SMALL U'],
+    ['\uFF6A', '\u00AA', 'HALFWIDTH KATAKANA LETTER SMALL E'],
+    ['\uFF6B', '\u00AB', 'HALFWIDTH KATAKANA LETTER SMALL O'],
+    ['\uFF6C', '\u00AC', 'HALFWIDTH KATAKANA LETTER SMALL YA'],
+    ['\uFF6D', '\u00AD', 'HALFWIDTH KATAKANA LETTER SMALL YU'],
+    ['\uFF6E', '\u00AE', 'HALFWIDTH KATAKANA LETTER SMALL YO'],
+    ['\uFF6F', '\u00AF', 'HALFWIDTH KATAKANA LETTER SMALL TU'],
+    ['\uFF70', '\u00B0', 'HALFWIDTH KATAKANA-HIRAGANA PROLONGED SOUND MARK'],
+    ['\uFF71', '\u00B1', 'HALFWIDTH KATAKANA LETTER A'],
+    ['\uFF72', '\u00B2', 'HALFWIDTH KATAKANA LETTER I'],
+    ['\uFF73', '\u00B3', 'HALFWIDTH KATAKANA LETTER U'],
+    ['\uFF74', '\u00B4', 'HALFWIDTH KATAKANA LETTER E'],
+    ['\uFF75', '\u00B5', 'HALFWIDTH KATAKANA LETTER O'],
+    ['\uFF76', '\u00B6', 'HALFWIDTH KATAKANA LETTER KA'],
+    ['\uFF77', '\u00B7', 'HALFWIDTH KATAKANA LETTER KI'],
+    ['\uFF78', '\u00B8', 'HALFWIDTH KATAKANA LETTER KU'],
+    ['\uFF79', '\u00B9', 'HALFWIDTH KATAKANA LETTER KE'],
+    ['\uFF7A', '\u00BA', 'HALFWIDTH KATAKANA LETTER KO'],
+    ['\uFF7B', '\u00BB', 'HALFWIDTH KATAKANA LETTER SA'],
+    ['\uFF7C', '\u00BC', 'HALFWIDTH KATAKANA LETTER SI'],
+    ['\uFF7D', '\u00BD', 'HALFWIDTH KATAKANA LETTER SU'],
+    ['\uFF7E', '\u00BE', 'HALFWIDTH KATAKANA LETTER SE'],
+    ['\uFF7F', '\u00BF', 'HALFWIDTH KATAKANA LETTER SO'],
+    ['\uFF80', '\u00C0', 'HALFWIDTH KATAKANA LETTER TA'],
+    ['\uFF81', '\u00C1', 'HALFWIDTH KATAKANA LETTER TI'],
+    ['\uFF82', '\u00C2', 'HALFWIDTH KATAKANA LETTER TU'],
+    ['\uFF83', '\u00C3', 'HALFWIDTH KATAKANA LETTER TE'],
+    ['\uFF84', '\u00C4', 'HALFWIDTH KATAKANA LETTER TO'],
+    ['\uFF85', '\u00C5', 'HALFWIDTH KATAKANA LETTER NA'],
+    ['\uFF86', '\u00C6', 'HALFWIDTH KATAKANA LETTER NI'],
+    ['\uFF87', '\u00C7', 'HALFWIDTH KATAKANA LETTER NU'],
+    ['\uFF88', '\u00C8', 'HALFWIDTH KATAKANA LETTER NE'],
+    ['\uFF89', '\u00C9', 'HALFWIDTH KATAKANA LETTER NO'],
+    ['\uFF8A', '\u00CA', 'HALFWIDTH KATAKANA LETTER HA'],
+    ['\uFF8B', '\u00CB', 'HALFWIDTH KATAKANA LETTER HI'],
+    ['\uFF8C', '\u00CC', 'HALFWIDTH KATAKANA LETTER HU'],
+    ['\uFF8D', '\u00CD', 'HALFWIDTH KATAKANA LETTER HE'],
+    ['\uFF8E', '\u00CE', 'HALFWIDTH KATAKANA LETTER HO'],
+    ['\uFF8F', '\u00CF', 'HALFWIDTH KATAKANA LETTER MA'],
+    ['\uFF90', '\u00D0', 'HALFWIDTH KATAKANA LETTER MI'],
+    ['\uFF91', '\u00D1', 'HALFWIDTH KATAKANA LETTER MU'],
+    ['\uFF92', '\u00D2', 'HALFWIDTH KATAKANA LETTER ME'],
+    ['\uFF93', '\u00D3', 'HALFWIDTH KATAKANA LETTER MO'],
+    ['\uFF94', '\u00D4', 'HALFWIDTH KATAKANA LETTER YA'],
+    ['\uFF95', '\u00D5', 'HALFWIDTH KATAKANA LETTER YU'],
+    ['\uFF96', '\u00D6', 'HALFWIDTH KATAKANA LETTER YO'],
+    ['\uFF97', '\u00D7', 'HALFWIDTH KATAKANA LETTER RA'],
+    ['\uFF98', '\u00D8', 'HALFWIDTH KATAKANA LETTER RI'],
+    ['\uFF99', '\u00D9', 'HALFWIDTH KATAKANA LETTER RU'],
+    ['\uFF9A', '\u00DA', 'HALFWIDTH KATAKANA LETTER RE'],
+    ['\uFF9B', '\u00DB', 'HALFWIDTH KATAKANA LETTER RO'],
+    ['\uFF9C', '\u00DC', 'HALFWIDTH KATAKANA LETTER WA'],
+    ['\uFF9D', '\u00DD', 'HALFWIDTH KATAKANA LETTER N'],
+    ['\uFF9E', '\u00DE', 'HALFWIDTH KATAKANA VOICED SOUND MARK'],
+    ['\uFF9F', '\u00DF', 'HALFWIDTH KATAKANA SEMI-VOICED SOUND MARK'],
+
+    ['\uFFE5', '\u0081\u008F', 'FULLWIDTH YEN SIGN'],
+    ['\uFFE3', '\u0081P', 'FULLWIDTH MACRON'],
+
     ['\u3000', '\u0081@', 'IDEOGRAPHIC SPACE'],
     ['\u3001', '\u0081A', 'IDEOGRAPHIC COMMA'],
     ['\u3002', '\u0081B', 'IDEOGRAPHIC FULL STOP'],
@@ -376,8 +619,9 @@ const characterMapping = [
     ['\uFF62', '\u00A2', 'HALFWIDTH LEFT CORNER BRACKET'],
     ['\uFF63', '\u00A3', 'HALFWIDTH RIGHT CORNER BRACKET'],
     ['\uFF64', '\u00A4', 'HALFWIDTH IDEOGRAPHIC COMMA'],
-    ['\uFF65', '\u00A5', 'HALFWIDTH KATAKANA MIDDLE DOT']
+    ['\uFF65', '\u00A5', 'HALFWIDTH KATAKANA MIDDLE DOT'],
 ];
+
 export const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar, encodedStr, desc]) => ({
   encodedStr,
   unicodeChar,
@@ -385,26 +629,41 @@ export const SYMBOL_ENTRIES: SymbolEntry[] = characterMapping.map(([unicodeChar,
   category: getCategory(desc)
 }))
 
+const SMP_TO_UNICODE = new Map<string, string>()
+const UNICODE_TO_SMP = new Map<string, string>()
+for (const [unicodeChar, encodedStr] of characterMapping) {
+  if (!SMP_TO_UNICODE.has(encodedStr)) SMP_TO_UNICODE.set(encodedStr, unicodeChar)
+  if (!UNICODE_TO_SMP.has(unicodeChar)) UNICODE_TO_SMP.set(unicodeChar, encodedStr)
+}
+for (const [unicodeChar, encodedStr] of CJK_MAPPING) {
+  if (!SMP_TO_UNICODE.has(encodedStr)) SMP_TO_UNICODE.set(encodedStr, unicodeChar)
+  if (!UNICODE_TO_SMP.has(unicodeChar)) UNICODE_TO_SMP.set(unicodeChar, encodedStr)
+}
+
 export function smpToUnicode(text: string): string {
   if (!text) return ''
-  let result = text
-  for (const entry of SYMBOL_ENTRIES) {
-    if (result.includes(entry.encodedStr)) {
-      result = result.split(entry.encodedStr).join(entry.unicodeChar)
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    if (i + 1 < text.length) {
+      const hit2 = SMP_TO_UNICODE.get(text.slice(i, i + 2))
+      if (hit2 !== undefined) {
+        out += hit2
+        i++
+        continue
+      }
     }
+    out += SMP_TO_UNICODE.get(text[i]) ?? text[i]
   }
-  return result
+  return out
 }
 
 export function unicodeToSmp(text: string): string {
   if (!text) return ''
-  let result = text
-  for (const entry of SYMBOL_ENTRIES) {
-    if (result.includes(entry.unicodeChar)) {
-      result = result.split(entry.unicodeChar).join(entry.encodedStr)
-    }
+  let out = ''
+  for (const ch of text) {
+    out += UNICODE_TO_SMP.get(ch) ?? ch
   }
-  return result
+  return out
 }
 
 export function renderSmpTextToHtml(
