@@ -1,4 +1,5 @@
 import { activeSvgs, ensureSmpDoc, getSelectedPlotSvg, isTrimmingMode, PLOT_MARGIN, setSelectedPlotSvg, updatePlotVisual } from './plot/index.ts'
+import { getPlotValueScales } from './plot/smpDoc.ts'
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
 
 interface PlotFrame {
@@ -170,13 +171,12 @@ export function finishTrim(): void {
   const doc = ensureSmpDoc(f.svg)
   const ax = doc.axisX
   const ay = doc.axisY
-  const xMin = ax.min
-  const xMax = ax.max
-  const yMin = ay.min
-  const yMax = ay.max
-
-  const xAt = (gx: number) => xMin + ((gx - f.l) / f.w) * (xMax - xMin)
-  const yAt = (gy: number) => yMax - ((gy - f.t) / f.h) * (yMax - yMin)
+  // f.l / f.t are already margin-origin (svgLeft + PLOT_MARGIN.l), which is the pixel space
+  // getPlotValueScales uses. The incoming gx/gy are graph-area coords, so drop the frame
+  // offset and add the margin back to land in that same space.
+  const scales = getPlotValueScales(f.svg, f.w, f.h)
+  const xAt = (gx: number) => scales.x.pixelToValue(gx - f.l + PLOT_MARGIN.l)
+  const yAt = (gy: number) => scales.y.pixelToValue(gy - f.t + PLOT_MARGIN.t)
 
   const newXMin = xAt(cl)
   const newXMax = xAt(cr)
@@ -191,10 +191,12 @@ export function finishTrim(): void {
   if (doc.syncWithU !== false && doc.axisTop) {
     doc.axisTop.min = newXMin
     doc.axisTop.max = newXMax
+    doc.axisTop.logScale = ax.logScale
   }
   if (doc.syncWithR !== false && doc.axisRight) {
     doc.axisRight.min = newYMin
     doc.axisRight.max = newYMax
+    doc.axisRight.logScale = ay.logScale
   }
 
   setSelectedPlotSvg(f.svg)

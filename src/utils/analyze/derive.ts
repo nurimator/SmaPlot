@@ -15,6 +15,8 @@ import { getProcessedDataset } from '../../components/plot/dataset.ts'
 
 export const ANALYZE_DIVISION_DEFAULT = 101
 
+let derivedSeriesCounter = 0
+
 function baseName(ds: Dataset): string {
   return ds.smpSeriesName || ds.name
 }
@@ -50,8 +52,13 @@ function makeDerived(
     from = r.min
     to = r.max
   }
+  derivedSeriesCounter += 1
   return {
     name: `${src.name} (${kind})`,
+    seriesId: `${src.seriesId || src.filePath || src.name}::derived:${derivedSeriesCounter}`,
+    dataId: `${src.dataId || src.smpDataName || src.name}::derived:${derivedSeriesCounter}`,
+    seriesIndex: src.seriesIndex,
+    documentId: src.documentId,
     color: src.color,
     x: xs,
     y: ys,
@@ -80,6 +87,13 @@ function makeDerived(
   }
 }
 
+export function findSourceDataset(doc: SmpPlotDoc, identifier: string): Dataset | undefined {
+  const datasets = doc.datasets || []
+  return datasets.find((d) => d.seriesId && d.seriesId === identifier) ||
+    datasets.find((d) => (d.smpSeriesName || d.name) === identifier || d.name === identifier) ||
+    datasets.find((d) => d.filePath === identifier || d.fileName === identifier || `${d.name}.txt` === identifier)
+}
+
 export function listSourceDatasets(doc: SmpPlotDoc): Dataset[] {
   return (doc.datasets || []).filter((ds) => !ds.derivedKind)
 }
@@ -91,7 +105,7 @@ export function applyLsFit(
   polyDegree = 1,
   divisionOverride = 0
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   let a = 0
@@ -156,7 +170,7 @@ export function applyUserFit(
   activeMask?: boolean[],
   divisionOverride = 0
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const fit = fitGeneralFunction(expr, derivs, x, y, initial, activeMask)
@@ -166,7 +180,8 @@ export function applyUserFit(
     ? Math.round(divisionOverride)
     : info.count > 0 ? info.count : ANALYZE_DIVISION_DEFAULT
   const s = sampleUserFunction(expr, fit.constants, min, max, division)
-  const derived = makeDerived(src, `LS:F ${expr} rmse=${fit.rmse.toPrecision(4)}`, s.x, s.y)
+  const fitNote = fit.converged ? '' : ' not-converged'
+  const derived = makeDerived(src, `LS:F ${expr} rmse=${fit.rmse.toPrecision(4)}${fitNote}`, s.x, s.y)
   doc.datasets = [...(doc.datasets || []), derived]
   doc.analyzeLastAction = 'ls:general'
   return derived
@@ -178,7 +193,7 @@ export function applySpline(
   mode: SplineMode,
   division = ANALYZE_DIVISION_DEFAULT
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const s = interpolateSpline(x, y, mode, division)
@@ -198,7 +213,7 @@ export function applyGaussLorentz(
   offset: number,
   division = ANALYZE_DIVISION_DEFAULT
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const fit = fitGaussLorentz(kind, x, y, peaks, fitOffset, offset)
@@ -217,7 +232,7 @@ export function applyPeakDetect(
   threshold = 0,
   maxPeaks = 20
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const peaks = filterPeaksByThreshold(detectPeaks(x, y, maxPeaks), threshold)
@@ -238,7 +253,7 @@ export function applySmooth(
   srcName: string,
   cutoff = 10
 ): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const sy = smoothFFT(y, cutoff)
@@ -253,7 +268,7 @@ export function applyMaxMin(
   srcName: string,
   which: 'max' | 'min'
 ): string | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { x, y } = sourceCoords(src)
   const p = which === 'max' ? findMaximum(x, y) : findMinimum(x, y)
@@ -263,7 +278,7 @@ export function applyMaxMin(
 }
 
 export function applyFft(doc: SmpPlotDoc, srcName: string): Dataset | null {
-  const src = (doc.datasets || []).find((d) => (d.smpSeriesName || d.name) === srcName || d.name === srcName)
+  const src = findSourceDataset(doc, srcName)
   if (!src) return null
   const { y } = sourceCoords(src)
   const { freq, mag } = fftOfSignal(y)
@@ -283,8 +298,11 @@ export function applyFunctionDraw(
 ): Dataset {
   const consts = constants || doc.analyzeConstants || [0, 0, 0, 0, 0, 0, 0, 0, 0]
   const s = sampleFunction(yExpr, xMin, xMax, count, consts)
+  derivedSeriesCounter += 1
   const derived: Dataset = {
     name: `Function ${yExpr}`,
+    seriesId: `function::${derivedSeriesCounter}`,
+    dataId: `function::${derivedSeriesCounter}`,
     color: '#000000',
     x: s.x,
     y: s.y,

@@ -666,27 +666,521 @@ export function unicodeToSmp(text: string): string {
   return out
 }
 
-export function renderSmpTextToHtml(
-  rawText: string,
-  _options: { fontSize?: number; fontFamily?: string; color?: string } = {}
-): string {
-  if (!rawText) return ''
+export interface SmpTextOptions {
+  fontSize?: number
+  fontFamily?: string
+  secondaryFontFamily?: string
+  symbolFontFamily?: string
+  secondaryFontSize?: number
+  secondaryFontWeight?: number | string
+  secondaryFontStyle?: string
+  color?: string
+  fontWeight?: number | string
+  fontStyle?: string
+}
 
-  let s = smpToUnicode(rawText)
+export type SmpTextScript = 'normal' | 'sub' | 'sup'
 
-  s = s.replace(/\\n/g, '<br>').replace(/\n/g, '<br>')
+export interface SmpTextStyle {
+  fontFamily: string
+  fontWeight: number
+  fontStyle: 'normal' | 'italic'
+  fontSize: number
+  color: string
+  script: SmpTextScript
+  xOffset: number
+  yOffset: number
+}
 
-  s = s.replace(/%I(.*?)%R/g, '<i>$1</i>')
-  s = s.replace(/%K(.*?)%R/g, '<b>$1</b>')
-  s = s.replace(/%R/g, '')
+export interface SmpTextRun {
+  text: string
+  style: SmpTextStyle
+}
 
-  s = s.replace(/_([^@]+)@/g, '<sub>$1</sub>')
-  s = s.replace(/\^([^@]+)@/g, '<sup>$1</sup>')
+export interface SmpTextLine {
+  runs: SmpTextRun[]
+}
 
-  s = s.replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>')
-  s = s.replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>')
+interface SmpTextState {
+  base: SmpTextStyle
+  secondaryFontFamily: string
+  symbolFontFamily: string
+  secondaryFontSize: number
+  secondaryFontWeight: number
+  secondaryFontStyle: 'normal' | 'italic'
+  italic: boolean
+  bold: boolean
+  script: SmpTextScript
+  fontMode: 'base' | 'greek' | 'latin'
+  xOffset: number
+  yOffset: number
+  sizeScale: number
+}
 
-  s = s.replace(/@/g, '')
+const DEFAULT_TEXT_FONT_SIZE = 16
+const DEFAULT_TEXT_FONT_FAMILY = 'Times New Roman, serif'
+const DEFAULT_TEXT_COLOR = '#000000'
 
-  return s
+const SYMBOL_GREEK: Record<string, string> = {
+  A: 'Α',
+  B: 'Β',
+  C: 'Χ',
+  D: 'Δ',
+  E: 'Ε',
+  F: 'Φ',
+  G: 'Γ',
+  H: 'Η',
+  I: 'Ι',
+  J: 'ϑ',
+  K: 'Κ',
+  L: 'Λ',
+  M: 'Μ',
+  N: 'Ν',
+  O: 'Ο',
+  P: 'Π',
+  Q: 'Θ',
+  R: 'Ρ',
+  S: 'Σ',
+  T: 'Τ',
+  U: 'Υ',
+  V: 'ς',
+  W: 'Ω',
+  X: 'Ξ',
+  Y: 'Ψ',
+  Z: 'Ζ',
+  a: 'α',
+  b: 'β',
+  c: 'χ',
+  d: 'δ',
+  e: 'ε',
+  f: 'φ',
+  g: 'γ',
+  h: 'η',
+  i: 'ι',
+  j: 'φ',
+  k: 'κ',
+  l: 'λ',
+  m: 'μ',
+  n: 'ν',
+  o: 'ο',
+  p: 'π',
+  q: 'θ',
+  r: 'ρ',
+  s: 'σ',
+  t: 'τ',
+  u: 'υ',
+  v: 'ϖ',
+  w: 'ω',
+  x: 'ξ',
+  y: 'ψ',
+  z: 'ζ',
+}
+
+const WINDOWS_1252_TEXT: Record<number, string> = {
+  0x80: '€',
+  0x82: '‚',
+  0x83: 'ƒ',
+  0x84: '„',
+  0x85: '…',
+  0x86: '†',
+  0x87: '‡',
+  0x88: 'ˆ',
+  0x89: '‰',
+  0x8a: 'Š',
+  0x8b: '‹',
+  0x8c: 'Œ',
+  0x8e: 'Ž',
+  0x91: '‘',
+  0x92: '’',
+  0x93: '“',
+  0x94: '”',
+  0x95: '•',
+  0x96: '–',
+  0x97: '—',
+  0x98: '˜',
+  0x99: '™',
+  0x9a: 'š',
+  0x9b: '›',
+  0x9c: 'œ',
+  0x9e: 'ž',
+  0x9f: 'Ÿ',
+}
+
+const SYMBOL_CODE: Record<number, string> = {
+  0x2d: '−',
+  0x3c: '≤',
+  0x3d: '≡',
+  0x3e: '≥',
+  0x47: 'Γ',
+  0x48: 'Η',
+  0x4d: 'Μ',
+  0x4e: 'Ν',
+  0x53: 'Σ',
+  0x57: 'Ω',
+  0x58: 'Ξ',
+  0x59: 'Ψ',
+  0x5e: '⊥',
+  0x5f: '∧',
+  0x71: 'θ',
+  0x72: 'ρ',
+  0x73: 'σ',
+  0x77: 'ω',
+  0x78: 'χ',
+  0x79: 'ψ',
+  0xb9: '∴',
+  0xd7: '×',
+  0xf7: '÷',
+}
+
+function normalizeTextWeight(value: number | string | undefined): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const lower = value.trim().toLowerCase()
+    if (lower === 'bold') return 700
+    const parsed = Number(lower)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return 400
+}
+
+function normalizeTextStyle(value: string | undefined): 'normal' | 'italic' {
+  const lower = (value || '').toLowerCase()
+  return lower.includes('italic') || lower.includes('oblique') ? 'italic' : 'normal'
+}
+
+function joinFontFamilies(...families: Array<string | undefined>): string {
+  const result: string[] = []
+  const seen = new Set<string>()
+  for (const family of families) {
+    const value = (family || '').trim()
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    result.push(value)
+  }
+  return result.length > 0 ? result.join(', ') : DEFAULT_TEXT_FONT_FAMILY
+}
+
+function isGlyphChar(char: string): boolean {
+  const code = char.codePointAt(0) || 0
+  return (
+    (code >= 0x3000 && code <= 0x30ff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef)
+  )
+}
+
+function createTextState(options: SmpTextOptions): SmpTextState {
+  const fontSize =
+    typeof options.fontSize === 'number' && Number.isFinite(options.fontSize) && options.fontSize > 0
+      ? options.fontSize
+      : DEFAULT_TEXT_FONT_SIZE
+  const fontFamily = options.fontFamily?.trim() || DEFAULT_TEXT_FONT_FAMILY
+  const secondaryFontSize =
+    typeof options.secondaryFontSize === 'number' &&
+    Number.isFinite(options.secondaryFontSize) &&
+    options.secondaryFontSize > 0
+      ? options.secondaryFontSize
+      : fontSize
+  return {
+    base: {
+      fontFamily,
+      fontWeight: normalizeTextWeight(options.fontWeight),
+      fontStyle: normalizeTextStyle(options.fontStyle),
+      fontSize,
+      color: options.color || DEFAULT_TEXT_COLOR,
+      script: 'normal',
+      xOffset: 0,
+      yOffset: 0,
+    },
+    secondaryFontFamily: options.secondaryFontFamily?.trim() || '',
+    symbolFontFamily: options.symbolFontFamily?.trim() || '',
+    secondaryFontSize,
+    secondaryFontWeight: normalizeTextWeight(options.secondaryFontWeight ?? options.fontWeight),
+    secondaryFontStyle: normalizeTextStyle(options.secondaryFontStyle ?? options.fontStyle),
+    italic: false,
+    bold: false,
+    script: 'normal',
+    fontMode: 'base',
+    xOffset: 0,
+    yOffset: 0,
+    sizeScale: 1,
+  }
+}
+
+function resetTextState(state: SmpTextState): void {
+  state.italic = false
+  state.bold = false
+  state.script = 'normal'
+  state.fontMode = 'base'
+  state.sizeScale = 1
+}
+
+// Sub/superscript runs are rendered at this fraction of the base size, and the value is baked
+// into SmpTextStyle.fontSize. Width measurement must not scale it a second time.
+const SCRIPT_SIZE_RATIO = 0.72
+
+function getTextStyle(state: SmpTextState, char: string): SmpTextStyle {
+  let fontFamily = state.base.fontFamily
+  let fontSize = state.base.fontSize
+  let fontWeight = state.base.fontWeight
+  let fontStyle = state.base.fontStyle
+  if (state.fontMode === 'greek') {
+    fontFamily = joinFontFamilies(state.symbolFontFamily, state.secondaryFontFamily, state.base.fontFamily)
+    fontSize = state.secondaryFontSize
+    fontWeight = state.secondaryFontWeight
+    fontStyle = state.secondaryFontStyle
+  }
+  if (isGlyphChar(char)) {
+    fontFamily = joinFontFamilies(state.secondaryFontFamily, fontFamily, state.base.fontFamily)
+    fontSize = state.secondaryFontSize
+    fontWeight = state.secondaryFontWeight
+    fontStyle = state.secondaryFontStyle
+  }
+  const scriptScale = state.script === 'normal' ? 1 : SCRIPT_SIZE_RATIO
+  return {
+    fontFamily,
+    fontWeight: state.bold ? 700 : fontWeight,
+    fontStyle: state.italic ? 'italic' : fontStyle,
+    fontSize: Math.max(1, fontSize * state.sizeScale * scriptScale),
+    color: state.base.color,
+    script: state.script,
+    xOffset: state.xOffset,
+    yOffset: state.yOffset,
+  }
+}
+
+function sameTextStyle(a: SmpTextStyle, b: SmpTextStyle): boolean {
+  return (
+    a.fontFamily === b.fontFamily &&
+    a.fontWeight === b.fontWeight &&
+    a.fontStyle === b.fontStyle &&
+    a.fontSize === b.fontSize &&
+    a.color === b.color &&
+    a.script === b.script &&
+    a.xOffset === b.xOffset &&
+    a.yOffset === b.yOffset
+  )
+}
+
+function decodeCharacterCode(code: number, symbolMode: boolean): string {
+  const symbolChar = SYMBOL_CODE[code]
+  if (symbolMode && symbolChar) return symbolChar
+  if (WINDOWS_1252_TEXT[code]) return WINDOWS_1252_TEXT[code]
+  if (code >= 0 && code <= 0x10ffff) return String.fromCodePoint(code)
+  return ''
+}
+
+function appendText(lines: SmpTextLine[], state: SmpTextState, value: string, decodeSymbol = true): void {
+  if (!value) return
+  const decoded = decodeSymbol && state.fontMode === 'greek' ? Array.from(value).map((char) => SYMBOL_GREEK[char] || char).join('') : value
+  for (const char of Array.from(decoded)) {
+    const line = lines[lines.length - 1]
+    const style = getTextStyle(state, char)
+    const previous = line.runs[line.runs.length - 1]
+    if (previous && sameTextStyle(previous.style, style)) {
+      previous.text += char
+    } else {
+      line.runs.push({ text: char, style })
+    }
+  }
+}
+
+function readDecimal(text: string, start: number, maxDigits: number): { value: number; end: number } | null {
+  let index = start
+  while (index < text.length && index - start < maxDigits && text[index] >= '0' && text[index] <= '9') index++
+  if (index === start) return null
+  const value = Number(text.slice(start, index))
+  return Number.isFinite(value) ? { value, end: index } : null
+}
+
+function readSignedNumber(text: string, start: number): { value: number; end: number } | null {
+  let index = start
+  while (index < text.length && /\s/.test(text[index])) index++
+  let sign = 1
+  if (text[index] === '+' || text[index] === '-') {
+    if (text[index] === '-') sign = -1
+    index++
+  }
+  const decimal = readDecimal(text, index, 8)
+  if (!decimal) return null
+  let value = sign * decimal.value
+  if (text[decimal.end] === '.' || text[decimal.end] === ',') {
+    const fractionStart = decimal.end + 1
+    const fraction = readDecimal(text, fractionStart, 8)
+    if (fraction) {
+      value += sign * fraction.value / 10 ** (fraction.end - fractionStart)
+      return { value, end: fraction.end }
+    }
+  }
+  return { value, end: decimal.end }
+}
+
+function pushTextLine(lines: SmpTextLine[]): void {
+  lines.push({ runs: [] })
+}
+
+export function tokenizeSmpText(rawText: string, options: SmpTextOptions = {}): SmpTextLine[] {
+  const decoded = smpToUnicode(rawText || '')
+  const lines: SmpTextLine[] = [{ runs: [] }]
+  const state = createTextState(options)
+  let index = 0
+
+  while (index < decoded.length) {
+    const char = decoded[index]
+
+    if (char === '\\' && decoded[index + 1] === 'n') {
+      pushTextLine(lines)
+      index += 2
+      continue
+    }
+    if (char === '\r') {
+      pushTextLine(lines)
+      index += decoded[index + 1] === '\n' ? 2 : 1
+      continue
+    }
+    if (char === '\n') {
+      pushTextLine(lines)
+      index++
+      continue
+    }
+
+    if (char === '%' && index + 1 < decoded.length) {
+      const control = decoded[index + 1]
+      if (control === 'I') {
+        state.italic = true
+        index += 2
+        continue
+      }
+      if (control === 'K' || control === 'B') {
+        state.bold = true
+        index += 2
+        continue
+      }
+      if (control === 'O') {
+        state.bold = true
+        state.italic = true
+        index += 2
+        continue
+      }
+      if (control === 'R') {
+        resetTextState(state)
+        index += 2
+        continue
+      }
+      if (control === 'G') {
+        state.fontMode = 'greek'
+        index += 2
+        continue
+      }
+      if (control === 'A') {
+        state.fontMode = 'latin'
+        index += 2
+        continue
+      }
+      if (control === 'X' || control === 'Y') {
+        const offset = readSignedNumber(decoded, index + 2)
+        if (offset) {
+          if (control === 'X') state.xOffset = offset.value
+          else state.yOffset = offset.value
+          index = offset.end
+          continue
+        }
+        appendText(lines, state, `%${control}`, false)
+        index += 2
+        continue
+      }
+      if (control === 'Q') {
+        const code = readDecimal(decoded, index + 2, 3)
+        if (code) {
+          appendText(lines, state, decodeCharacterCode(code.value, state.fontMode === 'greek'))
+          index = code.end
+          continue
+        }
+        appendText(lines, state, '%Q', false)
+        index += 2
+        continue
+      }
+      if (control === 'S') {
+        const size = readDecimal(decoded, index + 2, 3)
+        if (size && size.value > 0) {
+          state.sizeScale = size.value / 100
+          index = size.end
+          continue
+        }
+        appendText(lines, state, '%S', false)
+        index += 2
+        continue
+      }
+      appendText(lines, state, `%${control}`, false)
+      index += 2
+      continue
+    }
+
+    if (char === '_') {
+      state.script = 'sub'
+      index++
+      continue
+    }
+    if (char === '^') {
+      state.script = 'sup'
+      index++
+      continue
+    }
+    if (char === '@') {
+      state.script = 'normal'
+      index++
+      continue
+    }
+
+    appendText(lines, state, char)
+    index++
+  }
+
+  return lines
+}
+
+export interface SmpLineMetrics {
+  width: number
+  indent: number
+  fontSize: number
+}
+
+export function measureSmpLine(line: SmpTextLine, fontSize: number): SmpLineMetrics {
+  const baseSize = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : DEFAULT_TEXT_FONT_SIZE
+  let maxFontSize = baseSize
+  let width = 0
+  let indent = 0
+  line.runs.forEach((run, runIndex) => {
+    maxFontSize = Math.max(maxFontSize, run.style.fontSize)
+    const charWidth = Array.from(run.text).reduce((sum, char) => sum + (isGlyphChar(char) ? 1 : 0.58), 0)
+    width += charWidth * run.style.fontSize
+    if (runIndex === 0) indent = run.style.xOffset * run.style.fontSize * 0.01
+  })
+  return { width, indent, fontSize: maxFontSize }
+}
+
+export function measureSmpText(
+  lines: SmpTextLine[],
+  fontSize: number
+): { width: number; height: number; lineHeight: number } {
+  const baseSize = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : DEFAULT_TEXT_FONT_SIZE
+  let maxFontSize = baseSize
+  let width = 0
+  for (const line of lines) {
+    let lineWidth = 0
+    line.runs.forEach((run, runIndex) => {
+      maxFontSize = Math.max(maxFontSize, run.style.fontSize)
+      const charWidth = Array.from(run.text).reduce((sum, char) => sum + (isGlyphChar(char) ? 1 : 0.58), 0)
+      lineWidth += charWidth * run.style.fontSize
+      // xOffset is an absolute per-run value, so only the first run contributes; adding it
+      // for every run would count the same shift once per run.
+      if (runIndex === 0) lineWidth += run.style.xOffset * run.style.fontSize * 0.01
+    })
+    width = Math.max(width, lineWidth)
+  }
+  const lineHeight = maxFontSize * 1.2
+  return { width, height: Math.max(lineHeight, lines.length * lineHeight), lineHeight }
 }

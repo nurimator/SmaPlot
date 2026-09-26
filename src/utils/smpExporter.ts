@@ -28,7 +28,7 @@ const DEFAULT_SERIES_SIZE = 3
 const DEFAULT_LEGEND_TYPE = 8
 const DEFAULT_XLABEL_POS = { x: 2400, y: 11400 }
 const DEFAULT_YLABEL_POS = { x: -400, y: 5000, rotation: -90 }
-const DEFAULT_ANNOTATION = { thickness: 0.4, shade: 0, round: 0 }
+const DEFAULT_ANNOTATION = { thickness: 0.4, shade: 0, round: 0, spread: 30, shut: 100 }
 
 const HEADER_SMP_FILE = ' Sma4Win ver. 1.8  SMP file'
 const HEADER_SMA_FILE = ' Sma4Win ver. 1.1  SMA file'
@@ -45,21 +45,30 @@ const FONT_NAME_SYMBOL = 'Symbol'
 const FONT_NAME_ARCHIC = 'Arphic PRound-Gothic Medium JIS'
 const LEGEND_POS_TAIL = '0 1 0 0'
 const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
+const DEFAULT_DATA_SEPARATOR = '\t'
 
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
 const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
+const SERIES_STYLE_LINE_LEGACY = (prefix: number, color: number): string => `${prefix} ${color} 300`
 const SERIES_SYMBOL_LINE = (pen: number, sym: number, size: number, color: number): string => `${pen} ${sym} ${size} ${color}`
 const SERIES_FILL_LINE = (fillBgr: number): string => `0 0 1 0 0 0 ${fillBgr} 5`
 const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 : 0} 0`
 const SERIES_ZEROS_LINE = '0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
 const SERIES_FIXED_LINE_5 = '1 40 0 300 1'
 
-function fontRecordLine(szVal: number, rot: number, weight: number, charset: number, mode: number): string {
-  return `-${szVal} 0 ${rot} ${-rot} ${weight} 0 0 0 ${charset} 3 2 1 ${mode}`
+// Font record: [-size] [0] [rot] [-rot] [weight] [italic] [charset..mode].
+// The first six tokens are modeled and UI-editable; the tail is a per-format
+// convention (1.8 writes "0 0 charset 3 2 1 mode", 1.3/1.4 writes "0 0 charset 0 0 2 mode"),
+// so it is carried through from the source file and these are only fallbacks for new items.
+const FONT_TAIL_TIMES = '0 0 0 3 2 1 18'
+const FONT_TAIL_ARCHIC = '0 0 128 3 2 1 17'
+const FONT_TAIL_SYMBOL = '0 0 2 3 2 1 18'
+const FONT_TAIL_LEGACY_TIMES = '0 0 0 0 0 2 18'
+const FONT_TAIL_LEGACY_ARCHIC = '0 0 128 0 0 2 17'
+
+function fontRecordLine(sizePt: number, rot: number, weight: number, italic: boolean, tail: string): string {
+  return `-${sizePt} 0 ${rot} ${-rot} ${weight} ${italic ? 1 : 0} ${tail}`
 }
-const FONT_SPEC_TIMES = (sz: number, rot: number, weight: number): string => fontRecordLine(sz, rot, weight, 0, 18)
-const FONT_SPEC_ARCHIC = (sz: number, rot: number, weight: number): string => fontRecordLine(sz, rot, weight, 128, 50)
-const FONT_SPEC_SYMBOL = (sz: number, rot: number, weight: number): string => fontRecordLine(sz, rot, weight, 2, 18)
 
 export function hexToBgr(hex: string): number {
   if (!hex) return 0
@@ -100,11 +109,212 @@ function lineTypeToCode(lt?: string): number {
   }
 }
 
-function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
+function sourceVersionForDoc(doc: SmpPlotDoc): string | undefined {
+  if (doc.sourceVersion) return doc.sourceVersion
+  const datasetVersion = doc.datasets?.find((ds) => ds.smpSourceVersion)?.smpSourceVersion
+  if (datasetVersion) return datasetVersion
+  if (doc.nativeFormatVersion === 5) return '1.3'
+  if (doc.nativeFormatVersion === 6) return '1.4'
+  if (doc.nativeFormatVersion === 7) return '1.5'
+  if (doc.nativeFormatVersion === 8) return '1.6'
+  if (doc.nativeFormatVersion === 9) return '1.7'
+  if (doc.nativeFormatVersion === 10) return '1.8'
+  if (doc.nativeFormatVersion === 11) return '1.9'
+  return undefined
+}
+
+function isLegacyDoc(doc: SmpPlotDoc): boolean {
+  const version = sourceVersionForDoc(doc)
+  return version === '1.3' || version === '1.4'
+}
+
+function dataTableKey(ds: Dataset): string {
+  if (ds.dataFingerprint) return ds.dataFingerprint
+  if (ds.dataId) return ds.dataId
+  const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
+  return ds.smpDataName || ds.smpSeriesName || `${cleanName}.txt`
+}
+
+function uniqueDataDatasets(datasets: Dataset[]): Dataset[] {
+  const positions = new Map<string, number>()
+  const unique: Dataset[] = []
+  for (const ds of datasets) {
+    const key = dataTableKey(ds)
+    const existingIndex = positions.get(key)
+    if (existingIndex === undefined) {
+      positions.set(key, unique.length)
+      unique.push(ds)
+      continue
+    }
+    const existing = unique[existingIndex]
+    const existingRows = existing.rawLines?.length ?? Math.min(existing.x?.length || 0, existing.y?.length || 0)
+    const rows = ds.rawLines?.length ?? Math.min(ds.x?.length || 0, ds.y?.length || 0)
+    if (rows > existingRows) unique[existingIndex] = ds
+  }
+  return unique
+}
+
+// Rotation is stored in signed tenths of a degree in both 1.3/1.4 and 1.8, so this must
+// not normalize into 0..3599 - native Sma4Win writes -900 for a vertical Y-axis title.
+const rotationTenths = (degrees: number): number => Math.round((Number(degrees) || 0) * DEG_TO_SMP)
+
+// 1.3/1.4 store font size in points; 1.8 stores points x 100.
+const fontSizeUnit = (legacy: boolean): number => (legacy ? 1 : MM_TO_SMP)
+
+// Annotation records come in three observed shapes: 13 fields (1.3/1.4, integer coordinates,
+// no round/spread/shut slots), 18 fields (early 1.8, integer) and 19 fields (current 1.8,
+// scientific). Coordinate format and field count are per-file conventions, not version
+// properties, so both are read back from the source line instead of derived.
+const ANNOTATION_MODELED_TOKENS = 18
+
+function formatCoord(value: number, scientific: boolean): string {
+  return scientific ? formatFloatSci(value) : String(Math.round(value))
+}
+
+function annotationLineForExport(item: SmpLineAnnotation, isRectangle: boolean): string {
+  const rawTokens = item.rawLineStr ? item.rawLineStr.trim().split(/\s+/) : []
+  const scientific = rawTokens.length === 0 || /e[+-]?\d/i.test(rawTokens[0])
+  const x1 = formatCoord(item.x1Norm, scientific)
+  const y1 = formatCoord(item.y1Norm, scientific)
+  const x2 = formatCoord(item.x2Norm, scientific)
+  const y2 = formatCoord(item.y2Norm, scientific)
+  const unitX = item.unitX === 'xa' ? 1 : item.unitX === 'ua' ? 2 : 0
+  const unitY = item.unitY === 'ya' ? 1 : item.unitY === 'ra' ? 2 : 0
+  const width = Math.round((item.width ?? 0.4) * 100)
+  const head = Math.round((item.arrowhead ?? 5) * 100)
+  const color = hexToBgr(item.color || COLOR_BLACK_HEX)
+  const style = lineTypeToCode(item.style)
+  const face = hexToBgr(item.faceColor || COLOR_FACE_HEX)
+  const spread = Math.round(item.spread ?? DEFAULT_ANNOTATION.spread)
+  const shut = Math.round(item.shut ?? DEFAULT_ANNOTATION.shut)
+  const mode = item.arrowMode !== undefined
+    ? item.arrowMode
+    : item.shape === 'arrow_start' ? 2 : item.shape === 'arrow_both' ? 3 : item.shape === 'line' ? 0 : 1
+  const kind = item.annotationKind ?? item.payloadKind ?? item.kind
+    ?? (item.shape === 'measure_line' || item.rawType === '2' ? 2 : 0)
+  const modeled = isRectangle
+    ? [x1, y1, x2, y2, '0', '0', '40',
+       String(Math.round((item.shadeDepth ?? DEFAULT_ANNOTATION.shade) * MM_TO_SMP)),
+       String(hexToBgr(item.shadeColor || item.color || COLOR_BLACK_HEX)), '3',
+       String(Math.round((item.thickness ?? item.width ?? DEFAULT_ANNOTATION.thickness) * MM_TO_SMP)),
+       '1', String(face),
+       String(Math.round((item.roundX ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)),
+       String(Math.round((item.roundY ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)),
+       String(style), String(DEFAULT_ANNOTATION.spread), String(DEFAULT_ANNOTATION.shut)]
+    : [x1, y1, x2, y2, String(unitX), String(unitY), String(width), String(head), String(color),
+       String(kind), String(Math.round((item.pitch ?? 3) * 100)), String(style), String(face),
+       String(Math.round((item.roundX ?? 0) * 100)), String(Math.round((item.roundY ?? 0) * 100)),
+       String(mode), String(spread), String(shut)]
+  // A source record narrower than the modeled layout simply has no such slots, so only emit
+  // the tokens the file actually had. Anything past the modeled tokens is passed through.
+  const keep = rawTokens.length > 0 ? Math.min(ANNOTATION_MODELED_TOKENS, rawTokens.length) : modeled.length
+  const tail = rawTokens.slice(ANNOTATION_MODELED_TOKENS)
+  const parts = modeled.slice(0, keep)
+  if (rawTokens.length === 0) parts.push('0')
+  else parts.push(...tail)
+  return parts.join(' ')
+}
+
+// Text/legend position line token 3 is the "show background" flag: 2 = show, 1 = hide.
+// Only that token is touched, so charset/mode and any other trailing values survive untouched.
+// showBg === undefined leaves the tail byte-identical to the source file.
+function positionTailWithShowBg(posTail: string | undefined, showBg: boolean | undefined): string {
+  if (showBg === undefined) return posTail || ''
+  const parts = (posTail || '').trim().length > 0 ? (posTail as string).trim().split(/\s+/) : []
+  while (parts.length < 2) parts.push('0')
+  parts[1] = showBg ? '2' : '1'
+  return parts.join(' ')
+}
+
+// One writer for the legacy [TITLE] section and the modern [LEGEND] text records. The only
+// structural difference is the font count: 1.3/1.4 carry a main run plus a glyph run, 1.8
+// adds a Symbol run.
+function titleItemLines(doc: SmpPlotDoc, item: SmpLegendItem, legacy: boolean, posTailFallback = ''): string[] {
+  const lines: string[] = []
+  const x = Math.round((item.xNorm / 10000) * doc.width)
+  const y = Math.round((item.yNorm / 10000) * doc.height)
+  const posTail = positionTailWithShowBg(item.posTail, item.showBg) || posTailFallback
+  lines.push(`${x} ${y}${posTail ? ` ${posTail}` : ''}`)
+  const textForExport = item.text !== undefined && item.text !== '' ? item.text : (item.rawText || '')
+  lines.push(unicodeToSmp(textForExport).replace(/\n/g, '\\n'))
+
+  const unit = fontSizeUnit(legacy)
+  const sizePt = Math.max(1, Math.round(item.fontSize || DEFAULT_AXIS.fontSize))
+  const weight = item.fontWeight >= DEFAULT_AXIS.boldWeight ? 700 : 400
+  const italic = (item.fontStyle || '').toLowerCase().includes('italic')
+  const family = item.fontFamily || item.fontFamily1 || DEFAULT_AXIS.fontFamily
+  lines.push(fontRecordLine(
+    Math.round(sizePt * unit),
+    rotationTenths(item.rotation),
+    weight,
+    italic,
+    item.font1Tail || (legacy ? FONT_TAIL_LEGACY_TIMES : FONT_TAIL_TIMES)
+  ))
+  lines.push(family)
+
+  const size2Pt = Math.max(1, Math.round(item.font2Size || sizePt))
+  const weight2 = item.font2Weight !== undefined ? (item.font2Weight >= DEFAULT_AXIS.boldWeight ? 700 : 400) : weight
+  const italic2 = (item.font2Style || '').toLowerCase().includes('italic')
+  lines.push(fontRecordLine(
+    Math.round(size2Pt * unit),
+    rotationTenths(item.font2Rotation !== undefined ? item.font2Rotation : item.rotation),
+    weight2,
+    italic2,
+    item.font2Tail || (legacy ? FONT_TAIL_LEGACY_ARCHIC : FONT_TAIL_ARCHIC)
+  ))
+  lines.push(legacy ? (item.fontFamily2 || item.optionFontFamily || family) : (item.optionFontFamily || family || FONT_NAME_ARCHIC))
+
+  if (!legacy) {
+    const size3Pt = Math.max(1, Math.round(item.font3Size || sizePt))
+    const weight3 = item.font3Weight !== undefined ? (item.font3Weight >= DEFAULT_AXIS.boldWeight ? 700 : 400) : weight
+    const italic3 = (item.font3Style || '').toLowerCase().includes('italic')
+    lines.push(fontRecordLine(
+      Math.round(size3Pt * unit),
+      rotationTenths(item.font3Rotation !== undefined ? item.font3Rotation : item.rotation),
+      weight3,
+      italic3,
+      item.font3Tail || FONT_TAIL_SYMBOL
+    ))
+    lines.push(item.symbolFontFamily || FONT_NAME_SYMBOL)
+  }
+  lines.push('')
+  return lines
+}
+
+function legacyTitleSectionLines(doc: SmpPlotDoc): string[] {
+  const items = (doc.legendItems || []).filter((item) => item.type !== 'annotation')
+  const lines: string[] = ['[TITLE]', String(items.length)]
+  items.forEach((item) => {
+    lines.push(...titleItemLines(doc, item, true))
+  })
+  return lines
+}
+
+// 1.3/1.4 store arrows in a dedicated [ARROW] section with no per-record type line and no
+// blank separator before the following section.
+function legacyArrowSectionLines(doc: SmpPlotDoc): string[] {
+  const annotations = (doc.annotationLines || []).filter((item) => item.shape !== 'rectangle' && item.shape !== 'rect')
+  const lines: string[] = ['[ARROW]', String(annotations.length)]
+  annotations.forEach((item, index) => {
+    if (index > 0) lines.push('')
+    lines.push(annotationLineForExport(item, false))
+  })
+  if (annotations.length > 0) lines.push('')
+  lines.push('[DOT]')
+  lines.push('0')
+  return lines
+}
+
+function seriesSpecLines(ds: Dataset, pointCount: number, legacy: boolean): string[] {
   const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
   const seriesTag = ds.smpSeriesName || ds.smpDataName || `${cleanName}.txt`
-  const srcPathRaw = ds.filePath || seriesTag
-  const srcPath = /^[A-Za-z]:/.test(srcPathRaw) ? srcPathRaw : `${SMP_FALLBACK_DIR}${srcPathRaw.replace(/^.*[\\/]/, '')}`
+  // A path read from a source file is written back verbatim: 1.3/1.4 store a bare file name
+  // while 1.8 stores a full path. Only synthesize a path when there is none (dropped .TXT,
+  // freshly created plot), because the browser cannot know the original directory.
+  const srcPathRaw = ds.smpSeriesSrcPath || ds.filePath || seriesTag
+  const srcPath = ds.smpSeriesSrcPath
+    ? srcPathRaw
+    : /^[A-Za-z]:/.test(srcPathRaw) ? srcPathRaw : `${SMP_FALLBACK_DIR}${srcPathRaw.replace(/^.*[\\/]/, '')}`
   const bgrColor = hexToBgr(ds.options?.lineColor || ds.color || COLOR_BLACK_HEX)
   const symCode = plotTypeToCode(ds.options?.plotType)
   const dotColorBgr = hexToBgr(ds.options?.dotColor || ds.options?.lineColor || ds.color || COLOR_BLACK_HEX)
@@ -114,6 +324,7 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
   const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
   const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
   const stylePrefix = Math.round(widthMm * 100)
+  const styleLine = legacy ? SERIES_STYLE_LINE_LEGACY(stylePrefix, bgrColor) : SERIES_STYLE_LINE(stylePrefix, bgrColor)
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
@@ -121,7 +332,7 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
     `[${seriesTag}]`,
     srcPath,
     ds.smpSeriesCountLine || SERIES_COUNT_LINE(pointCount),
-    SERIES_STYLE_LINE(stylePrefix, bgrColor),
+    styleLine,
     SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
     ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX)),
     exprFlag,
@@ -130,12 +341,13 @@ function seriesSpecLines(ds: Dataset, pointCount: number): string[] {
     zerosLine,
     fixed5,
   ]
+  const padBlanks = ds.smpUserFunction?.padBlanks ?? 2
   if (ds.smpUserFunction) {
     if (ds.smpUserFunction.flagsLine) out.push(ds.smpUserFunction.flagsLine)
     out.push(ds.smpUserFunction.expr)
     for (const d of ds.smpUserFunction.derivs || []) out.push(d)
   }
-  out.push('', '')
+  for (let i = 0; i < padBlanks; i++) out.push('')
   return out
 }
 
@@ -145,9 +357,12 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   if (isMultiDoc && doc.name) {
     lines.push(`[${doc.name}]`)
   }
-  lines.push(HEADER_SMP_FILE)
+  const sourceVersion = sourceVersionForDoc(doc)
+  const legacy = isLegacyDoc(doc)
+  lines.push(sourceVersion ? ` Sma4Win ver. ${sourceVersion}  SMP file` : HEADER_SMP_FILE)
   lines.push('')
-  lines.push(PAGE_SETUP_LINE)
+  // 1.3/1.4 have no page-setup line; the series count follows the header block directly.
+  if (!legacy) lines.push(doc.pageSetupLine || PAGE_SETUP_LINE)
 
   const datasets = doc.datasets || []
   lines.push(`${datasets.length}`)
@@ -155,7 +370,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   datasets.forEach((ds) => {
     const numericPointCount = Math.min(ds.x?.length || 0, ds.y?.length || 0)
     const pointCount = numericPointCount || ds.rawLines?.filter((row) => row.length >= 2).length || 0
-    lines.push(...seriesSpecLines(ds, pointCount))
+    lines.push(...seriesSpecLines(ds, pointCount, legacy))
   })
 
   lines.push('[GRAPH]')
@@ -170,15 +385,18 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   }
   if (gTokens.length > 2) gTokens[2] = doc.mergeZeroLabels ? '1' : '0'
   lines.push(gTokens.join(' '))
-  if (doc.graphFixed2 && !doc.frameWidth && !doc.frameColor) {
-    lines.push(doc.graphFixed2)
-  } else if (doc.frameWidth === undefined && doc.frameColor === undefined && doc.frameBgColor === undefined) {
-    lines.push(GRAPH_FIXED_2)
+  // Frame width/color/background are owned by FrameDialog, so those three tokens are
+  // regenerated; the rest (token 2 and anything past token 3) is per-file and preserved.
+  const g2 = (doc.graphFixed2 || '').trim().split(/\s+/).filter(Boolean)
+  const g2Mid = g2.length >= 3 ? g2[2] : '300'
+  const g2Tail = g2.length > 4 ? ` ${g2.slice(4).join(' ')}` : ''
+  const fw = Math.round((doc.frameWidth ?? 0.4) * 100)
+  const fc = hexToBgr(doc.frameColor || COLOR_BLACK_HEX)
+  const bg = hexToBgr(doc.frameBgColor || COLOR_FACE_HEX)
+  if (g2.length > 0) {
+    lines.push(`${fw} ${fc} ${g2Mid} ${bg}${g2Tail}`)
   } else {
-    const fw = Math.round((doc.frameWidth ?? 0.4) * 100)
-    const fc = hexToBgr(doc.frameColor || COLOR_BLACK_HEX)
-    const bg = hexToBgr(doc.frameBgColor || COLOR_FACE_HEX)
-    lines.push(`${fw} ${fc} 300 ${bg}`)
+    lines.push(GRAPH_FIXED_2)
   }
   lines.push('')
 
@@ -214,30 +432,30 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     const l2Tail = axis?.rawLine2Tail || '100 0'
     const insideTk = axis?.insideTicks ? 1 : 0
     const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
-    lines.push(`${subDivs} 0 ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
+    const scaleType = axis?.logScale ? 3 : 0
+    lines.push(`${subDivs} ${scaleType} ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
 
-    if (axis?.rawFontExtra) {
-      const fontSz = Math.round((axis?.fontSize || 24) * MM_TO_SMP)
-      const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
-      const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
-      lines.push(`-${fontSz} 0 0 0 ${weight} ${isItalic} 0 0 ${axis.rawFontExtra}`)
-    } else {
-      const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
-      const fontSz = Math.round((axis?.fontSize || 24) * MM_TO_SMP)
-      const startVal = `-${fontSz}`
-      const isItalic = axis?.fontStyle === 'italic' ? 1 : 0
-      const extraVal = (idx === 0 || idx === 1) ? AXIS_FONT_EXTRA[0] : AXIS_FONT_EXTRA[1]
-      lines.push(`${startVal} 0 0 0 ${weight} ${isItalic} 0 0 ${extraVal}`)
-    }
+    const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
+    const italic = axis?.fontStyle === 'italic'
+    // Sma4Win uses 255 as well as 1 for italic, so keep the source token when still italic.
+    const italicToken = italic ? (axis?.rawFontItalic || '1') : '0'
+    const fontSz = Math.round((axis?.fontSize || 24) * fontSizeUnit(legacy))
+    const fontExtra = axis?.rawFontExtra
+      || ((idx === 0 || idx === 1) ? AXIS_FONT_EXTRA[0] : AXIS_FONT_EXTRA[1])
+    lines.push(`-${fontSz} 0 0 0 ${weight} ${italicToken} 0 0 ${fontExtra}`)
     lines.push(axis?.fontFamily || DEFAULT_AXIS.fontFamily)
 
+    // Tick line: [in] [out] [length] [width] [color] [unmodeled] [style] [unmodeled].
+    // Tokens 5 and 7+ are preserved from the source because they carry per-file values
+    // (SAMPLE1 writes 0, SAMPLE3 writes 200) that the writer must not invent.
     const majIn = axis?.majorIn !== false ? 1 : 0
     const majOut = axis?.majorOut ? 1 : 0
     const majLen = Math.round((axis?.majorLength ?? DEFAULT_AXIS.majorLength) / SMP_TICK_UNIT_MM)
     const majWidth = Math.round((axis?.majorWidth ?? DEFAULT_AXIS.majorWidth) * MM_TO_SMP)
     const majColorBgr = hexToBgr(axis?.majorColor || COLOR_BLACK_HEX)
     const majStyleNum = axis?.majorStyle === 'dashed' ? 2 : axis?.majorStyle === 'dotted' ? 3 : 1
-    lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} 300 ${majStyleNum}`)
+    const majPad = axis?.rawMajorTickPad ? ` ${axis.rawMajorTickPad}` : ''
+    lines.push(`${majIn} ${majOut} ${majLen} ${majWidth} ${majColorBgr} ${axis?.rawMajorTickMid ?? 300} ${majStyleNum}${majPad}`)
 
     const minIn = axis?.minorIn !== false ? 1 : 0
     const minOut = axis?.minorOut ? 1 : 0
@@ -245,7 +463,8 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     const minWidth = Math.round((axis?.minorWidth ?? DEFAULT_AXIS.minorWidth) * MM_TO_SMP)
     const minColorBgr = hexToBgr(axis?.minorColor || COLOR_BLACK_HEX)
     const minStyleNum = axis?.minorStyle === 'dashed' ? 2 : axis?.minorStyle === 'dotted' ? 3 : 1
-    lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} 300 ${minStyleNum}`)
+    const minPad = axis?.rawMinorTickPad ? ` ${axis.rawMinorTickPad}` : ''
+    lines.push(`${minIn} ${minOut} ${minLen} ${minWidth} ${minColorBgr} ${axis?.rawMinorTickMid ?? 300} ${minStyleNum}${minPad}`)
     lines.push('')
   }
 
@@ -258,6 +477,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         step: doc.axisX.step,
         subDivs: doc.axisX.subDivs,
         autoStep: doc.axisX.autoStep,
+        logScale: doc.axisX.logScale,
         showLabels: false,
       }
     : (doc.axisTop || doc.axisX)
@@ -271,6 +491,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         step: doc.axisY.step,
         subDivs: doc.axisY.subDivs,
         autoStep: doc.axisY.autoStep,
+        logScale: doc.axisY.logScale,
         showLabels: false,
       }
     : (doc.axisRight || doc.axisY)
@@ -280,157 +501,115 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   formatAxis(2, axisTopExport)
   formatAxis(3, axisRightExport)
 
-  const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])].filter(
-    (it) => !(it.legendType === 3 && it.type === 'text' && !(it.rawLine && it.rawLine.startsWith('3')))
-  )
-  // frameTitle is stored-only until native mapping is proven; never export as [LEGEND] 3 (native rectangle).
-  if (legendItems.length === 0) {
-    if (doc.xLabel) {
-      legendItems.push({
-        type: 'text',
-        legendType: 4,
-        text: doc.xLabel,
-        rawText: doc.xLabel,
-        xNorm: DEFAULT_XLABEL_POS.x,
-        yNorm: DEFAULT_XLABEL_POS.y,
-        rotation: 0,
-        fontFamily: DEFAULT_AXIS.fontFamily,
-        fontSize: DEFAULT_AXIS.fontSize,
-        fontWeight: DEFAULT_AXIS.weight,
-      })
-    }
-    if (doc.yLabel) {
-      legendItems.push({
-        type: 'text',
-        legendType: 5,
-        text: doc.yLabel,
-        rawText: doc.yLabel,
-        xNorm: DEFAULT_YLABEL_POS.x,
-        yNorm: DEFAULT_YLABEL_POS.y,
-        rotation: DEFAULT_YLABEL_POS.rotation,
-        fontFamily: DEFAULT_AXIS.fontFamily,
-        fontSize: DEFAULT_AXIS.fontSize,
-        fontWeight: DEFAULT_AXIS.weight,
-      })
-    }
-  }
-
-  lines.push('[LEGEND]')
-
-  const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation }[] = []
-
-  legendItems.forEach((item) => {
-    if (item.rawLine && item.rawLine.startsWith('3')) {
-      exportList.push({ isRect: true, rawLine: item.rawLine, item })
-    } else if (item.type === 'annotation' || item.x2Norm !== undefined) {
-      exportList.push({ isLine: true, item })
-    } else {
-      exportList.push({ isText: true, item })
-    }
-  })
-
-  const annotationLines = doc.annotationLines || []
-  annotationLines.forEach((aLine) => {
-    const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
-    const alreadyExported = exportList.some(
-      (e) => (e.isRect === isRect || e.isLine === !isRect) &&
-        ((e.item && e.item.xNorm === aLine.x1Norm && e.item.yNorm === aLine.y1Norm) ||
-         (e.aLine && e.aLine.x1Norm === aLine.x1Norm && e.aLine.y1Norm === aLine.y1Norm))
+  if (legacy) {
+    lines.push(...legacyTitleSectionLines(doc))
+    lines.push(...legacyArrowSectionLines(doc))
+  } else {
+    const legendItems: SmpLegendItem[] = [...(doc.legendItems || [])].filter(
+      (it) => !(it.legendType === 3 && it.type === 'text' && !(it.rawLine && it.rawLine.startsWith('3')))
     )
-    if (!alreadyExported) {
-      if (isRect) {
-        exportList.push({ isRect: true, aLine })
+    // frameTitle is stored-only until native mapping is proven; never export as [LEGEND] 3 (native rectangle).
+    if (legendItems.length === 0) {
+      if (doc.xLabel) {
+        legendItems.push({
+          type: 'text',
+          legendType: 4,
+          text: doc.xLabel,
+          rawText: doc.xLabel,
+          xNorm: DEFAULT_XLABEL_POS.x,
+          yNorm: DEFAULT_XLABEL_POS.y,
+          rotation: 0,
+          fontFamily: DEFAULT_AXIS.fontFamily,
+          fontSize: DEFAULT_AXIS.fontSize,
+          fontWeight: DEFAULT_AXIS.weight,
+        })
+      }
+      if (doc.yLabel) {
+        legendItems.push({
+          type: 'text',
+          legendType: 5,
+          text: doc.yLabel,
+          rawText: doc.yLabel,
+          xNorm: DEFAULT_YLABEL_POS.x,
+          yNorm: DEFAULT_YLABEL_POS.y,
+          rotation: DEFAULT_YLABEL_POS.rotation,
+          fontFamily: DEFAULT_AXIS.fontFamily,
+          fontSize: DEFAULT_AXIS.fontSize,
+          fontWeight: DEFAULT_AXIS.weight,
+        })
+      }
+    }
+
+    lines.push('[LEGEND]')
+
+    const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation }[] = []
+
+    legendItems.forEach((item) => {
+      if (item.rawLine && item.rawLine.startsWith('3')) {
+        exportList.push({ isRect: true, rawLine: item.rawLine, item })
+      } else if (item.type === 'annotation' || item.x2Norm !== undefined) {
+        exportList.push({ isLine: true, item })
       } else {
-        exportList.push({ isLine: true, aLine })
+        exportList.push({ isText: true, item })
       }
-    }
-  })
+    })
 
-  lines.push(`${exportList.length}`)
+    const annotationLines = doc.annotationLines || []
+    annotationLines.forEach((aLine) => {
+      const isRect = aLine.shape === 'rectangle' || aLine.shape === 'rect' || aLine.rawType === '3'
+      const alreadyExported = exportList.some(
+        (e) => (e.isRect === isRect || e.isLine === !isRect) &&
+          ((e.item && e.item.xNorm === aLine.x1Norm && e.item.yNorm === aLine.y1Norm) ||
+           (e.aLine && e.aLine.x1Norm === aLine.x1Norm && e.aLine.y1Norm === aLine.y1Norm))
+      )
+      if (!alreadyExported) {
+        if (isRect) {
+          exportList.push({ isRect: true, aLine })
+        } else {
+          exportList.push({ isLine: true, aLine })
+        }
+      }
+    })
 
-  exportList.forEach((entry) => {
-    if (entry.isRect) {
-      lines.push('3')
-      let computed: string | null = null
-      if (entry.aLine) {
+    lines.push(`${exportList.length}`)
+
+    exportList.forEach((entry) => {
+      if (entry.isRect) {
+        lines.push('3')
+        if (entry.aLine) {
+          lines.push(annotationLineForExport(entry.aLine, true))
+        } else if (entry.item) {
+          const x1Str = formatFloatSci(entry.item.xNorm)
+          const y1Str = formatFloatSci(entry.item.yNorm)
+          const x2Str = formatFloatSci(entry.item.x2Norm ?? 0)
+          const y2Str = formatFloatSci(entry.item.y2Norm ?? 0)
+          lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
+        } else {
+          lines.push(entry.rawLine?.trim() ?? '')
+        }
+        lines.push('')
+      } else if (entry.isLine) {
         const aLine = entry.aLine
-        const x1Str = formatFloatSci(aLine.x1Norm)
-        const y1Str = formatFloatSci(aLine.y1Norm)
-        const x2Str = formatFloatSci(aLine.x2Norm)
-        const y2Str = formatFloatSci(aLine.y2Norm)
-        const thickVal = Math.round((aLine.thickness ?? aLine.width ?? DEFAULT_ANNOTATION.thickness) * MM_TO_SMP)
-        const shadeVal = Math.round((aLine.shadeDepth ?? DEFAULT_ANNOTATION.shade) * MM_TO_SMP)
-        const shadeBgr = hexToBgr(aLine.shadeColor || aLine.color || COLOR_BLACK_HEX)
-        const faceBgr = hexToBgr(aLine.faceColor || COLOR_FACE_HEX)
-        const roundXVal = Math.round((aLine.roundX ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
-        const roundYVal = Math.round((aLine.roundY ?? DEFAULT_ANNOTATION.round) * MM_TO_SMP)
-        const styleNum = (aLine.style === 'dashed' || aLine.style === 'dash') ? 2 : aLine.style === 'dotted' ? 3 : 1
-        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 ${shadeVal} ${shadeBgr} 3 ${thickVal} 1 ${faceBgr} ${roundXVal} ${roundYVal} ${styleNum} 30 100 0`
+        const item = entry.item
+        const itemType = aLine?.rawType || (aLine?.shape === 'measure_line' ? '2' : '0')
+        lines.push(itemType)
+        if (aLine) {
+          lines.push(annotationLineForExport(aLine, false))
+        } else if (item) {
+          const x1Str = formatFloatSci(item.xNorm)
+          const y1Str = formatFloatSci(item.yNorm)
+          const x2Str = formatFloatSci(item.x2Norm ?? 0)
+          const y2Str = formatFloatSci(item.y2Norm ?? 0)
+          lines.push(`${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 500 0 0 300 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`)
+        }
+        lines.push('')
       } else if (entry.item) {
-        const x1Str = formatFloatSci(entry.item.xNorm)
-        const y1Str = formatFloatSci(entry.item.yNorm)
-        const x2Str = formatFloatSci(entry.item.x2Norm ?? 0)
-        const y2Str = formatFloatSci(entry.item.y2Norm ?? 0)
-        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 100 0 3 40 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`
+        const item = entry.item
+        lines.push(String(item.legendType ?? DEFAULT_LEGEND_TYPE))
+        lines.push(...titleItemLines(doc, item, false, LEGEND_POS_TAIL))
       }
-      lines.push(entry.rawLine && computed !== null && computed === entry.rawLine ? entry.rawLine : (computed ?? entry.rawLine ?? ''))
-      lines.push('')
-    } else if (entry.isLine) {
-      const aLine = entry.aLine
-      const item = entry.item
-      const itemType = aLine?.rawType || (aLine?.shape === 'measure_line' ? '2' : '0')
-      lines.push(itemType)
-      let computed: string | null = null
-      if (aLine) {
-        const x1Str = formatFloatSci(aLine.x1Norm)
-        const y1Str = formatFloatSci(aLine.y1Norm)
-        const x2Str = formatFloatSci(aLine.x2Norm)
-        const y2Str = formatFloatSci(aLine.y2Norm)
-        const isMeasureLine = aLine.shape === 'measure_line' || aLine.rawType === '2'
-        const unitXCode = aLine.unitX === 'xa' ? 1 : aLine.unitX === 'ua' ? 2 : 0
-        const unitYCode = aLine.unitY === 'ya' ? 1 : aLine.unitY === 'ra' ? 2 : 0
-        const widthCode = Math.round((aLine.width ?? 0.4) * 100)
-        const headCode = Math.round((aLine.arrowhead ?? 5.0) * 100)
-        const colorCode = hexToBgr(aLine.color || '#000000')
-        const styleCode = lineTypeToCode(aLine.style)
-        const faceCode = hexToBgr(aLine.faceColor || '#ffffff')
-        const dimKind = isMeasureLine ? 2 : 0
-        const modeCode = isMeasureLine
-          ? 1
-          : aLine.arrowMode !== undefined
-            ? aLine.arrowMode
-            : aLine.shape === 'arrow_start' ? 2 : aLine.shape === 'arrow_both' ? 3 : aLine.shape === 'line' ? 0 : 1
-        const spreadCode = Math.round(aLine.spread ?? 30)
-        const shutCode = Math.round(aLine.shut ?? 100)
-        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} ${unitXCode} ${unitYCode} ${widthCode} ${headCode} ${colorCode} ${dimKind} 300 ${styleCode} ${faceCode} 0 0 ${modeCode} ${spreadCode} ${shutCode} 0`
-      } else if (item) {
-        const x1Str = formatFloatSci(item.xNorm)
-        const y1Str = formatFloatSci(item.yNorm)
-        const x2Str = formatFloatSci(item.x2Norm ?? 0)
-        const y2Str = formatFloatSci(item.y2Norm ?? 0)
-        computed = `${x1Str} ${y1Str} ${x2Str} ${y2Str} 0 0 40 500 0 0 300 1 ${COLOR_WHITE_BGR} 0 0 1 30 100 0`
-      }
-      const raw = aLine?.rawLineStr || item?.rawLine
-      lines.push(raw && computed !== null && computed === raw ? raw : (computed ?? raw ?? ''))
-      lines.push('')
-    } else if (entry.item) {
-      const item = entry.item
-      lines.push(String(item.legendType ?? DEFAULT_LEGEND_TYPE))
-      const posTail = item.posTail || LEGEND_POS_TAIL
-      lines.push(`${Math.round((item.xNorm / 10000) * doc.width)} ${Math.round((item.yNorm / 10000) * doc.height)} ${posTail}`)
-      lines.push(unicodeToSmp(item.text || item.rawText || '').replace(/\n/g, '\\n'))
-      const rot = Math.round(item.rotation * DEG_TO_SMP)
-      const weight = item.fontWeight >= DEFAULT_AXIS.boldWeight ? 700 : 400
-      const szVal = Math.round((item.fontSize || DEFAULT_AXIS.fontSize) * MM_TO_SMP)
-      lines.push(item.font1Spec || FONT_SPEC_TIMES(szVal, rot, weight))
-      lines.push(item.fontFamily || DEFAULT_AXIS.fontFamily)
-      lines.push(item.font2Spec || FONT_SPEC_ARCHIC(szVal, rot, weight))
-      lines.push(item.optionFontFamily || item.fontFamily || FONT_NAME_ARCHIC)
-      lines.push(item.font3Spec || FONT_SPEC_SYMBOL(szVal, rot, weight))
-      lines.push(item.symbolFontFamily || FONT_NAME_SYMBOL)
-      lines.push('')
-    }
-  })
+    })
+  }
 
   lines.push('[OTHERS]')
   lines.push(OTHERS_HEADER)
@@ -438,25 +617,34 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   lines.push(doc.othersSymbolLine || OTHERS_SYMBOL_LINE)
   lines.push(FONT_NAME_SYMBOL)
   lines.push('')
-  lines.push('[MASKS]')
-  lines.push(MASKS_HEADER)
-  lines.push('0')
-  lines.push('0')
-  lines.push('')
+  // 1.3/1.4 have no [MASKS] section.
+  if (!legacy) {
+    lines.push('[MASKS]')
+    lines.push(MASKS_HEADER)
+    lines.push('0')
+    lines.push('0')
+    lines.push('')
+  }
 
   if (writeData) {
-    lines.push(...dataSectionLines(datasets))
+    lines.push(...dataSectionLines(datasets, legacy))
   }
 
   return lines.join('\r\n')
 }
 
-function dataSectionLines(datasets: Dataset[]): string[] {
+function dataSectionLines(datasets: Dataset[], legacy: boolean): string[] {
+  // A series derived from a formula (or from analysis) has no source data table - Sma4Win
+  // stores only the expression. Emitting the sampled points would fabricate a data block.
+  const sourceDatasets = uniqueDataDatasets(datasets).filter((ds) => !ds.derivedKind)
+  // 1.8 always writes a [DATA] header, even with no series; 1.3/1.4 omit it entirely.
+  if (sourceDatasets.length === 0 && legacy) return []
+
   const lines: string[] = ['[DATA]']
   const nowStamp = formatDateTimestamp()
 
   let first = true
-  for (const ds of datasets) {
+  for (const ds of sourceDatasets) {
     if (!first) lines.push('')
     first = false
 
@@ -470,9 +658,15 @@ function dataSectionLines(datasets: Dataset[]): string[] {
         ? ds.rawLines
         : (ds.x || []).map((x, i) => [String(x), String(ds.y?.[i] ?? 0)])
 
+    // A table read from an .SMP reuses each row verbatim, which keeps the column separator and
+    // the per-row trailing padding the file used. A table built in SmaPlot has no stored text, so
+    // fall back to the table's separator (tab when even that is unknown).
+    const separator = ds.smpDataSeparator || DEFAULT_DATA_SEPARATOR
+    const rawText = ds.smpDataRawText
+
     if (rows.length > 0) {
-      for (const row of rows) {
-        lines.push(row.join('\t'))
+      for (let i = 0; i < rows.length; i++) {
+        lines.push(rawText?.[i] ?? rows[i].join(separator))
       }
     }
     lines.push('[End of Data]')
@@ -494,19 +688,8 @@ export function serializeSmpProject(docs: SmpPlotDoc[]): string {
     ...docs.map((doc) => serializeSmpDoc(doc, true, false)),
   ]
 
-  const allDatasets: Dataset[] = []
-  const seen = new Set<string>()
-  for (const doc of docs) {
-    for (const ds of doc.datasets || []) {
-      const cleanName = ds.name.replace(/^\d+\s+/, '').replace(/\.txt$/i, '')
-      const dataKey = ds.smpDataName || ds.smpSeriesName || `${cleanName}.txt`
-      if (!seen.has(dataKey)) {
-        seen.add(dataKey)
-        allDatasets.push(ds)
-      }
-    }
-  }
-  chunks.push(dataSectionLines(allDatasets).join('\r\n'))
+  const allDatasets = uniqueDataDatasets(docs.flatMap((doc) => doc.datasets || []))
+  chunks.push(dataSectionLines(allDatasets, false).join('\r\n'))
 
   return chunks.join('\r\n')
 }

@@ -109,7 +109,7 @@ function renderCurveOverlay(
 }
 
 export function renderSeries(ctx: PlotRenderContext): void {
-  const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr } = ctx
+  const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr, xValueScale, yValueScale, uValueScale, rValueScale } = ctx
 
   for (let dIdx = 0; dIdx < processedDatasets.length; dIdx++) {
     const ds = processedDatasets[dIdx]
@@ -127,6 +127,10 @@ export function renderSeries(ctx: PlotRenderContext): void {
 
     const dsSx = opts.axisX === 'u' ? su : sx
     const dsSy = opts.axisY === 'r' ? sr : sy
+    const xScale = opts.axisX === 'u' ? uValueScale : xValueScale
+    const yScale = opts.axisY === 'r' ? rValueScale : yValueScale
+    const isValidPoint = (index: number): boolean =>
+      xScale.isValid(ds.x[index]) && yScale.isValid(ds.y[index])
 
     const strokeColor = opts.lineColor || ds.color
     const seriesWidthMm = opts.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
@@ -143,6 +147,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))
       const zeroY = dsSy(0)
       for (let i = 0; i < ds.x.length; i++) {
+        if (!xScale.isValid(ds.x[i]) || !yScale.isValid(ds.y[i])) continue
         const px = dsSx(ds.x[i])
         const py = dsSy(ds.y[i])
         const bar = createSVGElement('rect')
@@ -158,48 +163,64 @@ export function renderSeries(ctx: PlotRenderContext): void {
       }
     } else {
       if (lineType !== 'no_line' && ds.x.length > 0) {
-        const points: string[] = []
+        const segments: string[][] = []
+        let current: string[] = []
         for (let i = 0; i < ds.x.length; i++) {
-          points.push(`${dsSx(ds.x[i]).toFixed(1)},${dsSy(ds.y[i]).toFixed(1)}`)
+          if (!isValidPoint(i)) {
+            if (current.length > 1) segments.push(current)
+            current = []
+            continue
+          }
+          current.push(`${dsSx(ds.x[i]).toFixed(1)},${dsSy(ds.y[i]).toFixed(1)}`)
         }
+        if (current.length > 1) segments.push(current)
 
         if (lineType === 'face') {
           const zeroY = dsSy(0).toFixed(1)
-          const firstX = dsSx(ds.x[0]).toFixed(1)
-          const lastX = dsSx(ds.x[ds.x.length - 1]).toFixed(1)
-
-          const areaPathD = `M ${firstX},${zeroY} L ${points.join(' L ')} L ${lastX},${zeroY} Z`
-          const areaPath = createSVGElement('path')
-          areaPath.setAttribute('d', areaPathD)
-          areaPath.setAttribute('fill', strokeColor)
-          areaPath.setAttribute('stroke', 'none')
-          dsScaleGroup.appendChild(areaPath)
+          segments.forEach((points) => {
+            const firstPoint = points[0].split(',')
+            const lastPoint = points[points.length - 1].split(',')
+            const areaPathD = `M ${firstPoint[0]},${zeroY} L ${points.join(' L ')} L ${lastPoint[0]},${zeroY} Z`
+            const areaPath = createSVGElement('path')
+            areaPath.setAttribute('d', areaPathD)
+            areaPath.setAttribute('fill', strokeColor)
+            areaPath.setAttribute('stroke', 'none')
+            dsScaleGroup.appendChild(areaPath)
+          })
         }
 
-        const path = createSVGElement('path')
-        path.setAttribute('d', `M ${points.join(' ')}`)
-        path.setAttribute('fill', 'none')
-        path.setAttribute('stroke', strokeColor)
-        path.setAttribute('stroke-width', strokeWidth)
-        path.setAttribute('vector-effect', 'non-scaling-stroke')
-        if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
-        path.setAttribute('stroke-linejoin', 'round')
-        path.setAttribute('stroke-linecap', 'round')
-        dsScaleGroup.appendChild(path)
+        segments.forEach((points) => {
+          const path = createSVGElement('path')
+          path.setAttribute('d', `M ${points.join(' ')}`)
+          path.setAttribute('fill', 'none')
+          path.setAttribute('stroke', strokeColor)
+          path.setAttribute('stroke-width', strokeWidth)
+          path.setAttribute('vector-effect', 'non-scaling-stroke')
+          if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
+          path.setAttribute('stroke-linejoin', 'round')
+          path.setAttribute('stroke-linecap', 'round')
+          dsScaleGroup.appendChild(path)
+        })
       }
 
       // step
       if ((plotType === 'step_h' || plotType === 'step_v') && ds.x.length > 1) {
-        const markerSw = parseFloat(strokeWidth)
-        const overlay = createSVGElement('path')
-        overlay.setAttribute('d', buildStepOverlayPath(ds.x, ds.y, dsSx, dsSy, plotType))
-        overlay.setAttribute('fill', 'none')
-        overlay.setAttribute('stroke', dotColor)
-        overlay.setAttribute('stroke-width', String(markerSw))
-        overlay.setAttribute('vector-effect', 'non-scaling-stroke')
-        overlay.setAttribute('stroke-linejoin', 'round')
-        overlay.setAttribute('stroke-linecap', 'round')
-        dsGroup.appendChild(overlay)
+        const stepIndices: number[] = []
+        for (let i = 0; i < ds.x.length; i++) if (isValidPoint(i)) stepIndices.push(i)
+        if (stepIndices.length >= 2) {
+          const stepX = stepIndices.map((index) => ds.x[index])
+          const stepY = stepIndices.map((index) => ds.y[index])
+          const markerSw = parseFloat(strokeWidth)
+          const overlay = createSVGElement('path')
+          overlay.setAttribute('d', buildStepOverlayPath(stepX, stepY, dsSx, dsSy, plotType))
+          overlay.setAttribute('fill', 'none')
+          overlay.setAttribute('stroke', dotColor)
+          overlay.setAttribute('stroke-width', String(markerSw))
+          overlay.setAttribute('vector-effect', 'non-scaling-stroke')
+          overlay.setAttribute('stroke-linejoin', 'round')
+          overlay.setAttribute('stroke-linecap', 'round')
+          dsGroup.appendChild(overlay)
+        }
       }
 
       if (
@@ -212,6 +233,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
         const step = Math.max(1, opts.pitch || 1)
         const markerSw = parseFloat(strokeWidth)
         for (let i = 0; i < ds.x.length; i += step) {
+          if (!isValidPoint(i)) continue
           const px = dsSx(ds.x[i])
           const py = dsSy(ds.y[i])
           const symbol = createSeriesSymbol(plotType, px, py, dotSize, dotColor, paintColor, markerSw)

@@ -1,6 +1,7 @@
 import type { Dataset, PlotVisualOptions } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import {
+  datasetMatchesIdentifier,
   exportPlotToSmpDoc,
   getPlotDatasets,
   getSelectedPlotSvg,
@@ -401,12 +402,7 @@ export function showPropertyDialog(
   let dataset: Dataset | undefined
 
   if (typeof datasetOrName === 'string') {
-    dataset = globalDataManager.getDatasets().find((d) =>
-      d.filePath === datasetOrName ||
-      d.fileName === datasetOrName ||
-      d.name === datasetOrName ||
-      `${d.name}.txt` === datasetOrName
-    )
+    dataset = globalDataManager.getDatasets().find((d) => datasetMatchesIdentifier(d, datasetOrName))
   } else if (datasetOrName) {
     dataset = datasetOrName
   } else {

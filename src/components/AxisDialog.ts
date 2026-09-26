@@ -1,4 +1,4 @@
-import type { SmpAxisSpec } from '../types.ts'
+import type { SmpAxisSpec, SmpPlotDoc } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { computeAutoStep } from '../utils/scale.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, setAxisSync, updatePlotVisual } from './plot/index.ts'
@@ -15,8 +15,10 @@ function syncAxisPair(source: SmpAxisSpec, target: SmpAxisSpec): void {
   target.step = source.step
   target.subDivs = source.subDivs
   target.autoStep = source.autoStep
+  target.logScale = source.logScale
 
   target.showTicks = source.showTicks
+
   target.showSubTicks = source.showSubTicks
   target.insideTicks = source.insideTicks
 
@@ -71,8 +73,10 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
   const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
   const axisSync = overlayEl.querySelector<HTMLInputElement>('#axisSync')
+  const axisTypeInputs = Array.from(overlayEl.querySelectorAll<HTMLInputElement>('input[name="axisType"]'))
 
   const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
+
   const axisMajorOut = overlayEl.querySelector<HTMLInputElement>('#axisMajorOut')
   const axisMajorColor = overlayEl.querySelector<HTMLInputElement>('#axisMajorColor')
   const axisMajorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMajorWidth')
@@ -96,39 +100,65 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisAddPlusSign = overlayEl.querySelector<HTMLInputElement>('#axisAddPlusSign')
   const axisMergeZeroLabels = overlayEl.querySelector<HTMLInputElement>('#axisMergeZeroLabels')
 
-  const applyAxisOptions = () => {
+  const resolveTargetSpec = (smpDoc: SmpPlotDoc): SmpAxisSpec => {
+    if (currentAxisTarget === 'x') return smpDoc.axisX
+    if (currentAxisTarget === 'y') return smpDoc.axisY
+    if (currentAxisTarget === 'u') {
+      if (!smpDoc.axisTop) {
+        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
+      }
+      return smpDoc.axisTop
+    }
+    if (!smpDoc.axisRight) {
+      smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isSynced: smpDoc.syncWithR !== false }
+    }
+    return smpDoc.axisRight
+  }
+
+  // Runs on change (blur/Enter/radio toggle) only: writing back to #axisFrom/#axisTo
+  // during input would overwrite the field the user is still typing into.
+  const sanitizeLogAxisRange = (): void => {
+    const svg = currentTargetSvg || getSelectedPlotSvg()
+    if (!svg) return
+    const smpDoc = getPlotSmpDoc(svg)
+    if (!smpDoc) return
+    const targetSpec = resolveTargetSpec(smpDoc)
+    if (!targetSpec.logScale) return
+    if (!Number.isFinite(targetSpec.min) || targetSpec.min <= 0) {
+      targetSpec.min = Number.isFinite(targetSpec.max) && targetSpec.max > 0 ? targetSpec.max / 1000 : 0.1
+    }
+    if (!Number.isFinite(targetSpec.max) || targetSpec.max <= targetSpec.min) {
+      targetSpec.max = targetSpec.min * 100
+    }
+    if (axisFrom) axisFrom.value = String(targetSpec.min)
+    if (axisTo) axisTo.value = String(targetSpec.max)
+  }
+
+  const applyAxisOptions = (sanitizeInputs = false): void => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
     if (!svg) return
     const smpDoc = getPlotSmpDoc(svg)
     if (!smpDoc) return
 
-    let targetSpec: SmpAxisSpec
-    if (currentAxisTarget === 'x') {
-      targetSpec = smpDoc.axisX
-    } else if (currentAxisTarget === 'y') {
-      targetSpec = smpDoc.axisY
-    } else if (currentAxisTarget === 'u') {
-      if (!smpDoc.axisTop) {
-        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
-      }
-      targetSpec = smpDoc.axisTop
-    } else {
-      if (!smpDoc.axisRight) {
-        smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isSynced: smpDoc.syncWithR !== false }
-      }
-      targetSpec = smpDoc.axisRight
-    }
+    const targetSpec = resolveTargetSpec(smpDoc)
+
+    const selectedAxisType = axisTypeInputs.find((input) => input.checked)?.value
+    if (selectedAxisType) targetSpec.logScale = selectedAxisType === 'log10' || selectedAxisType === 'log10_normal'
 
     if (axisDraw) targetSpec.showTicks = axisDraw.checked
     if (axisFrom && axisFrom.value !== '') targetSpec.min = parseFloat(axisFrom.value)
     if (axisTo && axisTo.value !== '') targetSpec.max = parseFloat(axisTo.value)
+    if (sanitizeInputs) sanitizeLogAxisRange()
 
     if (axisAutoStep) {
       targetSpec.autoStep = axisAutoStep.checked
       if (axisIncrement) axisIncrement.disabled = axisAutoStep.checked
     }
 
-    if (targetSpec.autoStep) {
+    if (targetSpec.logScale) {
+      if (!Number.isFinite(targetSpec.step) || Math.abs(targetSpec.step) <= 0) targetSpec.step = 1
+      if (axisIncrement) axisIncrement.value = String(Math.abs(targetSpec.step))
+    } else if (targetSpec.autoStep) {
       const auto = computeAutoStep(targetSpec.min, targetSpec.max)
       targetSpec.step = auto.increment
       targetSpec.subDivs = auto.division
@@ -169,9 +199,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
       const isSynced = axisSync ? axisSync.checked : true
-      setAxisSync(smpDoc, 'u', isSynced)
       const axisTop = smpDoc.axisTop!
-
       if (isSynced) {
         if (currentAxisTarget === 'x') {
           syncAxisPair(smpDoc.axisX, axisTop)
@@ -179,11 +207,10 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
           syncAxisPair(axisTop, smpDoc.axisX)
         }
       }
+      setAxisSync(smpDoc, 'u', isSynced)
     } else if (currentAxisTarget === 'y' || currentAxisTarget === 'r') {
       const isSynced = axisSync ? axisSync.checked : true
-      setAxisSync(smpDoc, 'r', isSynced)
       const axisRight = smpDoc.axisRight!
-
       if (isSynced) {
         if (currentAxisTarget === 'y') {
           syncAxisPair(smpDoc.axisY, axisRight)
@@ -191,6 +218,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
           syncAxisPair(axisRight, smpDoc.axisY)
         }
       }
+      setAxisSync(smpDoc, 'r', isSynced)
     }
 
     updatePlotVisual(svg)
@@ -207,20 +235,22 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   })
 
   const allControls = [
-    axisDraw, axisFrom, axisTo, axisDivision, axisSync,
+    axisDraw, axisFrom, axisTo, axisDivision, axisSync, ...axisTypeInputs,
+
     axisMajorIn, axisMajorOut, axisMajorColor, axisMajorWidth, axisMajorStyle, axisMajorLength,
     axisMinorIn, axisMinorOut, axisMinorColor, axisMinorWidth, axisMinorStyle, axisMinorLength,
     axisDrawLabels, axisFontFamily, axisLabelColor, axisFontStyle, axisFontSize, axisShiftRight, axisShiftDown,
     axisAddPlusSign, axisMergeZeroLabels
   ]
   allControls.forEach(ctrl => {
-    ctrl?.addEventListener('change', applyAxisOptions)
-    ctrl?.addEventListener('input', applyAxisOptions)
+    ctrl?.addEventListener('change', () => applyAxisOptions(true))
+    ctrl?.addEventListener('input', () => applyAxisOptions(false))
   })
 
   axisAutoStep?.addEventListener('change', () => {
+    const logSelected = axisTypeInputs.some((input) => input.checked && (input.value === 'log10' || input.value === 'log10_normal'))
     if (axisAutoStep && axisAutoStep.checked) {
-      if (axisFrom && axisTo) {
+      if (!logSelected && axisFrom && axisTo) {
         const minVal = parseFloat(axisFrom.value) || 0
         const maxVal = parseFloat(axisTo.value) || 100
         const autoSt = computeAutoStep(minVal, maxVal)
@@ -237,6 +267,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     }
     applyAxisOptions()
   })
+
   axisIncrement?.addEventListener('input', () => {
     if (axisAutoStep) axisAutoStep.checked = false
     if (axisIncrement) axisIncrement.disabled = false
@@ -313,8 +344,10 @@ export function showAxisDialog(
       const axisAutoStep = overlayEl.querySelector<HTMLInputElement>('#axisAutoStep')
       const axisIncrement = overlayEl.querySelector<HTMLInputElement>('#axisIncrement')
       const axisDivision = overlayEl.querySelector<HTMLInputElement>('#axisDivision')
+      const axisTypeInputs = Array.from(overlayEl.querySelectorAll<HTMLInputElement>('input[name="axisType"]'))
 
       const axisMajorIn = overlayEl.querySelector<HTMLInputElement>('#axisMajorIn')
+
       const axisMajorOut = overlayEl.querySelector<HTMLInputElement>('#axisMajorOut')
       const axisMajorColor = overlayEl.querySelector<HTMLInputElement>('#axisMajorColor')
       const axisMajorWidth = overlayEl.querySelector<HTMLInputElement>('#axisMajorWidth')
@@ -339,7 +372,11 @@ export function showAxisDialog(
       const axisMergeZeroLabels = overlayEl.querySelector<HTMLInputElement>('#axisMergeZeroLabels')
 
       if (axisSync) axisSync.checked = isSynced
+      axisTypeInputs.forEach((input) => { input.checked = false })
+      const typeInput = axisTypeInputs.find((input) => input.value === (spec.logScale ? 'log10' : 'linear'))
+      if (typeInput) typeInput.checked = true
       if (axisDraw) axisDraw.checked = spec.showTicks !== false
+
       if (axisFrom) axisFrom.value = String(spec.min)
       if (axisTo) axisTo.value = String(spec.max)
       if (axisAutoStep) axisAutoStep.checked = spec.autoStep ?? false

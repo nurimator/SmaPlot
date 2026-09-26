@@ -1,4 +1,5 @@
 import type { Dataset, SmpMetadata, SmpPlotDoc } from '../../types.ts'
+import type { ValueScale } from '../../utils/scale.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -107,6 +108,10 @@ export interface PlotRenderContext {
   sy: (v: number) => number
   su: (v: number) => number
   sr: (v: number) => number
+  xValueScale: ValueScale
+  yValueScale: ValueScale
+  uValueScale: ValueScale
+  rValueScale: ValueScale
   xMin: number
   xMax: number
   yMin: number

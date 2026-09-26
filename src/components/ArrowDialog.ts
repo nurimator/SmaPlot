@@ -6,6 +6,8 @@ import { makeDraggable } from '../utils/draggable.ts'
 
 let currentTargetSvg: SVGSVGElement | null = null
 let currentAnnotationIndex: number = -1
+let originalAnnotation: SmpLineAnnotation | null = null
+let annotationCommitted = false
 
 export function initArrowDialog(overlayEl: HTMLElement): void {
   const dialogEl = overlayEl.querySelector<HTMLElement>('#arrowDialog')
@@ -90,6 +92,11 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     }
   }
 
+  const mergeArrowFromDialog = (base?: SmpLineAnnotation): SmpLineAnnotation => ({
+    ...(base || {}),
+    ...buildArrowFromDialog(),
+  })
+
   const previewArrow = (): void => {
     if (currentAnnotationIndex < 0) return
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -97,7 +104,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
     const smpDoc = getPlotSmpDoc(svg)
     if (!smpDoc || !smpDoc.annotationLines) return
     if (currentAnnotationIndex >= smpDoc.annotationLines.length) return
-    smpDoc.annotationLines[currentAnnotationIndex] = buildArrowFromDialog()
+    smpDoc.annotationLines[currentAnnotationIndex] = mergeArrowFromDialog(smpDoc.annotationLines[currentAnnotationIndex])
     updatePlotVisual(svg)
   }
 
@@ -111,11 +118,12 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
       if (!smpDoc.annotationLines) smpDoc.annotationLines = []
 
       if (currentAnnotationIndex >= 0 && currentAnnotationIndex < smpDoc.annotationLines.length) {
-        smpDoc.annotationLines[currentAnnotationIndex] = buildArrowFromDialog()
+        smpDoc.annotationLines[currentAnnotationIndex] = mergeArrowFromDialog(smpDoc.annotationLines[currentAnnotationIndex])
       } else {
         smpDoc.annotationLines.push(buildArrowFromDialog())
       }
 
+      annotationCommitted = true
       updatePlotVisual(svg)
       pushUndoState()
       hide()
@@ -160,6 +168,7 @@ export function initArrowDialog(overlayEl: HTMLElement): void {
 
       if (currentAnnotationIndex >= 0 && currentAnnotationIndex < smpDoc.annotationLines.length) {
         smpDoc.annotationLines.splice(currentAnnotationIndex, 1)
+        annotationCommitted = true
         updatePlotVisual(svg)
         pushUndoState()
       }
@@ -180,6 +189,8 @@ export function showArrowDialog(
 ): void {
   currentTargetSvg = targetSvg || getSelectedPlotSvg()
   currentAnnotationIndex = annotationIndex
+  originalAnnotation = null
+  annotationCommitted = false
 
   const svg = currentTargetSvg
   if (svg) {
@@ -199,16 +210,17 @@ export function showArrowDialog(
 
     if (smpDoc && smpDoc.annotationLines && annotationIndex >= 0 && annotationIndex < smpDoc.annotationLines.length) {
       const aLine = smpDoc.annotationLines[annotationIndex]
+      originalAnnotation = { ...aLine }
 
       if (arrowheadEl) arrowheadEl.value = String(aLine.arrowhead ?? 5.0)
       if (widthEl) widthEl.value = String(aLine.width ?? 0.4)
       if (colorEl) colorEl.value = aLine.color || '#000000'
       if (lineTypeEl) lineTypeEl.value = aLine.style === 'dashed' ? 'dash' : aLine.style || 'solid'
       if (pitchEl) pitchEl.value = String(aLine.pitch ?? 3)
-      if (xStartEl) xStartEl.value = String(Math.round(aLine.x1Norm))
-      if (yStartEl) yStartEl.value = String(Math.round(aLine.y1Norm))
-      if (xEndEl) xEndEl.value = String(Math.round(aLine.x2Norm))
-      if (yEndEl) yEndEl.value = String(Math.round(aLine.y2Norm))
+      if (xStartEl) xStartEl.value = String(aLine.x1Norm)
+      if (yStartEl) yStartEl.value = String(aLine.y1Norm)
+      if (xEndEl) xEndEl.value = String(aLine.x2Norm)
+      if (yEndEl) yEndEl.value = String(aLine.y2Norm)
       if (shapeEl) {
         shapeEl.value = aLine.shape === 'measure_line' ? 'measure_line' : (
           aLine.arrowMode === 2 || aLine.shape === 'arrow_start' ? 'arrow_start' :
@@ -257,5 +269,14 @@ export function showArrowDialog(
 }
 
 export function hideArrowDialog(overlayEl: HTMLElement): void {
+  if (!annotationCommitted && originalAnnotation && currentTargetSvg && currentAnnotationIndex >= 0) {
+    const smpDoc = getPlotSmpDoc(currentTargetSvg)
+    if (smpDoc?.annotationLines && currentAnnotationIndex < smpDoc.annotationLines.length) {
+      smpDoc.annotationLines[currentAnnotationIndex] = originalAnnotation
+      updatePlotVisual(currentTargetSvg)
+    }
+  }
+  originalAnnotation = null
+  annotationCommitted = false
   overlayEl.style.display = 'none'
 }

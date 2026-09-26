@@ -3,6 +3,7 @@ export { renderAnnotations } from './annotations.ts'
 export { renderPlotCrossbar, removePlotCrossbar, setPlotCrossbar } from './crossbar.ts'
 export {
   datasetIdentifier,
+  datasetMatchesIdentifier,
   extractLinearParams,
   formatLinearExpr,
   getDatasetRawMinMax,

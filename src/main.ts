@@ -18,6 +18,7 @@ import {
   getAllPlotSvgs,
   getPlotDatasets,
   getPlotSvgFromElement,
+  datasetMatchesIdentifier,
   getSelectedPlotSvg,
   hitTestGraph,
   hitTestAxisArea,
@@ -264,9 +265,7 @@ async function handleInsertLegend(): Promise<void> {
     const plotDatasets = getPlotDatasets(svg)
     const codes = identifiers
       .map((id) => {
-        const index = plotDatasets.findIndex(
-          (d) => (d.filePath || d.fileName || `${d.name}.txt`) === id
-        )
+        const index = plotDatasets.findIndex((d) => datasetMatchesIdentifier(d, id))
         return index >= 0 ? `%0${index + 1}E%0${index + 1}N` : null
       })
       .filter((c): c is string => c !== null)
@@ -375,9 +374,7 @@ function handleReadValue(): void {
     showReadValueDialog(readValueOverlayEl, svg, datasets[0])
   } else if (datasets.length > 1) {
     showDataManagerDialog(dmOverlayEl, (fileName) => {
-      const chosen =
-        datasets.find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName) ||
-        datasets[0]
+      const chosen = datasets.find((d) => datasetMatchesIdentifier(d, fileName)) || datasets[0]
       showReadValueDialog(readValueOverlayEl, svg, chosen)
     })
   } else {
@@ -385,7 +382,7 @@ function handleReadValue(): void {
       showDataManagerDialog(dmOverlayEl, (fileName) => {
         const globalDs = globalDataManager
           .getDatasets()
-          .find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName)
+          .find((d) => datasetMatchesIdentifier(d, fileName))
         if (globalDs) {
           addDatasetToPlot(svg, globalDs)
           showReadValueDialog(readValueOverlayEl, svg, globalDs)

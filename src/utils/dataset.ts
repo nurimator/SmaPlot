@@ -14,7 +14,7 @@ export function parseDatasetContent(text: string, fileName: string, filePath?: s
 
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue
-    const parts = line.trim().split(/\s+/)
+    const parts = line.trim().split(/[\s,]+/).filter((t) => t !== '')
     rawLines.push(parts)
     if (parts.length >= 2) {
       const px = parseFloat(parts[0])

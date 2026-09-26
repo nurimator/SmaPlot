@@ -1,5 +1,5 @@
 import type { Dataset, SmpAxisSpec, SmpMetadata, SmpPlotDoc } from '../../types.ts'
-import { computeAutoStep, niceAxisBounds } from '../../utils/scale.ts'
+import { createValueScale, niceAxisBounds, niceLogAxisBounds, resolveAxisStep, type ValueScale } from '../../utils/scale.ts'
 import { getProcessedDataset } from './dataset.ts'
 import { getExplicitSelectedPlotSvg, getMultiSelectedSvgs, getSelectedPlotSvg } from './selection.ts'
 import { PLOT_MARGIN } from './svg.ts'
@@ -55,7 +55,10 @@ export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean
     smpDoc.syncWithU = synced
     smpDoc.axisX.isSynced = synced
     smpDoc.axisTop.isSynced = synced
-    if (synced) smpDoc.axisTop.showLabels = false
+    if (synced) {
+      smpDoc.axisTop.showLabels = false
+      smpDoc.axisTop.logScale = smpDoc.axisX.logScale
+    }
   } else {
     if (!smpDoc.axisRight) {
       smpDoc.axisRight = { ...smpDoc.axisY, showLabels: !synced, isSynced: synced }
@@ -63,7 +66,10 @@ export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean
     smpDoc.syncWithR = synced
     smpDoc.axisY.isSynced = synced
     smpDoc.axisRight.isSynced = synced
-    if (synced) smpDoc.axisRight.showLabels = false
+    if (synced) {
+      smpDoc.axisRight.showLabels = false
+      smpDoc.axisRight.logScale = smpDoc.axisY.logScale
+    }
   }
 }
 
@@ -100,8 +106,45 @@ export function getPlotLimits(svg: SVGSVGElement): { xMin: number; xMax: number;
     if (xMax === -Infinity) xMax = 10
     if (yMin === Infinity) yMin = 0
     if (yMax === -Infinity) yMax = 10
+    if (yMin > 0) yMin = 0
   }
   return { xMin, xMax, yMin, yMax }
+}
+
+export interface PlotValueScales {
+  x: ValueScale
+  y: ValueScale
+  u: ValueScale
+  r: ValueScale
+}
+
+export function getPlotValueScales(
+  svg: SVGSVGElement,
+  plotW: number,
+  plotH: number
+): PlotValueScales {
+  const limits = getPlotLimits(svg)
+  const doc = svgSmpDocMap.get(svg)
+  const uIndependent = !!doc && !(
+    doc.syncWithU !== false &&
+    doc.axisX.isSynced !== false &&
+    (!doc.axisTop || doc.axisTop.isSynced !== false)
+  )
+  const rIndependent = !!doc && !(
+    doc.syncWithR !== false &&
+    doc.axisY.isSynced !== false &&
+    (!doc.axisRight || doc.axisRight.isSynced !== false)
+  )
+  const uSpec = uIndependent && doc?.axisTop ? doc.axisTop : doc?.axisX
+  const rSpec = rIndependent && doc?.axisRight ? doc.axisRight : doc?.axisY
+  const width = Number.isFinite(plotW) ? plotW : 1
+  const height = Number.isFinite(plotH) ? plotH : 1
+  return {
+    x: createValueScale(limits.xMin, limits.xMax, PLOT_MARGIN.l, PLOT_MARGIN.l + width, doc?.axisX.logScale ? 'log' : 'linear'),
+    y: createValueScale(limits.yMin, limits.yMax, PLOT_MARGIN.t + height, PLOT_MARGIN.t, doc?.axisY.logScale ? 'log' : 'linear'),
+    u: createValueScale(uSpec?.min ?? limits.xMin, uSpec?.max ?? limits.xMax, PLOT_MARGIN.l, PLOT_MARGIN.l + width, uSpec?.logScale ? 'log' : 'linear'),
+    r: createValueScale(rSpec?.min ?? limits.yMin, rSpec?.max ?? limits.yMax, PLOT_MARGIN.t + height, PLOT_MARGIN.t, rSpec?.logScale ? 'log' : 'linear'),
+  }
 }
 
 export function captureWorkspaceDigest(): string {
@@ -122,6 +165,8 @@ export function captureWorkspaceDigest(): string {
           : null,
         doc: {
           name: doc.name,
+          sourceVersion: doc.sourceVersion || null,
+          nativeFormatVersion: doc.nativeFormatVersion || null,
           left: doc.left,
           top: doc.top,
           width: doc.width,
@@ -142,6 +187,7 @@ export function captureWorkspaceDigest(): string {
             fontFamily: item.fontFamily,
             fontSize: item.fontSize,
             fontWeight: item.fontWeight,
+            showBg: item.showBg ?? null,
             align: item.align || null,
             x2Norm: item.x2Norm ?? null,
             y2Norm: item.y2Norm ?? null,
@@ -153,6 +199,8 @@ export function captureWorkspaceDigest(): string {
           yLabel: doc.yLabel || null,
           datasets: datasets.map((ds) => ({
             name: ds.name,
+            seriesId: ds.seriesId || null,
+            dataId: ds.dataId || null,
             color: ds.color,
             xLen: ds.x.length,
             yLen: ds.y.length,
@@ -246,6 +294,8 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
 
   return {
     name: existingDoc?.name || defaultName,
+    sourceVersion: existingDoc?.sourceVersion,
+    nativeFormatVersion: existingDoc?.nativeFormatVersion,
     left,
     top,
     width,
@@ -272,6 +322,9 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     frameColor: existingDoc?.frameColor,
     frameBgColor: existingDoc?.frameBgColor,
     mergeZeroLabels: existingDoc?.mergeZeroLabels,
+    othersZerosLine: existingDoc?.othersZerosLine,
+    othersSymbolLine: existingDoc?.othersSymbolLine,
+    pageSetupLine: existingDoc?.pageSetupLine,
   }
 }
 
@@ -383,98 +436,103 @@ export function clearPlotScale(
   const targetSvgs = getTargetPlotSvgs(specificSvg)
 
   for (const svg of targetSvgs) {
+    const doc = svgSmpDocMap.get(svg)
     const independentU = hasIndependentUAxis(svg)
     const independentR = hasIndependentRAxis(svg)
+    const xLog = target === 'u' ? !!doc?.axisTop?.logScale : !!doc?.axisX.logScale
+    const yLog = target === 'r' ? !!doc?.axisRight?.logScale : !!doc?.axisY.logScale
     const datasets = svgDataMap.get(svg) || []
     const processed = datasets.map((ds) => getProcessedDataset(ds))
 
-    let xMin = Infinity,
-      xMax = -Infinity
-    let yMin = Infinity,
-      yMax = -Infinity
+    let xMin = Infinity
+    let xMax = -Infinity
+    let yMin = Infinity
+    let yMax = -Infinity
 
     for (const ds of processed) {
       for (let i = 0; i < ds.x.length; i++) {
-        if (ds.x[i] < xMin) xMin = ds.x[i]
-        if (ds.x[i] > xMax) xMax = ds.x[i]
-        if (ds.y[i] < yMin) yMin = ds.y[i]
-        if (ds.y[i] > yMax) yMax = ds.y[i]
+        const xv = ds.x[i]
+        const yv = ds.y[i]
+        if (Number.isFinite(xv) && (!xLog || xv > 0)) {
+          if (xv < xMin) xMin = xv
+          if (xv > xMax) xMax = xv
+        }
+        if (Number.isFinite(yv) && (!yLog || yv > 0)) {
+          if (yv < yMin) yMin = yv
+          if (yv > yMax) yMax = yv
+        }
       }
     }
 
     if (xMin === Infinity || xMax === -Infinity) {
-      xMin = 0
-      xMax = 10
+      const currentMin = target === 'u' ? doc?.axisTop?.min : doc?.axisX.min
+      const currentMax = target === 'u' ? doc?.axisTop?.max : doc?.axisX.max
+      const useCurrent = xLog && Number.isFinite(currentMin) && Number.isFinite(currentMax) && currentMin! > 0 && currentMax! > 0
+      xMin = useCurrent ? currentMin! : xLog ? 0.1 : 0
+      xMax = useCurrent ? currentMax! : 10
     }
     if (yMin === Infinity || yMax === -Infinity) {
-      yMin = 0
-      yMax = 10
+      const currentMin = target === 'r' ? doc?.axisRight?.min : doc?.axisY.min
+      const currentMax = target === 'r' ? doc?.axisRight?.max : doc?.axisY.max
+      const useCurrent = yLog && Number.isFinite(currentMin) && Number.isFinite(currentMax) && currentMin! > 0 && currentMax! > 0
+      yMin = useCurrent ? currentMin! : yLog ? 0.1 : 0
+      yMax = useCurrent ? currentMax! : 10
     }
-    if (yMin > 0) yMin = 0
+    if (yMin > 0 && !yLog) yMin = 0
 
     const rawXMin = xMin
     const rawXMax = xMax
     const rawYMin = yMin
     const rawYMax = yMax
+    const xBounds = xLog ? niceLogAxisBounds(rawXMin, rawXMax) : niceAxisBounds(rawXMin, rawXMax)
+    const yBounds = yLog ? niceLogAxisBounds(rawYMin, rawYMax) : niceAxisBounds(rawYMin, rawYMax)
+    xMin = xBounds.min
+    xMax = xBounds.max
+    yMin = yBounds.min
+    yMax = yBounds.max
 
-    const nx = niceAxisBounds(rawXMin, rawXMax)
-    xMin = nx.min
-    xMax = nx.max
-    const ny = niceAxisBounds(rawYMin, rawYMax)
-    yMin = ny.min
-    yMax = ny.max
+    const updateAxis = (axis: SmpAxisSpec, rangeMin: number, rangeMax: number, rawMin: number, rawMax: number, logScale: boolean): void => {
+      const reversed = axis.min > axis.max
+      axis.min = reversed ? rangeMax : rangeMin
+      axis.max = reversed ? rangeMin : rangeMax
+      axis.autoStep = true
+      if (logScale) {
+        if (!Number.isFinite(axis.step) || Math.abs(axis.step) <= 0) axis.step = 1
+      } else {
+        const step = resolveAxisStep(rawMin, rawMax, axis.step, true, false)
+        axis.step = step.increment
+        axis.subDivs = step.division
+      }
+    }
 
-    const doc = svgSmpDocMap.get(svg)
     if (doc) {
       if (target === 'all' || target === 'x') {
-        const reversed = doc.axisX.min > doc.axisX.max
-        doc.axisX.min = reversed ? xMax : xMin
-        doc.axisX.max = reversed ? xMin : xMax
-        doc.axisX.autoStep = true
-        const autoX = computeAutoStep(rawXMin, rawXMax)
-        doc.axisX.step = autoX.increment
-        doc.axisX.subDivs = autoX.division
+        updateAxis(doc.axisX, xMin, xMax, rawXMin, rawXMax, !!doc.axisX.logScale)
         if (doc.syncWithU !== false && doc.axisTop) {
           doc.axisTop.min = doc.axisX.min
           doc.axisTop.max = doc.axisX.max
           doc.axisTop.step = doc.axisX.step
           doc.axisTop.subDivs = doc.axisX.subDivs
           doc.axisTop.autoStep = true
+          doc.axisTop.logScale = doc.axisX.logScale
         }
       }
       if (target === 'all' || target === 'y') {
-        const reversed = doc.axisY.min > doc.axisY.max
-        doc.axisY.min = reversed ? yMax : yMin
-        doc.axisY.max = reversed ? yMin : yMax
-        doc.axisY.autoStep = true
-        const autoY = computeAutoStep(rawYMin, rawYMax)
-        doc.axisY.step = autoY.increment
-        doc.axisY.subDivs = autoY.division
+        updateAxis(doc.axisY, yMin, yMax, rawYMin, rawYMax, !!doc.axisY.logScale)
         if (doc.syncWithR !== false && doc.axisRight) {
           doc.axisRight.min = doc.axisY.min
           doc.axisRight.max = doc.axisY.max
           doc.axisRight.step = doc.axisY.step
           doc.axisRight.subDivs = doc.axisY.subDivs
           doc.axisRight.autoStep = true
+          doc.axisRight.logScale = doc.axisY.logScale
         }
       }
       if (target === 'u' && doc.axisTop && independentU) {
-        const reversed = doc.axisTop.min > doc.axisTop.max
-        doc.axisTop.min = reversed ? xMax : xMin
-        doc.axisTop.max = reversed ? xMin : xMax
-        doc.axisTop.autoStep = true
-        const autoU = computeAutoStep(rawXMin, rawXMax)
-        doc.axisTop.step = autoU.increment
-        doc.axisTop.subDivs = autoU.division
+        updateAxis(doc.axisTop, xMin, xMax, rawXMin, rawXMax, !!doc.axisTop.logScale)
       }
       if (target === 'r' && doc.axisRight && independentR) {
-        const reversed = doc.axisRight.min > doc.axisRight.max
-        doc.axisRight.min = reversed ? yMax : yMin
-        doc.axisRight.max = reversed ? yMin : yMax
-        doc.axisRight.autoStep = true
-        const autoR = computeAutoStep(rawYMin, rawYMax)
-        doc.axisRight.step = autoR.increment
-        doc.axisRight.subDivs = autoR.division
+        updateAxis(doc.axisRight, yMin, yMax, rawYMin, rawYMax, !!doc.axisRight.logScale)
       }
     }
 

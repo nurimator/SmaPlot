@@ -8,6 +8,11 @@ import { pushUndoState } from '../utils/undoManager.ts'
 let currentTargetSvg: SVGSVGElement | null = null
 let currentItemIndex: number = -1
 let currentPreset: TitlePreset | null = null
+let currentFont2Ratio = 0
+
+// Matches DEFAULT_LEGEND_TYPE in smpExporter.ts; a free-form title must carry an explicit
+// type or legacy [TITLE] export drops it.
+const DEFAULT_TITLE_LEGEND_TYPE = 8
 
 export interface TitlePreset {
   legendType?: number
@@ -57,6 +62,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
     const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
     const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
+    const showBgEl = overlayEl.querySelector<HTMLInputElement>('#titleShowBg')
 
     const text = smpToUnicode(rawText)
     const rotVal = parseInt(rotEl?.value || '0', 10)
@@ -68,27 +74,34 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
     const fontSize = parseInt(sizeEl?.value || '16', 10) || 16
     const fontFamily = fontEl?.value || 'Times New Roman'
     const fontWeight = styleEl?.value?.toLowerCase().includes('bold') ? 700 : 400
+    const showBg = showBgEl ? showBgEl.checked : undefined
 
     const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"]:checked')
     const align = (alignRadio?.value as 'left' | 'center' | 'right') || 'left'
 
     if (currentItemIndex >= 0 && currentItemIndex < smpDoc.legendItems.length) {
+      const existing = smpDoc.legendItems[currentItemIndex]
+      // Keep CJK/glyph runs in the same proportion to the main run that the source file had.
+      const font2Size =
+        currentFont2Ratio > 0 ? Math.max(1, Math.round(fontSize * currentFont2Ratio)) : existing.font2Size
       smpDoc.legendItems[currentItemIndex] = {
-        ...smpDoc.legendItems[currentItemIndex],
+        ...existing,
         text,
         rawText: text,
         rotation,
         xNorm,
         yNorm,
         fontSize,
+        font2Size,
         fontFamily,
         fontWeight,
         align,
+        showBg,
       }
     } else {
       const newItem: SmpLegendItem = {
         type: 'text',
-        legendType: currentPreset?.legendType,
+        legendType: currentPreset?.legendType ?? DEFAULT_TITLE_LEGEND_TYPE,
         text,
         rawText,
         rotation,
@@ -98,7 +111,9 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
         fontFamily,
         fontWeight,
         align,
+        showBg,
       }
+
       smpDoc.legendItems.push(newItem)
       currentItemIndex = smpDoc.legendItems.length - 1
     }
@@ -252,6 +267,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
   const sizeEl = overlayEl.querySelector<HTMLSelectElement>('#titleSize')
   const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
   const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
+  const showBgEl = overlayEl.querySelector<HTMLInputElement>('#titleShowBg')
 
   strEl?.addEventListener('input', () => {
     autoGrowTextarea(strEl)
@@ -263,6 +279,7 @@ export function initTitleDialog(overlayEl: HTMLElement): void {
   sizeEl?.addEventListener('change', applyTitleOptions)
   fontEl?.addEventListener('change', applyTitleOptions)
   styleEl?.addEventListener('change', applyTitleOptions)
+  showBgEl?.addEventListener('change', applyTitleOptions)
 }
 
 export function showTitleDialog(
@@ -289,8 +306,10 @@ export function showTitleDialog(
       const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
       const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
+      const showBgEl = overlayEl.querySelector<HTMLInputElement>('#titleShowBg')
 
       if (strEl) strEl.value = smpToUnicode(item.text || item.rawText || '').replace(/\\n/g, '\n')
+      if (showBgEl) showBgEl.checked = item.showBg === true
 
       if (rotEl) {
         const itemRot = Math.round(item.rotation)
@@ -308,6 +327,13 @@ export function showTitleDialog(
       if (sizeEl) {
         sizeEl.value = String(item.fontSize || 16)
       }
+
+      // The dialog exposes one size control but a title has two: font1 for the main run and
+      // font2 for glyphs/CJK, and getTextStyle() forces glyphs onto font2. Remember the ratio
+      // so applyTitleOptions can scale font2 with font1 instead of stranding CJK at its
+      // original size.
+      currentFont2Ratio =
+        item.fontSize && item.font2Size && item.fontSize > 0 ? item.font2Size / item.fontSize : 0
 
       if (fontEl) {
         const fontVal = item.fontFamily || 'Times New Roman'
@@ -333,9 +359,12 @@ export function showTitleDialog(
       const sizeEl = overlayEl.querySelector<HTMLInputElement>('#titleSize')
       const fontEl = overlayEl.querySelector<HTMLSelectElement>('#titleFont')
       const styleEl = overlayEl.querySelector<HTMLSelectElement>('#titleStyle')
+      const showBgEl = overlayEl.querySelector<HTMLInputElement>('#titleShowBg')
       const alignRadio = overlayEl.querySelector<HTMLInputElement>('input[name="titleAlign"][value="left"]')
 
       if (strEl) strEl.value = initialText || ''
+      if (showBgEl) showBgEl.checked = false
+      currentFont2Ratio = 0
       if (rotEl) {
         const rotVal = preset ? (preset.rotation === -90 || preset.rotation === 270 ? '90' : String(preset.rotation)) : '0'
         rotEl.value = rotVal

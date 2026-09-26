@@ -64,8 +64,9 @@ function refreshDatasetSelect(overlay: HTMLElement): void {
   const sources = listAnalyzeSources(currentSvg)
   for (const ds of sources) {
     const opt = document.createElement('option')
-    opt.value = ds.smpSeriesName || ds.name
-    opt.textContent = ds.smpSeriesName || ds.name
+    const value = ds.seriesId || ds.smpSeriesName || ds.name
+    opt.value = value
+    opt.textContent = ds.seriesIndex !== undefined ? `${ds.smpSeriesName || ds.name} [${ds.seriesIndex + 1}]` : (ds.smpSeriesName || ds.name)
     sel.appendChild(opt)
   }
   if (sources.length === 0) {
@@ -73,7 +74,7 @@ function refreshDatasetSelect(overlay: HTMLElement): void {
     opt.value = ''
     opt.textContent = '(no datasets)'
     sel.appendChild(opt)
-  } else if (prev && sources.some((d) => (d.smpSeriesName || d.name) === prev)) {
+  } else if (prev && sources.some((d) => (d.seriesId || d.smpSeriesName || d.name) === prev)) {
     sel.value = prev
   }
   estimatePeakGrid(overlay)
@@ -82,7 +83,12 @@ function refreshDatasetSelect(overlay: HTMLElement): void {
 function estimatePeakGrid(overlay: HTMLElement): void {
   if (!currentSvg) return
   const name = selectedDatasetName(overlay)
-  const ds = listAnalyzeSources(currentSvg).find((d) => (d.smpSeriesName || d.name) === name)
+  const ds = listAnalyzeSources(currentSvg).find((d) =>
+    (d.seriesId || d.smpSeriesName || d.name) === name ||
+    d.seriesId === name ||
+    (d.smpSeriesName || d.name) === name ||
+    d.name === name
+  )
   if (!ds) return
   const p = getProcessedDataset(ds)
   if (p.x.length === 0) return

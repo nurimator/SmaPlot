@@ -1,5 +1,6 @@
 import type { Dataset } from '../../types.ts'
-import { extractLinearParams, getDatasetRawMinMax } from './dataset.ts'
+import type { ValueScale } from '../../utils/scale.ts'
+import { extractLinearParams, formatLinearExpr, getDatasetRawMinMax } from './dataset.ts'
 import { createOverlayEl } from './svg.ts'
 import { getPlotOverlay } from './state.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
@@ -16,6 +17,10 @@ interface ActiveTransDrag {
   yTransActive: boolean
   startXLinear: { a: number; b: number }
   startYLinear: { a: number; b: number }
+  dataXLinear: { a: number; b: number }
+  dataYLinear: { a: number; b: number }
+  xValueScale: ValueScale
+  yValueScale: ValueScale
   rawXMin: number
   rawXMax: number
   rawYMin: number
@@ -72,7 +77,9 @@ function startTransformDrag(
   yMax: number,
   plotW: number,
   plotH: number,
-  margin: { l: number; r: number; t: number; b: number }
+  margin: { l: number; r: number; t: number; b: number },
+  xValueScale: ValueScale,
+  yValueScale: ValueScale
 ): void {
   const opts = dataset.options || {}
   const startXLinear = extractLinearParams(opts.xExpr || 'x', 'x')
@@ -82,13 +89,23 @@ function startTransformDrag(
 
   const xTrans1 = startXLinear.a * rawXMin + startXLinear.b
   const xTrans2 = startXLinear.a * rawXMax + startXLinear.b
-  const startXTransMin = Math.min(xTrans1, xTrans2)
-  const startXTransMax = Math.max(xTrans1, xTrans2)
+  let startXTransMin = Math.min(xTrans1, xTrans2)
+  let startXTransMax = Math.max(xTrans1, xTrans2)
+  if (xValueScale.kind === 'log') {
+    const span = xValueScale.unitMax - xValueScale.unitMin
+    startXTransMin = Math.min(0, span)
+    startXTransMax = Math.max(0, span)
+  }
 
   const yTrans1 = startYLinear.a * rawYMin + startYLinear.b
   const yTrans2 = startYLinear.a * rawYMax + startYLinear.b
-  const startYTransMin = Math.min(yTrans1, yTrans2)
-  const startYTransMax = Math.max(yTrans1, yTrans2)
+  let startYTransMin = Math.min(yTrans1, yTrans2)
+  let startYTransMax = Math.max(yTrans1, yTrans2)
+  if (yValueScale.kind === 'log') {
+    const span = yValueScale.unitMax - yValueScale.unitMin
+    startYTransMin = Math.min(0, span)
+    startYTransMax = Math.max(0, span)
+  }
 
   const boxGeoms: Array<{ el: HTMLElement; left: number; top: number; width: number; height: number }> = []
   getPlotOverlay(svg)
@@ -108,6 +125,11 @@ function startTransformDrag(
       })
     })
 
+  const dragXMin = xValueScale.kind === 'log' ? 0 : xMin
+  const dragXMax = xValueScale.kind === 'log' ? xValueScale.unitMax - xValueScale.unitMin : xMax
+  const dragYMin = yValueScale.kind === 'log' ? 0 : yMin
+  const dragYMax = yValueScale.kind === 'log' ? yValueScale.unitMax - yValueScale.unitMin : yMax
+
   activeTransDrag = {
     svg,
     dataset,
@@ -116,8 +138,12 @@ function startTransformDrag(
     startY: clientY,
     xTransActive,
     yTransActive,
-    startXLinear,
-    startYLinear,
+    startXLinear: xValueScale.kind === 'log' ? { a: startXLinear.a || 1, b: 0 } : startXLinear,
+    startYLinear: yValueScale.kind === 'log' ? { a: startYLinear.a || 1, b: 0 } : startYLinear,
+    dataXLinear: startXLinear,
+    dataYLinear: startYLinear,
+    xValueScale,
+    yValueScale,
     rawXMin,
     rawXMax,
     rawYMin,
@@ -126,10 +152,10 @@ function startTransformDrag(
     startXTransMax,
     startYTransMin,
     startYTransMax,
-    xMin,
-    xMax,
-    yMin,
-    yMax,
+    xMin: dragXMin,
+    xMax: dragXMax,
+    yMin: dragYMin,
+    yMax: dragYMax,
     plotW,
     plotH,
     margin,
@@ -149,10 +175,19 @@ export function applyTransDragVisual(
   const {
     svg,
     dataset,
+    dir,
     xTransActive,
     yTransActive,
     startXLinear,
     startYLinear,
+    dataXLinear,
+    dataYLinear,
+    xValueScale,
+    yValueScale,
+    rawXMin,
+    rawXMax,
+    rawYMin,
+    rawYMax,
     margin,
     plotW,
     plotH,
@@ -166,6 +201,83 @@ export function applyTransDragVisual(
   let my = 1
   let kx = 0
   let ky = 0
+
+  if (
+    (xTransActive && xValueScale.kind === 'log') ||
+    (yTransActive && yValueScale.kind === 'log')
+  ) {
+    if (!dataset.options) dataset.options = {}
+    const toLogValue = (unit: number): number => Math.pow(10, Math.max(-300, Math.min(300, unit)))
+    const unitAffineToData = (
+      valueScale: ValueScale,
+      original: { a: number; b: number },
+      rawAnchor: number,
+      rawMoving: number,
+      unitA: number,
+      unitB: number
+    ): { a: number; b: number } => {
+      const rawSpan = rawMoving - rawAnchor
+      if (Math.abs(rawSpan) <= 1e-12) return original
+      const movingUnit = valueScale.unitMin + unitA * rawMoving + unitB
+      const movingValue = toLogValue(movingUnit)
+      const anchorValue = original.a * rawAnchor + original.b
+      const a = (movingValue - anchorValue) / rawSpan
+      return { a, b: anchorValue - a * rawAnchor }
+    }
+
+    if (xTransActive && xValueScale.kind === 'log') {
+      const xInverted = dataXLinear.a < 0
+      if (dir === 'box') {
+        const factor = toLogValue(newBx)
+        newAx = dataXLinear.a * factor
+        newBx = dataXLinear.b * factor
+      } else if (dir === 'right' || dir === 'top-right' || dir === 'bottom-right') {
+        const rawAnchor = xInverted ? rawXMax : rawXMin
+        const rawMoving = xInverted ? rawXMin : rawXMax
+        const fitted = unitAffineToData(xValueScale, dataXLinear, rawAnchor, rawMoving, newAx, newBx)
+        newAx = fitted.a
+        newBx = fitted.b
+      } else if (dir === 'left' || dir === 'top-left' || dir === 'bottom-left') {
+        const rawAnchor = xInverted ? rawXMin : rawXMax
+        const rawMoving = xInverted ? rawXMax : rawXMin
+        const fitted = unitAffineToData(xValueScale, dataXLinear, rawAnchor, rawMoving, newAx, newBx)
+        newAx = fitted.a
+        newBx = fitted.b
+      }
+      const xExpr = formatLinearExpr(newAx, newBx, 'x')
+      dataset.options.xExpr = xExpr
+      const propXInput = document.querySelector<HTMLInputElement>('#propXTransExpr')
+      if (propXInput) propXInput.value = xExpr
+    }
+
+    if (yTransActive && yValueScale.kind === 'log') {
+      const yInverted = dataYLinear.a < 0
+      if (dir === 'box') {
+        const factor = toLogValue(newBy)
+        newAy = dataYLinear.a * factor
+        newBy = dataYLinear.b * factor
+      } else if (dir === 'top' || dir === 'top-left' || dir === 'top-right') {
+        const rawAnchor = yInverted ? rawYMax : rawYMin
+        const rawMoving = yInverted ? rawYMin : rawYMax
+        const fitted = unitAffineToData(yValueScale, dataYLinear, rawAnchor, rawMoving, newAy, newBy)
+        newAy = fitted.a
+        newBy = fitted.b
+      } else if (dir === 'bottom' || dir === 'bottom-left' || dir === 'bottom-right') {
+        const rawAnchor = yInverted ? rawYMin : rawYMax
+        const rawMoving = yInverted ? rawYMax : rawYMin
+        const fitted = unitAffineToData(yValueScale, dataYLinear, rawAnchor, rawMoving, newAy, newBy)
+        newAy = fitted.a
+        newBy = fitted.b
+      }
+      const yExpr = formatLinearExpr(newAy, newBy, 'y')
+      dataset.options.yExpr = yExpr
+      const propYInput = document.querySelector<HTMLInputElement>('#propYTransExpr')
+      if (propYInput) propYInput.value = yExpr
+    }
+
+    updatePlotVisual(svg)
+    return true
+  }
 
   if (xTransActive) {
     const aOld = startXLinear.a
@@ -232,7 +344,11 @@ export function renderDatasetTransformOverlays(
   uMin: number,
   uMax: number,
   rMin: number,
-  rMax: number
+  rMax: number,
+  xValueScale: ValueScale,
+  yValueScale: ValueScale,
+  uValueScale: ValueScale,
+  rValueScale: ValueScale
 ): void {
   const ov = getPlotOverlay(svg)
   if (isTrimmingMode() || isReadValueMode() || !activePropertyTarget || activePropertyTarget.svg !== svg) return
@@ -251,6 +367,8 @@ export function renderDatasetTransformOverlays(
 
     const dsSx = opts.axisX === 'u' ? su : sx
     const dsSy = opts.axisY === 'r' ? sr : sy
+    const dsXValueScale = opts.axisX === 'u' ? uValueScale : xValueScale
+    const dsYValueScale = opts.axisY === 'r' ? rValueScale : yValueScale
 
     const effXMin = opts.axisX === 'u' ? uMin : xMin
     const effXMax = opts.axisX === 'u' ? uMax : xMax
@@ -320,7 +438,9 @@ export function renderDatasetTransformOverlays(
         effYMax,
         plotW,
         plotH,
-        margin
+        margin,
+        dsXValueScale,
+        dsYValueScale
       )
     })
 
@@ -344,7 +464,9 @@ export function renderDatasetTransformOverlays(
           effYMax,
           plotW,
           plotH,
-          margin
+          margin,
+          dsXValueScale,
+          dsYValueScale
         )
       },
       { passive: false }
@@ -390,7 +512,9 @@ export function renderDatasetTransformOverlays(
           effYMax,
           plotW,
           plotH,
-          margin
+          margin,
+          dsXValueScale,
+          dsYValueScale
         )
       })
 
@@ -414,7 +538,9 @@ export function renderDatasetTransformOverlays(
             effYMax,
             plotW,
             plotH,
-            margin
+            margin,
+            dsXValueScale,
+            dsYValueScale
           )
         },
         { passive: false }

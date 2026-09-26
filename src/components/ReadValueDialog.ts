@@ -1,5 +1,6 @@
 import type { Dataset } from '../types.ts'
-import { getPlotLimits, getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar, setReadValueMode } from './plot/index.ts'
+import { getProcessedDataset, PLOT_MARGIN, removePlotCrossbar, setPlotCrossbar, setReadValueMode } from './plot/index.ts'
+import { getPlotValueScales } from './plot/smpDoc.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 
 export function formatScientific(val: number): string {
@@ -22,20 +23,17 @@ export function getValidIndices(svg: SVGSVGElement | null, dataset: Dataset | nu
   const N = proc.x.length
   if (N === 0) return []
 
-  const limits = getPlotLimits(svg)
-  const minX = Math.min(limits.xMin, limits.xMax)
-  const maxX = Math.max(limits.xMin, limits.xMax)
-  const eps = Math.max(1e-9, (maxX - minX) * 1e-7)
+  const opts = dataset.options || {}
+  const scales = getPlotValueScales(svg, 1, 1)
+  const xScale = opts.axisX === 'u' ? scales.u : scales.x
+  const yScale = opts.axisY === 'r' ? scales.r : scales.y
 
   const indices: number[] = []
   for (let i = 0; i < N; i++) {
-    const x = proc.x[i]
-    if (x >= minX - eps && x <= maxX + eps) {
-      indices.push(i)
-    }
+    if (xScale.contains(proc.x[i]) && yScale.contains(proc.y[i])) indices.push(i)
   }
 
-  if (indices.length === 0) {
+  if (indices.length === 0 && xScale.kind === 'linear' && yScale.kind === 'linear') {
     for (let i = 0; i < N; i++) indices.push(i)
   }
 
@@ -85,9 +83,12 @@ function updateFromPointerCoords(clientX: number, clientY: number): void {
   const clampedX = Math.max(PLOT_MARGIN.l, Math.min(PLOT_MARGIN.l + plotW, clickX))
   const clampedY = Math.max(PLOT_MARGIN.t, Math.min(PLOT_MARGIN.t + plotH, clickY))
 
-  const limits = getPlotLimits(activeSvg)
-  const dataX = limits.xMin + ((clampedX - PLOT_MARGIN.l) / plotW) * (limits.xMax - limits.xMin)
-  const dataY = limits.yMin + ((PLOT_MARGIN.t + plotH - clampedY) / plotH) * (limits.yMax - limits.yMin)
+  const scales = getPlotValueScales(activeSvg, plotW, plotH)
+  const opts = activeDataset.options || {}
+  const xScale = opts.axisX === 'u' ? scales.u : scales.x
+  const yScale = opts.axisY === 'r' ? scales.r : scales.y
+  const dataX = xScale.pixelToValue(clampedX)
+  const dataY = yScale.pixelToValue(clampedY)
 
   const procDs = getProcessedDataset(activeDataset)
   const validIndices = getValidIndices(activeSvg, activeDataset)
@@ -95,12 +96,12 @@ function updateFromPointerCoords(clientX: number, clientY: number): void {
 
   let bestIdx = validIndices[0]
   let minDist = Infinity
-  const rangeX = limits.xMax - limits.xMin || 1
-  const rangeY = limits.yMax - limits.yMin || 1
+  const rangeX = Math.abs(xScale.unitMax - xScale.unitMin) || 1
+  const rangeY = Math.abs(yScale.unitMax - yScale.unitMin) || 1
 
   for (const i of validIndices) {
-    const dx = (procDs.x[i] - dataX) / rangeX
-    const dy = (procDs.y[i] - dataY) / rangeY
+    const dx = (xScale.valueToUnit(procDs.x[i]) - xScale.valueToUnit(dataX)) / rangeX
+    const dy = (yScale.valueToUnit(procDs.y[i]) - yScale.valueToUnit(dataY)) / rangeY
     const dist = dx * dx + dy * dy
     if (dist < minDist) {
       minDist = dist
@@ -421,7 +422,14 @@ function updateReadValueUI(overlayEl: HTMLElement): void {
     slider.value = String(pos)
   }
 
-  setPlotCrossbar(activeSvg, xVal, yVal)
+  const opts = activeDataset.options || {}
+  setPlotCrossbar(
+    activeSvg,
+    xVal,
+    yVal,
+    opts.axisX === 'u' ? 'u' : 'x',
+    opts.axisY === 'r' ? 'r' : 'y'
+  )
 }
 
 export function showReadValueDialog(

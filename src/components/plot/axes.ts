@@ -1,4 +1,5 @@
-import { computeAutoStep, formatTick } from '../../utils/scale.ts'
+import { formatTick, getLogAxisTicks, resolveAxisStep } from '../../utils/scale.ts'
+
 import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 
@@ -50,15 +51,40 @@ export function renderAxes(ctx: PlotRenderContext): void {
     return minors
   }
 
+  const getAxisTicks = (
+    minVal: number,
+    maxVal: number,
+    stepVal: number,
+    divs: number,
+    logScale: boolean,
+    showSubTicks: boolean
+  ): { major: number[]; minor: number[] } => {
+    if (logScale) return getLogAxisTicks(minVal, maxVal, showSubTicks, stepVal)
+    const major = getMajorTicks(minVal, maxVal, stepVal)
+    return {
+      major,
+      minor: showSubTicks ? getMinorTicks(minVal, maxVal, stepVal, divs, major) : [],
+    }
+  }
+
   // --- AXIS-0 (Bottom / X) ---
+
   const frameType = smpDoc?.frameType ?? 1
   const isSection = frameType === 0
   const isFramePlain = frameType === 2
   const isAxisMode = frameType === 3
   const suppressTopRight = isFramePlain || isAxisMode
   const subDivsX = ctx.autoSubDivsX !== null ? ctx.autoSubDivsX : smpDoc?.axisX.subDivs || 5
-  const xMajorTicks = getMajorTicks(ctx.xMin, ctx.xMax, ctx.xStep)
-  const xMinorTicks = getMinorTicks(ctx.xMin, ctx.xMax, ctx.xStep, subDivsX, xMajorTicks)
+  const xTickValues = getAxisTicks(
+    ctx.xMin,
+    ctx.xMax,
+    ctx.xStep,
+    subDivsX,
+    ctx.xValueScale.kind === 'log',
+    smpDoc?.axisX.showSubTicks !== false
+  )
+  const xMajorTicks = xTickValues.major
+  const xMinorTicks = xTickValues.minor
 
   const xFontFamily = smpDoc?.axisX.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
   const xRenderFontSize = Math.max(7, Math.round((smpDoc?.axisX.fontSize || 24) * 0.72))
@@ -90,8 +116,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const bottomY = margin.t + plotH
   const topY = margin.t
   const zeroY = sy(0)
+  const yLo = Math.min(ctx.yMin, ctx.yMax)
+  const yHi = Math.max(ctx.yMin, ctx.yMax)
   const axisXBaseY = isAxisMode
-    ? (ctx.yMin <= 0 && ctx.yMax >= 0 ? zeroY : (ctx.yMin > 0 ? bottomY : topY))
+    ? (yLo <= 0 && yHi >= 0 ? zeroY : yLo > 0 ? bottomY : topY)
     : bottomY
 
   let xTickPathD = ''
@@ -173,33 +201,49 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   // --- AXIS-2 (Top / U) ---
   const uSpec = smpDoc?.axisTop || smpDoc?.axisX
-  let uMin = ctx.xMin
-  let uMax = ctx.xMax
-  let uStep = ctx.xStep
+  let uMin = ctx.uMin
+  let uMax = ctx.uMax
   let subDivsU = subDivsX
-  let uMajorTicks = xMajorTicks
-  let uMinorTicks = xMinorTicks
+  let uTickValues = getAxisTicks(
+    uMin,
+    uMax,
+    ctx.xStep,
+    subDivsU,
+    ctx.uValueScale.kind === 'log',
+    uSpec?.showSubTicks !== false
+  )
+  let uMajorTicks = uTickValues.major
+  let uMinorTicks = uTickValues.minor
   let showUTicks = suppressTopRight ? false : (smpDoc?.axisTop?.showTicks ?? showXTicks)
   let showULabels = false
 
   if (!suppressTopRight && !ctx.syncWithU && smpDoc?.axisTop) {
     uMin = smpDoc.axisTop.min ?? 0
     uMax = smpDoc.axisTop.max ?? 100
-    uStep = Math.abs(smpDoc.axisTop.step || 0)
-    let autoSubDivsU: number | null = null
-    if (smpDoc.axisTop.autoStep || uStep <= 0) {
-      const autoU = computeAutoStep(uMin, uMax)
-      uStep = autoU.increment
-      autoSubDivsU = autoU.division
-    }
-    subDivsU = autoSubDivsU !== null ? autoSubDivsU : (smpDoc.axisTop.subDivs || 5)
-    uMajorTicks = getMajorTicks(uMin, uMax, uStep)
-    uMinorTicks = getMinorTicks(uMin, uMax, uStep, subDivsU, uMajorTicks)
+    const logScale = smpDoc.axisTop.logScale === true
+    const stepResult = resolveAxisStep(
+      uMin,
+      uMax,
+      Math.abs(smpDoc.axisTop.step || 0),
+      smpDoc.axisTop.autoStep === true,
+      logScale
+    )
+    subDivsU = stepResult.automatic ? stepResult.division : (smpDoc.axisTop.subDivs || 5)
+    uTickValues = getAxisTicks(
+      uMin,
+      uMax,
+      stepResult.increment,
+      subDivsU,
+      logScale,
+      smpDoc.axisTop.showSubTicks !== false
+    )
+    uMajorTicks = uTickValues.major
+    uMinorTicks = uTickValues.minor
     showUTicks = smpDoc.axisTop.showTicks !== false
     showULabels = showUTicks && (smpDoc.axisTop.showLabels !== false)
   }
 
-  const su = (v: number) => margin.l + ((v - uMin) / (uMax - uMin)) * plotW
+  const su = ctx.uValueScale.valueToPixel
 
   const uFontFamily = uSpec?.fontFamily || xFontFamily
   const uRenderFontSize = Math.max(7, Math.round((uSpec?.fontSize || 24) * 0.72))
@@ -317,8 +361,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   // --- AXIS-1 (Left / Y) ---
   const subDivsY = ctx.autoSubDivsY !== null ? ctx.autoSubDivsY : smpDoc?.axisY.subDivs || 5
-  const yMajorTicks = getMajorTicks(ctx.yMin, ctx.yMax, ctx.yStep)
-  const yMinorTicks = getMinorTicks(ctx.yMin, ctx.yMax, ctx.yStep, subDivsY, yMajorTicks)
+  const yTickValues = getAxisTicks(
+    ctx.yMin,
+    ctx.yMax,
+    ctx.yStep,
+    subDivsY,
+    ctx.yValueScale.kind === 'log',
+    smpDoc?.axisY.showSubTicks !== false
+  )
+  const yMajorTicks = yTickValues.major
+  const yMinorTicks = yTickValues.minor
 
   const yFontFamily = smpDoc?.axisY.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
   const yRenderFontSize = Math.max(7, Math.round((smpDoc?.axisY.fontSize || 24) * 0.72))
@@ -348,8 +400,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const leftX = margin.l
   const rightX = margin.l + plotW
   const zeroX = sx(0)
+  const xLo = Math.min(ctx.xMin, ctx.xMax)
+  const xHi = Math.max(ctx.xMin, ctx.xMax)
   const axisYBaseX = isAxisMode
-    ? (ctx.xMin <= 0 && ctx.xMax >= 0 ? zeroX : (ctx.xMin > 0 ? leftX : rightX))
+    ? (xLo <= 0 && xHi >= 0 ? zeroX : xLo > 0 ? leftX : rightX)
     : leftX
 
   let yTickPathD = ''
@@ -446,33 +500,49 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
   // --- AXIS-3 (Right / R) ---
   const rSpec = smpDoc?.axisRight || smpDoc?.axisY
-  let rMin = ctx.yMin
-  let rMax = ctx.yMax
-  let rStep = ctx.yStep
+  let rMin = ctx.rMin
+  let rMax = ctx.rMax
   let subDivsR = subDivsY
-  let rMajorTicks = yMajorTicks
-  let rMinorTicks = yMinorTicks
+  let rTickValues = getAxisTicks(
+    rMin,
+    rMax,
+    ctx.yStep,
+    subDivsR,
+    ctx.rValueScale.kind === 'log',
+    rSpec?.showSubTicks !== false
+  )
+  let rMajorTicks = rTickValues.major
+  let rMinorTicks = rTickValues.minor
   let showRTicks = suppressTopRight ? false : (smpDoc?.axisRight?.showTicks ?? showYTicks)
   let showRLabels = false
 
   if (!suppressTopRight && !ctx.syncWithR && smpDoc?.axisRight) {
     rMin = smpDoc.axisRight.min ?? 0
     rMax = smpDoc.axisRight.max ?? 100
-    rStep = Math.abs(smpDoc.axisRight.step || 0)
-    let autoSubDivsR: number | null = null
-    if (smpDoc.axisRight.autoStep || rStep <= 0) {
-      const autoR = computeAutoStep(rMin, rMax)
-      rStep = autoR.increment
-      autoSubDivsR = autoR.division
-    }
-    subDivsR = autoSubDivsR !== null ? autoSubDivsR : (smpDoc.axisRight.subDivs || 5)
-    rMajorTicks = getMajorTicks(rMin, rMax, rStep)
-    rMinorTicks = getMinorTicks(rMin, rMax, rStep, subDivsR, rMajorTicks)
+    const logScale = smpDoc.axisRight.logScale === true
+    const stepResult = resolveAxisStep(
+      rMin,
+      rMax,
+      Math.abs(smpDoc.axisRight.step || 0),
+      smpDoc.axisRight.autoStep === true,
+      logScale
+    )
+    subDivsR = stepResult.automatic ? stepResult.division : (smpDoc.axisRight.subDivs || 5)
+    rTickValues = getAxisTicks(
+      rMin,
+      rMax,
+      stepResult.increment,
+      subDivsR,
+      logScale,
+      smpDoc.axisRight.showSubTicks !== false
+    )
+    rMajorTicks = rTickValues.major
+    rMinorTicks = rTickValues.minor
     showRTicks = smpDoc.axisRight.showTicks !== false
     showRLabels = showRTicks && (smpDoc.axisRight.showLabels !== false)
   }
 
-  const sr = (v: number) => margin.t + plotH - ((v - rMin) / (rMax - rMin)) * plotH
+  const sr = ctx.rValueScale.valueToPixel
 
   const rFontFamily = rSpec?.fontFamily || yFontFamily
   const rRenderFontSize = Math.max(7, Math.round((rSpec?.fontSize || 24) * 0.72))

@@ -24,6 +24,7 @@ import {
   buildResultText,
   clearAnalyze,
   listSourceDatasets,
+  findSourceDataset,
 } from '../utils/analyze/index.ts'
 import type { LsKind } from '../utils/analyze/index.ts'
 import type { SplineMode } from '../utils/analyze/index.ts'
@@ -49,7 +50,8 @@ export function commitAnalyzeDoc(svg: SVGSVGElement, doc: SmpPlotDoc): void {
   for (const ds of doc.datasets || []) {
     if (ds.derivedKind) {
       const sameDerived = (d: Dataset): boolean =>
-        (d.smpSeriesName || d.name) === (ds.smpSeriesName || ds.name) &&
+        (d.seriesId && ds.seriesId ? d.seriesId === ds.seriesId :
+          (d.smpSeriesName || d.name) === (ds.smpSeriesName || ds.name)) &&
         (d.derivedKind || '') === (ds.derivedKind || '')
       if (!allDatasets.some(sameDerived)) {
         allDatasets.push(ds)
@@ -222,9 +224,7 @@ export function runAnalyzeRepeat(svg: SVGSVGElement): Dataset | string | null {
     case 'ls:log': return runLsFit(svg, cfg.srcName, 'log', 1, num('division', 0))
     case 'ls:power': return runLsFit(svg, cfg.srcName, 'power', 1, num('division', 0))
     case 'ls:general': {
-      const src = listSourceDatasets(getAnalyzeDoc(svg)).find(
-        (d) => (d.smpSeriesName || d.name) === cfg.srcName || d.name === cfg.srcName
-      )
+      const src = findSourceDataset(getAnalyzeDoc(svg), cfg.srcName)
       const uf = src?.smpUserFunction
       return runUserFit(svg, cfg.srcName, uf?.expr || str('expr', 'a*exp(b*x)'), uf?.derivs || [], getDocConstants(svg), undefined, num('division', 0))
     }

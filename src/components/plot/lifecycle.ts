@@ -39,7 +39,7 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   currentDatasets.push(dataset)
   svgDataMap.set(svg, currentDatasets)
 
-  if (!allDatasets.some((d) => d.name === dataset.name && d.filePath === dataset.filePath)) {
+  if (!allDatasets.some((d) => datasetIdentifier(d) === datasetIdentifier(dataset))) {
     allDatasets.push(dataset)
   }
   globalDataManager.addDataset(dataset)

@@ -185,7 +185,25 @@ export function getProcessedDataset(ds: Dataset): Dataset {
 }
 
 export function datasetIdentifier(ds: Dataset): string {
-  return ds.filePath || ds.fileName || `${ds.name}.txt`
+  if (ds.seriesId) return ds.seriesId
+  const base = ds.filePath || ds.fileName || `${ds.name}.txt`
+  const seriesName = ds.smpSeriesName || ds.name
+  const seriesIndex = ds.seriesIndex !== undefined ? `#${ds.seriesIndex}` : ''
+  if (ds.dataId || ds.smpSeriesName || ds.seriesIndex !== undefined) {
+    return `${base}::${seriesName}${seriesIndex}::${ds.dataId || ''}`
+  }
+  return base
+}
+
+export function datasetMatchesIdentifier(ds: Dataset, identifier: string): boolean {
+  if (!identifier) return false
+  if (datasetIdentifier(ds) === identifier) return true
+  if (ds.seriesId && identifier === ds.seriesId) return true
+  return ds.filePath === identifier ||
+    ds.fileName === identifier ||
+    ds.name === identifier ||
+    `${ds.name}.txt` === identifier ||
+    (ds.smpSeriesName || '') === identifier
 }
 
 export function isSeriesLegendText(text: string): boolean {

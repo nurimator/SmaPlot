@@ -89,7 +89,7 @@ export function analyzeTypeName(type: number): string {
     case 1: return 'Exponential (ln y = a+bx)'
     case 2: return 'Logarithmic (y = a+b ln x)'
     case 3: return 'Power (ln y = a+b ln x)'
-    case 4: return 'Polynomial degree 2'
+    case 4: return 'Polynomial degree 4'
     case 5: return 'Linear (a*x+b)'
     case 6: return 'General function'
     default: return 'Spline interpolation'

@@ -24,6 +24,7 @@ export interface SmpUserFunction {
   flagsLine?: string
   expr: string
   derivs: string[]
+  padBlanks?: number
 }
 
 export interface Dataset {
@@ -37,9 +38,18 @@ export interface Dataset {
   rawLines?: string[][]
   fileName?: string
   filePath?: string
+  seriesId?: string
+  dataId?: string
+  dataFingerprint?: string
+  seriesIndex?: number
+  documentId?: string
+  smpSourceVersion?: string
   smpSeriesName?: string
+  smpSeriesSrcPath?: string
   smpDataName?: string
   smpDataHeaderRest?: string
+  smpDataSeparator?: string
+  smpDataRawText?: string[]
   smpSeriesStylePrefix?: number
   smpSeriesCountLine?: string
   smpSeriesZerosLine?: string
@@ -71,12 +81,23 @@ export interface SmpLegendItem {
   yNorm: number
   rotation: number
   fontFamily: string
+  fontFamily1?: string
+  fontFamily2?: string
   optionFontFamily?: string
   symbolFontFamily?: string
-  font1Spec?: string
-  font2Spec?: string
-  font3Spec?: string
+  font1Tail?: string
+  font2Tail?: string
+  font3Tail?: string
+  font2Size?: number
+  font2Rotation?: number
+  font2Weight?: number
+  font2Style?: string
+  font3Size?: number
+  font3Rotation?: number
+  font3Weight?: number
+  font3Style?: string
   posTail?: string
+  showBg?: boolean
   fontSize: number
   fontWeight: number
   fontStyle?: string
@@ -93,6 +114,7 @@ export interface SmpAxisSpec {
   step: number
   subDivs: number
   autoStep?: boolean
+  logScale?: boolean
   showTicks: boolean
   showSubTicks: boolean
   showLabels: boolean
@@ -131,6 +153,11 @@ export interface SmpAxisSpec {
   rawFormatSci?: boolean
   rawLine2Tail?: string
   rawFontExtra?: string
+  rawFontItalic?: string
+  rawMajorTickMid?: string
+  rawMajorTickPad?: string
+  rawMinorTickMid?: string
+  rawMinorTickPad?: string
   charset?: number
   labelColorCode?: string
 }
@@ -157,6 +184,9 @@ export interface SmpLineAnnotation {
   roundX?: number
   roundY?: number
   arrowMode?: number
+  annotationKind?: number
+  kind?: number
+  payloadKind?: number
   rawType?: string
   rawLineStr?: string
 }
@@ -169,6 +199,9 @@ export interface AnalyzeLastConfig {
 
 export interface SmpPlotDoc {
   name: string
+  sourceVersion?: string
+  nativeFormatVersion?: number
+  pageSetupLine?: string
   left: number
   top: number
   width: number
@@ -201,6 +234,8 @@ export interface SmpPlotDoc {
 
 export interface SmpMetadata {
   docs: SmpPlotDoc[]
+  sourceVersion?: string
+  nativeFormatVersion?: number
   xMin?: number
   xMax?: number
   xStep?: number

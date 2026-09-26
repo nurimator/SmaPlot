@@ -6,7 +6,7 @@ import {
   parseCurveParams,
 } from './curveParams.ts'
 import { fitExponential, fitLinear, fitLogarithmic, fitPolynomial, fitPower } from './lsFit.ts'
-import { fitGeneralFunction, sampleUserFunction } from './userFit.ts'
+import { fitGeneralFunction, inferUserFunctionActiveMask, sampleUserFunction } from './userFit.ts'
 import { cubicSpline } from './spline.ts'
 import { isMissingValue } from './types.ts'
 
@@ -108,7 +108,7 @@ const curvePointCache = new Map<string, { key: string; result: { x: number[]; y:
 const CURVE_CACHE_LIMIT = 100
 
 function curveCacheId(ds: Dataset): string {
-  return `${ds.smpSeriesName || ds.name}::${ds.filePath || ds.fileName || ''}`
+  return `${ds.seriesId || ds.smpSeriesName || ds.name}::${ds.dataId || ds.filePath || ds.fileName || ''}`
 }
 
 function curveFingerprint(ds: Dataset): string {
@@ -120,10 +120,14 @@ function curveFingerprint(ds: Dataset): string {
     if (isFinite(xv) && isFinite(yv)) sum += xv * 0.6180339887 + yv
   }
   const uf = ds.smpUserFunction
+  const options = ds.options || {}
   return [
-    ds.smpSeriesZerosLine || '', ds.smpSeriesFixed5 || '',
+    ds.smpSeriesZerosLine || '', ds.smpSeriesFixed5 || '', ds.smpExprFlag || '',
     n, ds.x[0] ?? '', ds.x[n - 1] ?? '', ds.y[0] ?? '', ds.y[n - 1] ?? '',
-    sum.toPrecision(8), uf?.expr || '', (uf?.derivs || []).join(';'),
+    sum.toPrecision(8), uf?.flagsLine || '', uf?.expr || '', (uf?.derivs || []).join(';'),
+    options.xColumn || 1, options.yColumn || 2,
+    options.xTransCheck ? 1 : 0, options.xExpr || '',
+    options.yTransCheck ? 1 : 0, options.yExpr || '',
   ].join('|')
 }
 
@@ -160,11 +164,11 @@ function computeCurvePointsUncached(ds: Dataset): { x: number[]; y: number[] } |
       return { x: pos, y: pos.map((v) => (v <= 0 ? NaN : r.a * Math.pow(v, r.b))) }
     }
     case 4: {
-      const r = fitPolynomial(fx, fy, 2)
-      const coeffs = r.coeffs.length > 0 ? r.coeffs : [r.b, r.a, 0]
+      const r = fitPolynomial(fx, fy, 4)
+      const coeffs = r.coeffs.length > 0 ? r.coeffs : [r.b, r.a, 0, 0, 0]
       return {
         x: pos,
-        y: pos.map((v) => coeffs[0] + coeffs[1] * v + coeffs[2] * v * v),
+        y: pos.map((v) => coeffs.reduceRight((s, c) => s * v + c, 0)),
       }
     }
     case 5: {
@@ -176,7 +180,8 @@ function computeCurvePointsUncached(ds: Dataset): { x: number[]; y: number[] } |
       const expr = uf?.expr || 'a*exp(b*x)'
       const derivs = uf?.derivs || []
       const initial = [1, 1, 0, 0, 0, 0, 0, 0, 0]
-      const fit = fitGeneralFunction(expr, derivs, fx, fy, initial)
+      const activeMask = inferUserFunctionActiveMask(expr, uf?.flagsLine)
+      const fit = fitGeneralFunction(expr, derivs, fx, fy, initial, activeMask)
       if (!isFinite(fit.rmse)) return null
       return sampleUserFunction(expr, fit.constants, Math.min(cp.from, cp.to), Math.max(cp.from, cp.to), cp.count)
     }
