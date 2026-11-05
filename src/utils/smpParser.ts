@@ -2,6 +2,7 @@ import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadat
 import { smpToUnicode } from './smpSymbolMapper.ts'
 import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
 import { sampleFunction as sampleFunctionSpec } from './analyze/functionSeries.ts'
+import { readDataCellPair, splitDataFields } from './dataset.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -477,18 +478,15 @@ function parseDataBlockLines(lines: string[]): Record<string, SmpDataTable> {
     if (line.includes('[End of Data]')) {
       const cleanLine = line.replace('[End of Data]', '').trim()
       if (cleanLine && activeDataHeader && datasetsMap[activeDataHeader]) {
-        const parts = splitDataTokens(cleanLine)
-        if (parts.length >= 2) {
-          const px = parseFloat(parts[0])
-          const py = parseFloat(parts[1])
-          if (!isNaN(px) && !isNaN(py)) {
-            const table = datasetsMap[activeDataHeader]
-            table.x.push(px)
-            table.y.push(py)
-            table.rawLines.push(parts)
-            if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
-            ;(table.rawText ||= []).push(cleanLine)
-          }
+        const parts = splitDataFields(cleanLine)
+        const pair = parts.length >= 2 ? readDataCellPair(parts, 0, 1) : null
+        if (pair) {
+          const table = datasetsMap[activeDataHeader]
+          table.x.push(pair.x)
+          table.y.push(pair.y)
+          table.rawLines.push(parts)
+          if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
+          ;(table.rawText ||= []).push(cleanLine)
         }
       }
       activeDataHeader = ''
@@ -523,18 +521,15 @@ function parseDataBlockLines(lines: string[]): Record<string, SmpDataTable> {
       continue
     }
 
-    const parts = splitDataTokens(line)
-    if (parts.length >= 2) {
-      const px = parseFloat(parts[0])
-      const py = parseFloat(parts[1])
-      if (!isNaN(px) && !isNaN(py)) {
-        const table = datasetsMap[activeDataHeader]
-        table.x.push(px)
-        table.y.push(py)
-        table.rawLines.push(parts)
-        if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
-        ;(table.rawText ||= []).push(rawLine.replace(/^\s+/, ''))
-      }
+    const parts = splitDataFields(line)
+    const pair = parts.length >= 2 ? readDataCellPair(parts, 0, 1) : null
+    if (pair) {
+      const table = datasetsMap[activeDataHeader]
+      table.x.push(pair.x)
+      table.y.push(pair.y)
+      table.rawLines.push(parts)
+      if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
+      ;(table.rawText ||= []).push(rawLine.replace(/^\s+/, ''))
     }
   }
 

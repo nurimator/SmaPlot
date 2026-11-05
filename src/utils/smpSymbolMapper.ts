@@ -715,6 +715,7 @@ interface SmpTextState {
   xOffset: number
   yOffset: number
   sizeScale: number
+  color: string | null
 }
 
 const DEFAULT_TEXT_FONT_SIZE = 16
@@ -907,6 +908,7 @@ function createTextState(options: SmpTextOptions): SmpTextState {
     xOffset: 0,
     yOffset: 0,
     sizeScale: 1,
+    color: null,
   }
 }
 
@@ -945,7 +947,7 @@ function getTextStyle(state: SmpTextState, char: string): SmpTextStyle {
     fontWeight: state.bold ? 700 : fontWeight,
     fontStyle: state.italic ? 'italic' : fontStyle,
     fontSize: Math.max(1, fontSize * state.sizeScale * scriptScale),
-    color: state.base.color,
+    color: state.color || state.base.color,
     script: state.script,
     xOffset: state.xOffset,
     yOffset: state.yOffset,
@@ -1054,8 +1056,19 @@ export function tokenizeSmpText(rawText: string, options: SmpTextOptions = {}): 
         index += 2
         continue
       }
-      if (control === 'K' || control === 'B') {
+      if (control === 'B') {
         state.bold = true
+        index += 2
+        continue
+      }
+      if (control === 'K') {
+        const hex = decoded.slice(index + 2, index + 8)
+        if (/^[0-9a-f]{6}$/i.test(hex)) {
+          state.color = `#${hex.toLowerCase()}`
+          index += 8
+          continue
+        }
+        appendText(lines, state, '%K', false)
         index += 2
         continue
       }

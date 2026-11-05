@@ -1,4 +1,6 @@
 import type { Dataset } from '../types.ts'
+import { compileMathExpr } from './mathExpr.ts'
+import type { MathVar } from './mathExpr.ts'
 
 export async function loadDataset(path: string): Promise<Dataset> {
   const res = await fetch(path)
@@ -7,24 +9,66 @@ export async function loadDataset(path: string): Promise<Dataset> {
   return parseDatasetContent(text, fileName, path)
 }
 
-export function parseDatasetContent(text: string, fileName: string, filePath?: string): Dataset {
+// data rows
+const MISSING_CELL = '='
+const SKIP_CELL = '|'
+
+export function splitDataFields(line: string): string[] {
+  const trimmed = line.trim()
+  if (!trimmed) return []
+  const cells: string[] = []
+  for (const field of trimmed.split(/[,\t]/)) {
+    cells.push(...field.trim().split(/ +/))
+  }
+  return cells
+}
+
+function isMissingCell(cell: string): boolean {
+  return cell === '' || cell === MISSING_CELL
+}
+
+function cellNumber(cell: string): number {
+  return parseFloat(cell)
+}
+
+export type DataCellPair = { x: number; y: number } | null
+
+export function readDataCellPair(cells: string[], xIdx: number, yIdx: number): DataCellPair {
+  const cx = cells[xIdx]
+  const cy = cells[yIdx]
+  if (cx === undefined || cy === undefined) return null
+  if (cx === SKIP_CELL || cy === SKIP_CELL) return null
+  const vx = cellNumber(cx)
+  const vy = cellNumber(cy)
+  const okX = Number.isFinite(vx)
+  const okY = Number.isFinite(vy)
+  if (okX && okY) return { x: vx, y: vy }
+  if ((okX || isMissingCell(cx)) && (okY || isMissingCell(cy))) {
+    return { x: okX ? vx : NaN, y: okY ? vy : NaN }
+  }
+  return null
+}
+
+export function readDataColumns(rows: string[][], xIdx: number, yIdx: number): { x: number[]; y: number[] } {
   const x: number[] = []
   const y: number[] = []
+  for (const cells of rows) {
+    const pair = readDataCellPair(cells, xIdx, yIdx)
+    if (!pair) continue
+    x.push(pair.x)
+    y.push(pair.y)
+  }
+  return { x, y }
+}
+
+export function parseDatasetContent(text: string, fileName: string, filePath?: string): Dataset {
   const rawLines: string[][] = []
 
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue
-    const parts = line.trim().split(/[\s,]+/).filter((t) => t !== '')
-    rawLines.push(parts)
-    if (parts.length >= 2) {
-      const px = parseFloat(parts[0])
-      const py = parseFloat(parts[1])
-      if (!isNaN(px) && !isNaN(py)) {
-        x.push(px)
-        y.push(py)
-      }
-    }
+    rawLines.push(splitDataFields(line))
   }
+  const { x, y } = readDataColumns(rawLines, 0, 1)
 
   const cleanName = fileName.replace(/\.txt$/i, '')
   const color = '#000000'
@@ -41,121 +85,20 @@ export function parseDatasetContent(text: string, fileName: string, filePath?: s
   }
 }
 
-const mathExprCache = new Map<string, ((v: number) => number) | null>()
-
-const MATH_FN_NAMES = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'exp', 'log', 'sqrt', 'abs', 'ceil', 'floor'] as const
-
-type MathFn = (...args: Array<number | ((v: number) => number)>) => number
-
-const MATH_ARG_VALUES: Array<number | ((v: number) => number)> = [
-  Math.PI,
-  Math.sin, Math.cos, Math.tan, Math.asin, Math.acos, Math.atan,
-  Math.exp, Math.log, Math.sqrt, Math.abs, Math.ceil, Math.floor,
-]
-
-function rewriteMathBody(trimmed: string): string {
-  let body = trimmed
-  body = body.replace(/\bpi\b/g, 'PI')
-  body = body.replace(/\bln\b/g, 'log')
-  for (const fn of MATH_FN_NAMES) {
-    body = body.replace(new RegExp(`\\b${fn}\\b`, 'g'), `M_${fn.toUpperCase()}`)
-  }
-  return body
-}
-
-function isSafeMathBody(body: string): boolean {
-  const rest = body.replace(/M_[A-Z]+|PI|[xya-i]/g, '')
-  if (/[a-zA-Z_]/.test(rest)) return false
-  if (/[^0-9\s+\-*/(),.]/.test(rest)) return false
-  return true
-}
-
-const mathBodyCache = new Map<string, { body: string; fn: MathFn } | null>()
-
-function compileMathBody(trimmed: string, varName: 'x' | 'y'): { body: string; fn: MathFn } | null {
-  const key = `${varName}::${trimmed}`
-  let compiled = mathBodyCache.get(key)
-  if (compiled === undefined) {
-    compiled = null
-    const body = rewriteMathBody(trimmed)
-    if (isSafeMathBody(body)) {
-      try {
-        const fn = new Function(
-          varName,
-          'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'PI',
-          'M_SIN', 'M_COS', 'M_TAN', 'M_ASIN', 'M_ACOS', 'M_ATAN',
-          'M_EXP', 'M_LOG', 'M_SQRT', 'M_ABS', 'M_CEIL', 'M_FLOOR',
-          `return ${body};`
-        ) as MathFn
-        compiled = { body, fn }
-      } catch {
-        compiled = null
-      }
-    }
-    mathBodyCache.set(key, compiled)
-  }
-  return compiled
-}
-
-function buildExtendedEvaluator(trimmed: string, varName: 'x' | 'y'): ((v: number) => number) | null {
-  if (!/[a-z]/.test(trimmed)) return null
-  const compiled = compileMathBody(trimmed, varName)
-  if (!compiled) return null
-  return (v: number) => {
-    try {
-      return compiled.fn(v, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...MATH_ARG_VALUES)
-    } catch {
-      return NaN
-    }
-  }
-}
-
 export function evaluateMathExprWithConstants(
   expr: string,
   val: number,
-  varName: 'x' | 'y',
-  constants?: number[]
+  varName: MathVar,
+  constants?: readonly number[]
 ): number {
-  if (!expr || !expr.trim()) return val
-  const trimmed = expr.trim().toLowerCase()
-  if (!trimmed) return val
-  const compiled = compileMathBody(trimmed, varName)
+  const source = expr ? expr.trim() : ''
+  if (!source) return val
+  const compiled = compileMathExpr(source, varName)
   if (!compiled) return val
-  const c = constants && constants.length >= 9
-    ? constants.slice(0, 9)
-    : [0, 0, 0, 0, 0, 0, 0, 0, 0]
-  try {
-    const res = compiled.fn(val, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], ...MATH_ARG_VALUES)
-    return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : val
-  } catch {
-    return val
-  }
+  const res = compiled(val, constants)
+  return Number.isFinite(res) ? res : NaN
 }
 
-export function evaluateMathExpr(expr: string, val: number, varName: 'x' | 'y'): number {
-  if (!expr || !expr.trim()) return val
-  const trimmed = expr.trim().toLowerCase()
-  const key = `${varName}::${trimmed}`
-
-  let evaluator = mathExprCache.get(key)
-  if (evaluator === undefined) {
-    evaluator = null
-      if (trimmed !== varName) {
-        const validCharsRegex = new RegExp(`^[0-9\\s\\+\\-\\*/\\(\\)${varName}\\.]+$`)
-      if (validCharsRegex.test(trimmed)) {
-        try {
-          evaluator = new Function(varName, `return ${trimmed};`) as (v: number) => number
-        } catch {
-        }
-      }
-      if (evaluator === null) {
-        evaluator = buildExtendedEvaluator(trimmed, varName)
-      }
-    }
-    mathExprCache.set(key, evaluator)
-  }
-
-  if (evaluator === null) return val
-  const res = evaluator(val)
-  return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : val
+export function evaluateMathExpr(expr: string, val: number, varName: MathVar): number {
+  return evaluateMathExprWithConstants(expr, val, varName)
 }
