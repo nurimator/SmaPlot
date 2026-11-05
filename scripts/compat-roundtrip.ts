@@ -8,7 +8,7 @@ import type { SmpPlotDoc } from '../src/types.ts'
 
 interface Row {
   file: string
-  status: 'OK' | 'DIFF' | 'FAIL'
+  status: 'OK' | 'ORDER' | 'DIFF' | 'FAIL'
   diffs: number
   stable: boolean
   lines: string[]
@@ -76,7 +76,8 @@ for (const file of files.sort()) {
     const first = serialize(parseSmpContent(text, name).smpMeta.docs)
     const second = serialize(parseSmpContent(first, name).smpMeta.docs)
     const d = diffLines(text.split(/\r?\n/), first.split(/\r?\n/))
-    rows.push({ file: name, status: d.total === 0 ? 'OK' : 'DIFF', diffs: d.total, stable: first === second, lines: d.lines })
+    const status = first === text ? 'OK' : d.total === 0 ? 'ORDER' : 'DIFF'
+    rows.push({ file: name, status, diffs: d.total, stable: first === second, lines: d.lines })
   } catch (err) {
     rows.push({ file: name, status: 'FAIL', diffs: -1, stable: false, lines: [`threw: ${(err as Error).message}`] })
   }
@@ -85,12 +86,13 @@ for (const file of files.sort()) {
 let totalDiffs = 0
 for (const r of rows) {
   if (r.diffs > 0) totalDiffs += r.diffs
-  console.log(`${r.status.padEnd(4)} ${String(r.diffs).padStart(6)}  ${(r.stable ? 'stable' : 'UNSTABLE').padEnd(8)} ${r.file}`)
+  console.log(`${r.status.padEnd(5)} ${String(r.diffs).padStart(6)}  ${(r.stable ? 'stable' : 'UNSTABLE').padEnd(8)} ${r.file}`)
   if (verbose) for (const l of r.lines) console.log(`        ${l}`)
 }
 
 const changed = rows.filter((r) => r.status !== 'OK').length
 const failed = rows.filter((r) => r.status === 'FAIL' || !r.stable).length
 console.log('')
-console.log(`${rows.length} file(s), ${changed} differ from source, ${totalDiffs} differing line(s), ${failed} failed/unstable`)
+const reordered = rows.filter((r) => r.status === 'ORDER').length
+console.log(`${rows.length} file(s), ${changed} differ from source (${reordered} only in line order/endings), ${totalDiffs} differing line(s), ${failed} failed/unstable`)
 process.exitCode = failed > 0 ? 1 : 0

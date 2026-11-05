@@ -50,7 +50,10 @@ export interface Dataset {
   smpDataHeaderRest?: string
   smpDataSeparator?: string
   smpDataRawText?: string[]
+  smpDataEndLine?: string
+  smpDataOrder?: number
   smpSeriesStylePrefix?: number
+  smpSeriesStyleLine?: string
   smpSeriesCountLine?: string
   smpSeriesZerosLine?: string
   smpSeriesFixed5?: string
@@ -81,6 +84,11 @@ export interface SmpLegendItem {
   yNorm: number
   rotation: number
   fontFamily: string
+  fontFamilyRaw?: string
+  font1Italic?: string
+  font2Italic?: string
+  font3Italic?: string
+  legendOrder?: number
   fontFamily1?: string
   fontFamily2?: string
   optionFontFamily?: string
@@ -115,6 +123,7 @@ export interface SmpAxisSpec {
   subDivs: number
   autoStep?: boolean
   logScale?: boolean
+  scaleType?: number
   showTicks: boolean
   showSubTicks: boolean
   showLabels: boolean
@@ -189,6 +198,14 @@ export interface SmpLineAnnotation {
   payloadKind?: number
   rawType?: string
   rawLineStr?: string
+  rawTrail?: string
+  legendOrder?: number
+}
+
+export interface SmpLegendRawObject {
+  legendType: number
+  lines: string[]
+  legendOrder: number
 }
 
 export interface AnalyzeLastConfig {
@@ -202,6 +219,10 @@ export interface SmpPlotDoc {
   sourceVersion?: string
   nativeFormatVersion?: number
   pageSetupLine?: string
+  headerLines?: string[]
+  rawMarker?: string
+  masksLines?: string[]
+  legendRawObjects?: SmpLegendRawObject[]
   left: number
   top: number
   width: number

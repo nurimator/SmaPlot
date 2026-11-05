@@ -1,6 +1,7 @@
-import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
+import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLegendRawObject, SmpLineAnnotation, SmpPlotDoc } from '../types.ts'
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 import { PLOT_TO_SYM_CODE } from './smpMarkerCodes.ts'
+import { isLogScaleType } from './scale.ts'
 
 const MM_TO_SMP = 100
 const SMP_TICK_UNIT_MM = 0.02
@@ -66,8 +67,14 @@ const FONT_TAIL_SYMBOL = '0 0 2 3 2 1 18'
 const FONT_TAIL_LEGACY_TIMES = '0 0 0 0 0 2 18'
 const FONT_TAIL_LEGACY_ARCHIC = '0 0 128 0 0 2 17'
 
-function fontRecordLine(sizePt: number, rot: number, weight: number, italic: boolean, tail: string): string {
-  return `-${sizePt} 0 ${rot} ${-rot} ${weight} ${italic ? 1 : 0} ${tail}`
+function fontRecordLine(sizePt: number, rot: number, weight: number, italic: boolean, tail: string, italicToken?: string): string {
+  return `-${sizePt} 0 ${rot} ${-rot} ${weight} ${italic ? (italicToken || '1') : '0'} ${tail}`
+}
+
+function legendFontFamily(item: SmpLegendItem, family: string): string {
+  const raw = item.fontFamilyRaw
+  if (raw && raw.replace(/\s+[A-Z]{2,4}$/, '') === family) return raw
+  return family
 }
 
 export function hexToBgr(hex: string): number {
@@ -107,6 +114,23 @@ function lineTypeToCode(lt?: string): number {
     case 'face': return 6
     default: return 1
   }
+}
+
+function markerMatchesName(marker: string | undefined, name: string): boolean {
+  if (!marker) return false
+  const trimmed = marker.trim()
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return false
+  const inner = trimmed.slice(1, -1)
+  const versioned = /^(.*?)\s*Sma4Win ver\.\s*[\d.]+\s+SMP file$/i.exec(inner)
+  return (versioned ? versioned[1].trim() : inner) === name
+}
+
+function seriesStyleLine(ds: Dataset, prefix: number, color: number, legacy: boolean): string {
+  const raw = ds.smpSeriesStyleLine
+  if (raw && /^\s*\S+\s+\S+/.test(raw)) {
+    return raw.replace(/^(\s*)\S+(\s+)\S+/, `$1${prefix}$2${color}`)
+  }
+  return legacy ? SERIES_STYLE_LINE_LEGACY(prefix, color) : SERIES_STYLE_LINE(prefix, color)
 }
 
 function sourceVersionForDoc(doc: SmpPlotDoc): string | undefined {
@@ -212,7 +236,7 @@ function annotationLineForExport(item: SmpLineAnnotation, isRectangle: boolean):
   const parts = modeled.slice(0, keep)
   if (rawTokens.length === 0) parts.push('0')
   else parts.push(...tail)
-  return parts.join(' ')
+  return parts.join(' ') + (item.rawTrail || '')
 }
 
 // Text/legend position line token 3 is the "show background" flag: 2 = show, 1 = hide.
@@ -248,9 +272,10 @@ function titleItemLines(doc: SmpPlotDoc, item: SmpLegendItem, legacy: boolean, p
     rotationTenths(item.rotation),
     weight,
     italic,
-    item.font1Tail || (legacy ? FONT_TAIL_LEGACY_TIMES : FONT_TAIL_TIMES)
+    item.font1Tail || (legacy ? FONT_TAIL_LEGACY_TIMES : FONT_TAIL_TIMES),
+    item.font1Italic
   ))
-  lines.push(family)
+  lines.push(legendFontFamily(item, family))
 
   const size2Pt = Math.max(1, Math.round(item.font2Size || sizePt))
   const weight2 = item.font2Weight !== undefined ? (item.font2Weight >= DEFAULT_AXIS.boldWeight ? 700 : 400) : weight
@@ -260,7 +285,8 @@ function titleItemLines(doc: SmpPlotDoc, item: SmpLegendItem, legacy: boolean, p
     rotationTenths(item.font2Rotation !== undefined ? item.font2Rotation : item.rotation),
     weight2,
     italic2,
-    item.font2Tail || (legacy ? FONT_TAIL_LEGACY_ARCHIC : FONT_TAIL_ARCHIC)
+    item.font2Tail || (legacy ? FONT_TAIL_LEGACY_ARCHIC : FONT_TAIL_ARCHIC),
+    item.font2Italic
   ))
   lines.push(legacy ? (item.fontFamily2 || item.optionFontFamily || family) : (item.optionFontFamily || family || FONT_NAME_ARCHIC))
 
@@ -273,7 +299,8 @@ function titleItemLines(doc: SmpPlotDoc, item: SmpLegendItem, legacy: boolean, p
       rotationTenths(item.font3Rotation !== undefined ? item.font3Rotation : item.rotation),
       weight3,
       italic3,
-      item.font3Tail || FONT_TAIL_SYMBOL
+      item.font3Tail || FONT_TAIL_SYMBOL,
+      item.font3Italic
     ))
     lines.push(item.symbolFontFamily || FONT_NAME_SYMBOL)
   }
@@ -324,7 +351,7 @@ function seriesSpecLines(ds: Dataset, pointCount: number, legacy: boolean): stri
   const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
   const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
   const stylePrefix = Math.round(widthMm * 100)
-  const styleLine = legacy ? SERIES_STYLE_LINE_LEGACY(stylePrefix, bgrColor) : SERIES_STYLE_LINE(stylePrefix, bgrColor)
+  const styleLine = seriesStyleLine(ds, stylePrefix, bgrColor, legacy)
   const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
@@ -355,14 +382,18 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const lines: string[] = []
 
   if (isMultiDoc && doc.name) {
-    lines.push(`[${doc.name}]`)
+    lines.push(markerMatchesName(doc.rawMarker, doc.name) ? (doc.rawMarker as string) : `[${doc.name}]`)
   }
   const sourceVersion = sourceVersionForDoc(doc)
   const legacy = isLegacyDoc(doc)
   lines.push(sourceVersion ? ` Sma4Win ver. ${sourceVersion}  SMP file` : HEADER_SMP_FILE)
-  lines.push('')
-  // 1.3/1.4 have no page-setup line; the series count follows the header block directly.
-  if (!legacy) lines.push(doc.pageSetupLine || PAGE_SETUP_LINE)
+  if (doc.headerLines) {
+    lines.push(...doc.headerLines)
+  } else {
+    lines.push('')
+    // 1.3/1.4 have no page-setup line; the series count follows the header block directly.
+    if (!legacy) lines.push(doc.pageSetupLine || PAGE_SETUP_LINE)
+  }
 
   const datasets = doc.datasets || []
   lines.push(`${datasets.length}`)
@@ -393,7 +424,9 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   const fw = Math.round((doc.frameWidth ?? 0.4) * 100)
   const fc = hexToBgr(doc.frameColor || COLOR_BLACK_HEX)
   const bg = hexToBgr(doc.frameBgColor || COLOR_FACE_HEX)
-  if (g2.length > 0) {
+  if (g2.length > 0 && g2.length < 4 && bg === COLOR_WHITE_BGR) {
+    lines.push(`${fw} ${fc} ${g2Mid}`)
+  } else if (g2.length > 0) {
     lines.push(`${fw} ${fc} ${g2Mid} ${bg}${g2Tail}`)
   } else {
     lines.push(GRAPH_FIXED_2)
@@ -432,7 +465,9 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     const l2Tail = axis?.rawLine2Tail || '100 0'
     const insideTk = axis?.insideTicks ? 1 : 0
     const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
-    const scaleType = axis?.logScale ? 3 : 0
+    const scaleType = axis?.scaleType !== undefined && isLogScaleType(axis.scaleType) === !!axis.logScale
+      ? axis.scaleType
+      : axis?.logScale ? 3 : 0
     lines.push(`${subDivs} ${scaleType} ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
 
     const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
@@ -478,6 +513,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         subDivs: doc.axisX.subDivs,
         autoStep: doc.axisX.autoStep,
         logScale: doc.axisX.logScale,
+        scaleType: doc.axisX.scaleType,
         showLabels: false,
       }
     : (doc.axisTop || doc.axisX)
@@ -492,6 +528,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
         subDivs: doc.axisY.subDivs,
         autoStep: doc.axisY.autoStep,
         logScale: doc.axisY.logScale,
+        scaleType: doc.axisY.scaleType,
         showLabels: false,
       }
     : (doc.axisRight || doc.axisY)
@@ -542,15 +579,15 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 
     lines.push('[LEGEND]')
 
-    const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation }[] = []
+    const exportList: { isRect?: boolean; isLine?: boolean; isText?: boolean; rawLine?: string; item?: SmpLegendItem; aLine?: SmpLineAnnotation; rawObject?: SmpLegendRawObject; order?: number }[] = []
 
     legendItems.forEach((item) => {
       if (item.rawLine && item.rawLine.startsWith('3')) {
-        exportList.push({ isRect: true, rawLine: item.rawLine, item })
+        exportList.push({ isRect: true, rawLine: item.rawLine, item, order: item.legendOrder })
       } else if (item.type === 'annotation' || item.x2Norm !== undefined) {
-        exportList.push({ isLine: true, item })
+        exportList.push({ isLine: true, item, order: item.legendOrder })
       } else {
-        exportList.push({ isText: true, item })
+        exportList.push({ isText: true, item, order: item.legendOrder })
       }
     })
 
@@ -564,17 +601,30 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       )
       if (!alreadyExported) {
         if (isRect) {
-          exportList.push({ isRect: true, aLine })
+          exportList.push({ isRect: true, aLine, order: aLine.legendOrder })
         } else {
-          exportList.push({ isLine: true, aLine })
+          exportList.push({ isLine: true, aLine, order: aLine.legendOrder })
         }
       }
     })
 
-    lines.push(`${exportList.length}`)
+    for (const rawObject of doc.legendRawObjects || []) {
+      exportList.push({ rawObject, order: rawObject.legendOrder })
+    }
 
-    exportList.forEach((entry) => {
-      if (entry.isRect) {
+    const orderedList = exportList
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => (a.entry.order ?? Infinity) - (b.entry.order ?? Infinity) || a.index - b.index)
+      .map(({ entry }) => entry)
+
+    lines.push(`${orderedList.length}`)
+
+    orderedList.forEach((entry) => {
+      if (entry.rawObject) {
+        lines.push(String(entry.rawObject.legendType))
+        lines.push(...entry.rawObject.lines)
+        lines.push('')
+      } else if (entry.isRect) {
         lines.push('3')
         if (entry.aLine) {
           lines.push(annotationLineForExport(entry.aLine, true))
@@ -620,14 +670,20 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   // 1.3/1.4 have no [MASKS] section.
   if (!legacy) {
     lines.push('[MASKS]')
-    lines.push(MASKS_HEADER)
-    lines.push('0')
-    lines.push('0')
+    if (doc.masksLines && doc.masksLines.length > 0) {
+      lines.push(...doc.masksLines)
+    } else {
+      lines.push(MASKS_HEADER)
+      lines.push('0')
+      lines.push('0')
+    }
     lines.push('')
   }
 
   if (writeData) {
-    lines.push(...dataSectionLines(datasets, legacy))
+    const dataLines = dataSectionLines(datasets, legacy)
+    lines.push(...dataLines)
+    if (dataLines.length === 0) lines.push('')
   }
 
   return lines.join('\r\n')
@@ -636,7 +692,11 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 function dataSectionLines(datasets: Dataset[], legacy: boolean): string[] {
   // A series derived from a formula (or from analysis) has no source data table - Sma4Win
   // stores only the expression. Emitting the sampled points would fabricate a data block.
-  const sourceDatasets = uniqueDataDatasets(datasets).filter((ds) => !ds.derivedKind)
+  const sourceDatasets = uniqueDataDatasets(datasets)
+    .filter((ds) => !ds.derivedKind)
+    .map((ds, index) => ({ ds, index }))
+    .sort((a, b) => (a.ds.smpDataOrder ?? Infinity) - (b.ds.smpDataOrder ?? Infinity) || a.index - b.index)
+    .map(({ ds }) => ds)
   // 1.8 always writes a [DATA] header, even with no series; 1.3/1.4 omit it entirely.
   if (sourceDatasets.length === 0 && legacy) return []
 
@@ -663,17 +723,17 @@ function dataSectionLines(datasets: Dataset[], legacy: boolean): string[] {
     // fall back to the table's separator (tab when even that is unknown).
     const separator = ds.smpDataSeparator || DEFAULT_DATA_SEPARATOR
     const rawText = ds.smpDataRawText
+    const endInline = ds.smpDataEndLine !== undefined && rawText !== undefined && rawText.length === rows.length && rows.length > 0
 
-    if (rows.length > 0) {
-      for (let i = 0; i < rows.length; i++) {
-        lines.push(rawText?.[i] ?? rows[i].join(separator))
-      }
+    const rowCount = endInline ? rows.length - 1 : rows.length
+    for (let i = 0; i < rowCount; i++) {
+      lines.push(rawText?.[i] ?? rows[i].join(separator))
     }
-    lines.push('[End of Data]')
+    lines.push(endInline ? (ds.smpDataEndLine as string) : '[End of Data]')
   }
 
   lines.push('')
-  lines.push('')
+  if (sourceDatasets.length > 0) lines.push('')
   return lines
 
 }

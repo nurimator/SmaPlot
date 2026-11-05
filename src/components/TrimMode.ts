@@ -192,11 +192,13 @@ export function finishTrim(): void {
     doc.axisTop.min = newXMin
     doc.axisTop.max = newXMax
     doc.axisTop.logScale = ax.logScale
+    doc.axisTop.scaleType = ax.scaleType
   }
   if (doc.syncWithR !== false && doc.axisRight) {
     doc.axisRight.min = newYMin
     doc.axisRight.max = newYMax
     doc.axisRight.logScale = ay.logScale
+    doc.axisRight.scaleType = ay.scaleType
   }
 
   setSelectedPlotSvg(f.svg)

@@ -15,6 +15,11 @@ import { updatePlotVisual } from './drawPlot.ts'
 
 export const SMP_SCALE = 0.02
 
+function styleNumber(value: string, fallback: number): number {
+  const parsed = parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 export function getSvgRectForSmpDoc(doc: SmpPlotDoc): {
   svgLeft: number
   svgTop: number
@@ -58,6 +63,7 @@ export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean
     if (synced) {
       smpDoc.axisTop.showLabels = false
       smpDoc.axisTop.logScale = smpDoc.axisX.logScale
+      smpDoc.axisTop.scaleType = smpDoc.axisX.scaleType
     }
   } else {
     if (!smpDoc.axisRight) {
@@ -69,6 +75,7 @@ export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean
     if (synced) {
       smpDoc.axisRight.showLabels = false
       smpDoc.axisRight.logScale = smpDoc.axisY.logScale
+      smpDoc.axisRight.scaleType = smpDoc.axisY.scaleType
     }
   }
 }
@@ -234,15 +241,15 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
   const datasets = svgDataMap.get(svg) || []
   const baseScale = svgBaseScaleMap.get(svg)
 
-  const leftPx = parseFloat(svg.style.left) || 40
-  const topPx = parseFloat(svg.style.top) || 40
+  const leftPx = styleNumber(svg.style.left, 40)
+  const topPx = styleNumber(svg.style.top, 40)
   const widthPx = parseFloat(svg.style.width) || 500
   const heightPx = parseFloat(svg.style.height) || 350
 
   const frameLeft = leftPx + PLOT_MARGIN.l
   const frameTop = topPx + PLOT_MARGIN.t
-  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+  const frameWidth = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
 
   const left = Math.round(frameLeft / SMP_SCALE)
   const top = Math.round(frameTop / SMP_SCALE)
@@ -325,6 +332,10 @@ export function exportPlotToSmpDoc(svg: SVGSVGElement, defaultName = 'FTIR.SMP')
     othersZerosLine: existingDoc?.othersZerosLine,
     othersSymbolLine: existingDoc?.othersSymbolLine,
     pageSetupLine: existingDoc?.pageSetupLine,
+    headerLines: existingDoc?.headerLines,
+    rawMarker: existingDoc?.rawMarker,
+    masksLines: existingDoc?.masksLines,
+    legendRawObjects: existingDoc?.legendRawObjects,
   }
 }
 
@@ -332,15 +343,15 @@ export function syncDocGeometry(svg: SVGSVGElement): void {
   const doc = svgSmpDocMap.get(svg)
   if (!doc) return
 
-  const leftPx = parseFloat(svg.style.left) || 40
-  const topPx = parseFloat(svg.style.top) || 40
+  const leftPx = styleNumber(svg.style.left, 40)
+  const topPx = styleNumber(svg.style.top, 40)
   const widthPx = parseFloat(svg.style.width) || 500
   const heightPx = parseFloat(svg.style.height) || 350
 
   const frameLeft = leftPx + PLOT_MARGIN.l
   const frameTop = topPx + PLOT_MARGIN.t
-  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+  const frameWidth = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
 
   doc.left = Math.round(frameLeft / SMP_SCALE)
   doc.top = Math.round(frameTop / SMP_SCALE)
@@ -515,6 +526,7 @@ export function clearPlotScale(
           doc.axisTop.subDivs = doc.axisX.subDivs
           doc.axisTop.autoStep = true
           doc.axisTop.logScale = doc.axisX.logScale
+          doc.axisTop.scaleType = doc.axisX.scaleType
         }
       }
       if (target === 'all' || target === 'y') {
@@ -526,6 +538,7 @@ export function clearPlotScale(
           doc.axisRight.subDivs = doc.axisY.subDivs
           doc.axisRight.autoStep = true
           doc.axisRight.logScale = doc.axisY.logScale
+          doc.axisRight.scaleType = doc.axisY.scaleType
         }
       }
       if (target === 'u' && doc.axisTop && independentU) {
@@ -564,15 +577,15 @@ export function setPlotBaseScale(
 }
 
 export function makeDefaultPlotDoc(svg: SVGSVGElement): SmpPlotDoc {
-  const leftPx = parseFloat(svg.style.left) || 40
-  const topPx = parseFloat(svg.style.top) || 40
+  const leftPx = styleNumber(svg.style.left, 40)
+  const topPx = styleNumber(svg.style.top, 40)
   const widthPx = parseFloat(svg.style.width) || 500
   const heightPx = parseFloat(svg.style.height) || 350
 
   const frameLeft = leftPx + PLOT_MARGIN.l
   const frameTop = topPx + PLOT_MARGIN.t
-  const frameWidth = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-  const frameHeight = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+  const frameWidth = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const frameHeight = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
 
   const left = Math.round(frameLeft / SMP_SCALE)
   const top = Math.round(frameTop / SMP_SCALE)

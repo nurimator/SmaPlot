@@ -444,8 +444,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
             if (!smpDoc || !legendItem) continue
             const widthPx = parseFloat(item.svg.style.width) || 500
             const heightPx = parseFloat(item.svg.style.height) || 350
-            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
             legendItem.xNorm = Math.round(item.startXNorm! + (dx / plotW) * 10000)
             legendItem.yNorm = Math.round(item.startYNorm! + (dy / plotH) * 10000)
             touchedSvgs.add(item.svg)
@@ -456,8 +456,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (!smpDoc || !aLine) continue
           const widthPx = parseFloat(item.svg.style.width) || 500
           const heightPx = parseFloat(item.svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
           const docWidthMm = (smpDoc.width || 14000) / 100
           const docHeightMm = (smpDoc.height || 10000) / 100
           const scaleX = plotW / (docWidthMm || 140)
@@ -540,8 +540,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (legendItem) {
             const widthPx = parseFloat(legendItem.svg.style.width) || 500
             const heightPx = parseFloat(legendItem.svg.style.height) || 350
-            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
             const smpDoc = getPlotSmpDoc(legendItem.svg)
             const docWidthMm = ((smpDoc?.width || 10000) / 100) || 100
             const docHeightMm = ((smpDoc?.height || 10000) / 100) || 100
@@ -656,8 +656,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (!smpDoc || !legendItem) continue
           const widthPx = parseFloat(item.svg.style.width) || 500
           const heightPx = parseFloat(item.svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
           legendItem.xNorm = Math.round(item.startXNorm! + ((dragRef.lastDx ?? 0) / plotW) * 10000)
           legendItem.yNorm = Math.round(item.startYNorm! + ((dragRef.lastDy ?? 0) / plotH) * 10000)
           committedSvgs.add(item.svg)

@@ -1,8 +1,9 @@
-import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
+import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLegendRawObject, SmpLineAnnotation, SmpMetadata, SmpPlotDoc } from '../types.ts'
 import { smpToUnicode } from './smpSymbolMapper.ts'
 import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
 import { sampleFunction as sampleFunctionSpec } from './analyze/functionSeries.ts'
 import { readDataCellPair, splitDataFields } from './dataset.ts'
+import { isLogScaleType } from './scale.ts'
 
 export function bgrToHex(bgr: number): string {
   const r = bgr & 0xff
@@ -27,6 +28,7 @@ interface SmpSeriesSpec {
   yExpr: string
   filePath?: string
   stylePrefix?: number
+  styleLine?: string
   countLine?: string
   zerosLine?: string
   fixed5?: string
@@ -50,6 +52,8 @@ interface SmpDataTable {
   headerRest?: string
   sourceName?: string
   separator?: string
+  endLine?: string
+  pendingRows?: { parts: string[]; text: string }[]
 }
 
 function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec {
@@ -83,6 +87,11 @@ function createDefaultAxis(min: number, max: number, step: number): SmpAxisSpec 
     shiftRight: 0,
     shiftDown: 0,
   }
+}
+
+function trailingWhitespace(line: string): string | undefined {
+  const match = /\s+$/.exec(line)
+  return match ? match[0] : undefined
 }
 
 function splitDataTokens(line: string): string[] {
@@ -137,6 +146,7 @@ interface FontRecord {
   weight: number
   style: string
   tail: string
+  italicToken?: string
 }
 
 function readFontRecord(spec: string, fallbackSize = 12): FontRecord {
@@ -156,10 +166,9 @@ function readFontRecord(spec: string, fallbackSize = 12): FontRecord {
     const weightValue = parseInt(parts[4], 10)
     if (Number.isFinite(weightValue)) weight = weightValue >= 600 ? 600 : 400
   }
-  const style = parts.length > 5 && italicFromToken(parts[5].trim())
-    ? 'italic'
-    : weight >= 600 ? 'bold' : 'regular'
-  return { size, rotation, weight, style, tail: fontSpecTail(spec) }
+  const italic = parts.length > 5 && italicFromToken(parts[5].trim())
+  const style = italic ? 'italic' : weight >= 600 ? 'bold' : 'regular'
+  return { size, rotation, weight, style, tail: fontSpecTail(spec), italicToken: italic ? parts[5].trim() : undefined }
 }
 
 function optionalNumber(value: string | undefined): number | undefined {
@@ -362,6 +371,9 @@ function parseLegacyTitleSection(
       symbolFontFamily: fontFamily2,
       font1Tail: font1.tail,
       font2Tail: font2.tail,
+      font1Italic: font1.italicToken,
+      font2Italic: font2.italicToken,
+      legendOrder: recordIndex,
       font2Size: font2.size,
       font2Rotation: font2.rotation,
       font2Weight: font2.weight,
@@ -413,6 +425,7 @@ function parseLegacyArrowSection(
     if (parts.length < 4) continue
     const shapeDefault = rawType === '2' ? 'measure_line' : 'arrow'
     const annotation = buildArrowAnnotation(parts, shapeDefault, rawType, recordLine.trim())
+    annotation.rawTrail = trailingWhitespace(recordLine)
     if (Number.isFinite(annotation.x1Norm) && Number.isFinite(annotation.y1Norm) &&
         Number.isFinite(annotation.x2Norm) && Number.isFinite(annotation.y2Norm)) {
       annotations.push(annotation)
@@ -477,16 +490,20 @@ function parseDataBlockLines(lines: string[]): Record<string, SmpDataTable> {
 
     if (line.includes('[End of Data]')) {
       const cleanLine = line.replace('[End of Data]', '').trim()
-      if (cleanLine && activeDataHeader && datasetsMap[activeDataHeader]) {
-        const parts = splitDataFields(cleanLine)
-        const pair = parts.length >= 2 ? readDataCellPair(parts, 0, 1) : null
-        if (pair) {
-          const table = datasetsMap[activeDataHeader]
-          table.x.push(pair.x)
-          table.y.push(pair.y)
+      const table = activeDataHeader ? datasetsMap[activeDataHeader] : undefined
+      if (table) {
+        commitPendingRows(table)
+        if (cleanLine) {
+          const parts = splitDataFields(cleanLine)
+          const pair = parts.length >= 2 ? readDataCellPair(parts, 0, 1) : null
+          if (pair) {
+            table.x.push(pair.x)
+            table.y.push(pair.y)
+            if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
+          }
           table.rawLines.push(parts)
-          if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
           ;(table.rawText ||= []).push(cleanLine)
+          table.endLine = rawLine.replace(/^\s+/, '')
         }
       }
       activeDataHeader = ''
@@ -516,28 +533,78 @@ function parseDataBlockLines(lines: string[]): Record<string, SmpDataTable> {
 
     if (line.startsWith('#')) {
       const table = datasetsMap[activeDataHeader]
+      commitPendingRows(table)
       table.rawLines.push([line])
       ;(table.rawText ||= []).push(line)
       continue
     }
 
+    const table = datasetsMap[activeDataHeader]
     const parts = splitDataFields(line)
     const pair = parts.length >= 2 ? readDataCellPair(parts, 0, 1) : null
     if (pair) {
-      const table = datasetsMap[activeDataHeader]
+      commitPendingRows(table)
       table.x.push(pair.x)
       table.y.push(pair.y)
       table.rawLines.push(parts)
       if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
       ;(table.rawText ||= []).push(rawLine.replace(/^\s+/, ''))
+    } else {
+      ;(table.pendingRows ||= []).push({ parts, text: rawLine })
     }
   }
 
+  for (const table of Object.values(datasetsMap)) table.pendingRows = undefined
   return datasetsMap
+}
+
+function commitPendingRows(table: SmpDataTable): void {
+  if (!table.pendingRows) return
+  for (const row of table.pendingRows) {
+    table.rawLines.push(row.parts)
+    ;(table.rawText ||= []).push(row.text)
+  }
+  table.pendingRows = undefined
 }
 
 function dataSourceName(key: string): string {
   return key.replace(/#\d+$/, '')
+}
+
+function collectDataHeaderOrder(lines: string[]): string[] {
+  const order: string[] = []
+  let inData = false
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (line === '[DATA]') {
+      inData = true
+      continue
+    }
+    const header = /^\[([^\]]+)\]/.exec(line)
+    if (!header) continue
+    const name = header[1].trim()
+    if (/^(GRAPH|LEGEND|OTHERS|MASKS|TITLE|ARROW|DOT|AXIS-\d+)$/.test(name)) {
+      inData = false
+      continue
+    }
+    if (inData && !/end of data/i.test(name)) order.push(name)
+  }
+  return order
+}
+
+function dataTableOrder(order: string[], key: string): number {
+  const name = dataSourceName(key)
+  const occurrence = /#(\d+)$/.exec(key)
+  const wanted = occurrence ? parseInt(occurrence[1], 10) : 0
+  let seen = 0
+  let first = -1
+  for (let i = 0; i < order.length; i++) {
+    if (order[i] !== name) continue
+    if (first < 0) first = i
+    if (seen === wanted) return i
+    seen++
+  }
+  return first
 }
 
 function dataTableFingerprint(key: string, data: SmpDataTable): string {
@@ -568,9 +635,11 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
   const lines = text.split(/\r?\n/)
   const fileHeaderVersion = parseSmpHeaderVersion(lines)
   const globalFileDatasetsMap = parseDataBlockLines(lines)
+  const dataHeaderOrder = collectDataHeaderOrder(lines)
 
-  const docBlocks: { name: string; lines: string[] }[] = []
+  const docBlocks: { name: string; lines: string[]; marker?: string }[] = []
   let currentDocName = defaultFileName
+  let currentDocMarker: string | undefined
   let currentDocLines: string[] = []
 
   const isRealDocLines = (larr: string[]) =>
@@ -598,16 +667,17 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     const markerName = docMarkerName(lines[li].trim(), lines[li + 1]?.trim())
     if (markerName !== null) {
       if (isRealDocLines(currentDocLines)) {
-        docBlocks.push({ name: currentDocName, lines: currentDocLines })
+        docBlocks.push({ name: currentDocName, lines: currentDocLines, marker: currentDocMarker })
       }
       currentDocName = markerName
+      currentDocMarker = lines[li]
       currentDocLines = []
     } else {
       currentDocLines.push(lines[li])
     }
   }
   if (isRealDocLines(currentDocLines)) {
-    docBlocks.push({ name: currentDocName, lines: currentDocLines })
+    docBlocks.push({ name: currentDocName, lines: currentDocLines, marker: currentDocMarker })
   }
 
   const docs: SmpPlotDoc[] = []
@@ -642,6 +712,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
 
     const legendItems: SmpLegendItem[] = []
     const annotationLines: SmpLineAnnotation[] = []
+    const legendRawObjects: SmpLegendRawObject[] = []
+    let legendCounter = 0
+    let masksLines: string[] | undefined
     let othersZerosLine = ''
     let othersSymbolLine = ''
     let xLabel: string | undefined
@@ -656,10 +729,15 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
     // count. Only 1.5+ writes a page-setup line, so it is identified as the all-numeric line
     // preceding the bare-integer series count.
     let pageSetupLine = ''
-    for (let h = 1; h < docLines.length; h++) {
+    let headerLines: string[] | undefined
+    const versionIdx = docLines.findIndex((l) => /Sma4Win\s+ver\./i.test(l))
+    for (let h = Math.max(1, versionIdx + 1); h < docLines.length; h++) {
       const head = docLines[h].trim()
+      if (/^\d+$/.test(head)) {
+        if (versionIdx >= 0) headerLines = docLines.slice(versionIdx + 1, h)
+        break
+      }
       if (head === '') continue
-      if (/^\d+$/.test(head)) break
       const headParts = head.split(/\s+/)
       if (headParts.length >= 3 && headParts.every((t) => isFinite(Number(t)))) pageSetupLine = head
     }
@@ -754,7 +832,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         let color = '#000000'
         let width = 0.6
         let stylePrefix = 60
+        let styleLine: string | undefined
         if (i < docLines.length) {
+          styleLine = docLines[i]
           const parts = docLines[i].trim().split(/\s+/)
           if (parts.length >= 1) {
             const p0 = parseFloat(parts[0])
@@ -894,6 +974,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           yExpr,
           filePath,
           stylePrefix,
+          styleLine,
           countLine,
           exprFlag,
           zerosLine,
@@ -976,7 +1057,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             if (!isNaN(divs) && divs > 0) axisSpec.subDivs = divs
           }
           if (parts2.length >= 2) {
-            axisSpec.logScale = parts2[1] === '3'
+            const scaleType = parseInt(parts2[1], 10)
+            if (Number.isFinite(scaleType)) axisSpec.scaleType = scaleType
+            axisSpec.logScale = isLogScaleType(scaleType)
           }
           if (parts2.length >= 6) {
             axisSpec.insideTicks = parts2[2] === '1'
@@ -1081,7 +1164,19 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         continue
       }
 
+      if (currentSection === 'MASKS') {
+        const masks: string[] = []
+        while (i < docLines.length && docLines[i].trim() !== '' && !isSectionHeaderLine(docLines[i])) {
+          masks.push(docLines[i])
+          i++
+        }
+        masksLines = masks
+        currentSection = ''
+        continue
+      }
+
       if (currentSection === 'LEGEND') {
+        const legendOrder = legendCounter++
         if (line === '4' || line === '5' || line === '6' || line === '7' || line === '8') {
           const legendType = parseInt(line, 10)
           i++
@@ -1093,7 +1188,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             const showBg = showBgFromPositionParts(posParts)
             i++
             if (i < docLines.length) {
-              const rawTxt = docLines[i].trim()
+              const rawTxt = docLines[i]
               const txt = smpToUnicode(rawTxt).replace(/\\n/g, '\n')
               i++
               let rotation = 0
@@ -1109,9 +1204,13 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               let font3Style = ''
               let font3Rotation: number | undefined
               let font1Tail = ''
+              let font1Italic: string | undefined
+              let font2Italic: string | undefined
+              let font3Italic: string | undefined
               if (i < docLines.length) {
                 const font1 = readFontRecord(docLines[i].trim())
                 font1Tail = font1.tail
+                font1Italic = font1.italicToken
                 rotation = font1.rotation
                 fontWeight = font1.weight
                 fontStyle = font1.style
@@ -1119,8 +1218,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 i++
               }
               let fontFamily = 'Times New Roman'
+              let fontFamilyRaw: string | undefined
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-                fontFamily = docLines[i].trim().replace(/\s+[A-Z]{2,4}$/, '') || 'Times New Roman'
+                fontFamilyRaw = docLines[i].trim()
+                fontFamily = fontFamilyRaw.replace(/\s+[A-Z]{2,4}$/, '') || 'Times New Roman'
                 i++
               }
               let font2Tail = ''
@@ -1128,6 +1229,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
                 const font2 = readFontRecord(docLines[i].trim())
                 font2Tail = font2.tail
+                font2Italic = font2.italicToken
                 font2Size = font2.size
                 font2Weight = font2.weight
                 font2Style = font2.style
@@ -1143,6 +1245,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
               if (i < docLines.length && !docLines[i].trim().startsWith('[')) {
                 const font3 = readFontRecord(docLines[i].trim())
                 font3Tail = font3.tail
+                font3Italic = font3.italicToken
                 font3Size = font3.size
                 font3Weight = font3.weight
                 font3Style = font3.style
@@ -1172,11 +1275,16 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                 showBg,
                 rotation,
                 fontFamily,
+                fontFamilyRaw,
                 optionFontFamily,
                 symbolFontFamily,
                 font1Tail,
                 font2Tail,
                 font3Tail,
+                font1Italic,
+                font2Italic,
+                font3Italic,
+                legendOrder,
                 fontSize,
                 fontWeight,
                 fontStyle,
@@ -1200,6 +1308,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             const parts = splitDataTokens(rawLineStr)
             if (parts.length >= 4) {
               const arrow = buildArrowAnnotation(parts, itemType === '2' ? 'measure_line' : 'arrow', itemType, rawLineStr)
+              arrow.legendOrder = legendOrder
+              arrow.rawTrail = trailingWhitespace(docLines[i])
               if (!isNaN(arrow.x1Norm) && !isNaN(arrow.y1Norm) && !isNaN(arrow.x2Norm) && !isNaN(arrow.y2Norm)) {
                 annotationLines.push(arrow)
               }
@@ -1280,6 +1390,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
                   kind: 3,
                   rawType: '3',
                   rawLineStr,
+                  rawTrail: trailingWhitespace(docLines[i]),
+                  legendOrder,
                 }
                 annotationLines.push(rectAnnotation)
               }
@@ -1290,15 +1402,20 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           continue
         } else if (line === '9') {
           i++
-          while (i < docLines.length && !docLines[i].trim().startsWith('[')) {
-            if (docLines[i].trim()) i++
-            else {
+          const objectLines: string[] = []
+          while (i < docLines.length && !isSectionHeaderLine(docLines[i])) {
+            if (docLines[i].trim()) {
+              objectLines.push(docLines[i])
+              i++
+            } else {
               i++
               break
             }
           }
+          legendRawObjects.push({ legendType: 9, lines: objectLines, legendOrder })
           continue
         }
+        legendCounter--
         i++
         continue
       }
@@ -1348,6 +1465,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       seriesNameOccurrences.set(cleanSpecName, occurrence + 1)
       const rawDataKey = matchingDataKeys[Math.min(occurrence, Math.max(0, matchingDataKeys.length - 1))] || specKey
       const data = mergedDatasetsMap[rawDataKey] || { x: [], y: [], rawLines: [] }
+      const dataOrder = dataTableOrder(dataHeaderOrder, rawDataKey)
       const dataFingerprint = dataTableFingerprint(rawDataKey, data)
       const matchingFingerprints = new Set(matchingDataKeys.map((key) => dataTableFingerprint(key, mergedDatasetsMap[key])))
       const dataId = matchingFingerprints.size > 1 ? dataFingerprint : dataSourceName(rawDataKey)
@@ -1403,7 +1521,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         smpDataHeaderRest: data.headerRest,
         smpDataSeparator: data.separator,
         smpDataRawText: seriesRawText,
+        smpDataEndLine: seriesRawText ? data.endLine : undefined,
+        smpDataOrder: dataOrder >= 0 ? dataOrder : undefined,
         smpSeriesStylePrefix: spec.stylePrefix,
+        smpSeriesStyleLine: spec.styleLine,
         smpSeriesCountLine: spec.countLine || undefined,
         smpSeriesZerosLine: spec.zerosLine,
         smpSeriesFixed5: spec.fixed5,
@@ -1472,6 +1593,10 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       sourceVersion,
       nativeFormatVersion,
       pageSetupLine: pageSetupLine || undefined,
+      headerLines,
+      rawMarker: docBlock.marker,
+      masksLines,
+      legendRawObjects: legendRawObjects.length > 0 ? legendRawObjects : undefined,
       left: docLeft,
       top: docTop,
       width: docWidth,

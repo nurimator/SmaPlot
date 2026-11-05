@@ -1,4 +1,5 @@
 import type { Dataset } from '../../types.ts'
+import { readDataCellPair } from '../dataset.ts'
 
 export interface ErrorBarData {
   yPlus: number[]
@@ -10,8 +11,11 @@ export function extractErrorBars(ds: Dataset): ErrorBarData | null {
   if (!lines || lines.length === 0) return null
   const yPlus: number[] = []
   const yMinus: number[] = []
+  const xIdx = Math.max(0, (ds.options?.xColumn || 1) - 1)
+  const yIdx = Math.max(0, (ds.options?.yColumn || 2) - 1)
   let found = false
   for (const parts of lines) {
+    if (!readDataCellPair(parts, xIdx, yIdx)) continue
     if (parts.length >= 4) {
       const up = parseFloat(parts[2])
       const dn = parseFloat(parts[3])

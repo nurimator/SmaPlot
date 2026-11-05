@@ -2,6 +2,27 @@ import type { NiceScaleResult } from '../types.ts'
 
 export type ValueScaleKind = 'linear' | 'log'
 
+// axis scale type codes
+export const AXIS_SCALE_TYPE_CODES: Record<string, number> = {
+  linear: 0,
+  log10: 1,
+  inverse_normal: 2,
+  log10_normal: 3,
+  inverse: 4,
+}
+
+export function isLogScaleType(scaleType: number | undefined): boolean {
+  return scaleType === 1 || scaleType === 3
+}
+
+export function axisScaleTypeName(scaleType: number | undefined, logScale: boolean | undefined): string {
+  if (scaleType !== undefined && isLogScaleType(scaleType) === !!logScale) {
+    const name = Object.keys(AXIS_SCALE_TYPE_CODES).find((key) => AXIS_SCALE_TYPE_CODES[key] === scaleType)
+    if (name) return name
+  }
+  return logScale ? 'log10_normal' : 'linear'
+}
+
 export interface ValueScale {
   kind: ValueScaleKind
   min: number

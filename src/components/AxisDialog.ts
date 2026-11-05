@@ -1,6 +1,6 @@
 import type { SmpAxisSpec, SmpPlotDoc } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
-import { computeAutoStep } from '../utils/scale.ts'
+import { AXIS_SCALE_TYPE_CODES, axisScaleTypeName, computeAutoStep, isLogScaleType } from '../utils/scale.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, setAxisSync, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
@@ -16,6 +16,7 @@ function syncAxisPair(source: SmpAxisSpec, target: SmpAxisSpec): void {
   target.subDivs = source.subDivs
   target.autoStep = source.autoStep
   target.logScale = source.logScale
+  target.scaleType = source.scaleType
 
   target.showTicks = source.showTicks
 
@@ -143,7 +144,11 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     const targetSpec = resolveTargetSpec(smpDoc)
 
     const selectedAxisType = axisTypeInputs.find((input) => input.checked)?.value
-    if (selectedAxisType) targetSpec.logScale = selectedAxisType === 'log10' || selectedAxisType === 'log10_normal'
+    if (selectedAxisType) {
+      const scaleType = AXIS_SCALE_TYPE_CODES[selectedAxisType]
+      if (scaleType !== undefined) targetSpec.scaleType = scaleType
+      targetSpec.logScale = isLogScaleType(scaleType)
+    }
 
     if (axisDraw) targetSpec.showTicks = axisDraw.checked
     if (axisFrom && axisFrom.value !== '') targetSpec.min = parseFloat(axisFrom.value)
@@ -373,7 +378,7 @@ export function showAxisDialog(
 
       if (axisSync) axisSync.checked = isSynced
       axisTypeInputs.forEach((input) => { input.checked = false })
-      const typeInput = axisTypeInputs.find((input) => input.value === (spec.logScale ? 'log10' : 'linear'))
+      const typeInput = axisTypeInputs.find((input) => input.value === axisScaleTypeName(spec.scaleType, spec.logScale))
       if (typeInput) typeInput.checked = true
       if (axisDraw) axisDraw.checked = spec.showTicks !== false
 
