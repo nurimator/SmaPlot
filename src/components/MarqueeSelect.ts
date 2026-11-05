@@ -32,7 +32,7 @@ export function hitTestPoint(gx: number, gy: number, excludeSeriesLegend = false
         return o.obj
       }
     }
-    // Frames laid out edge to edge (Sma4Win multi-frame files stack them with zero gap) share
+    // Frames laid out edge to edge (native multi-frame files stack them with zero gap) share
     // their border bands, so resolve the frame whose interior holds the point before falling back
     // to the band. Without this the topmost frame wins every click in a stack.
     for (let i = all.length - 1; i >= 0; i--) {

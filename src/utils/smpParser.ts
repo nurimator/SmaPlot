@@ -98,7 +98,7 @@ function splitDataTokens(line: string): string[] {
   return line.trim().split(/[\s,]+/).filter((t) => t !== '')
 }
 
-// Sma4Win writes a [DATA] table with one consistent column separator, but the trailing padding
+// The native writer stores a [DATA] table with one consistent column separator, but the trailing padding
 // varies per row (the first row of a table often has one space, the rest two). Keep each row
 // verbatim so a re-save does not rewrite the whole table; `separator` is only the fallback for
 // rows that have no verbatim form.
@@ -651,7 +651,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
   // A multi-frame document is introduced by a marker line immediately followed by that frame's
   // version line. Three marker spellings occur in the wild:
   //   [Sheet.SMP]                                       - the common native form
-  //   [SheetSma4Win ver. 1.8  SMP file]                 - version glued to an extension-less name
+  //   [Sheet<version header>]                           - version header glued to an extension-less name
   //   [Sheet]                                           - what SmaPlot itself writes
   // Missing a form silently merges every frame into a single plot, or makes a re-save unstable.
   const versionLine = (t: string): boolean => /^Sma4Win ver\.\s*[\d.]+\s+SMP file$/i.test(t)

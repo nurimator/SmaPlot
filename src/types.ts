@@ -157,7 +157,7 @@ export interface SmpAxisSpec {
 
   isSynced?: boolean
 
-  // Native Sma4Win metadata preservation
+  // Native metadata preservation
   rawFixedTail?: string
   rawFormatSci?: boolean
   rawLine2Tail?: string

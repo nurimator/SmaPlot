@@ -36,6 +36,8 @@ import {
   getPlotSmpDoc,
   updatePlotVisual,
   setTrimmingMode,
+  captureWorkspaceDigest,
+  setPlotFileDropHandler,
 } from './components/plot/index.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, hidePropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
@@ -51,7 +53,7 @@ import {
 import { initAxisDialog, hideAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, hideTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import type { TitlePreset } from './components/TitleDialog.ts'
-import type { Dataset } from './types.ts'
+import type { Dataset, SmpPlotDoc } from './types.ts'
 import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
 import { hideAnalyzeDialog, initAnalyzeDialog, showAnalyzeDialog } from './components/AnalyzeDialog.ts'
@@ -69,8 +71,32 @@ import { hideAboutDialog, initAboutDialog, showAboutDialog } from './components/
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
-import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
-import { getCurrentProjectFileName, isProjectUntitled, setCurrentProjectFileName, setProjectUntitled } from './utils/projectState.ts'
+import { downloadFile, encodeWindows1252, serializeSmpProject } from './utils/smpExporter.ts'
+import {
+  getCurrentProjectFileName,
+  isProjectDirty,
+  isProjectUntitled,
+  markProjectSaved,
+  setCurrentProjectFileName,
+  setProjectUntitled,
+} from './utils/projectState.ts'
+import {
+  DATA_EXTENSIONS,
+  PROJECT_EXTENSIONS,
+  canPickFiles,
+  collectDroppedFiles,
+  fileExtension,
+  getProjectFileHandle,
+  initLaunchQueue,
+  pickFilesToOpen,
+  pickSaveHandle,
+  readFileText,
+  setProjectFileHandle,
+  writeToHandle,
+} from './utils/fileAccess.ts'
+import type { IncomingFile } from './utils/fileAccess.ts'
+import { describeSmpFeatures } from './utils/smpFeatures.ts'
+import { hideNotice, initNotice, showNotice } from './components/Notice.ts'
 import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { initTouchGestures, wasTouchInteractionRecent } from './utils/touchGestures.ts'
@@ -151,108 +177,177 @@ if (frameOverlayEl) initFrameDialog(frameOverlayEl)
 if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
 if (aboutOverlayEl) initAboutDialog(aboutOverlayEl)
 
-function handleSaveProject(customFileName?: string): void {
+// project state
+function projectIsDirty(): boolean {
+  return isProjectDirty(captureWorkspaceDigest())
+}
+
+function updateProjectTitle(): void {
+  const name = isProjectUntitled() ? 'Untitled' : getCurrentProjectFileName()
+  const title = `SmaPlot v${APP_VERSION} - ${name}${projectIsDirty() ? ' *' : ''}`
+  if (initialAppTitleEl) initialAppTitleEl.textContent = title
+  document.title = title
+}
+
+function markProjectClean(): void {
+  markProjectSaved(captureWorkspaceDigest())
+  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+  if (statusFileEl) statusFileEl.textContent = isProjectUntitled() ? 'Untitled' : `1:${getCurrentProjectFileName()}`
+  updateProjectTitle()
+}
+
+async function confirmDiscardChanges(message: string): Promise<boolean> {
+  if (!projectIsDirty()) return true
+  const choice = await showConfirmDialog(message)
+  if (choice === 'cancel') return false
+  if (choice === 'save') return handleSaveProject()
+  return true
+}
+
+// save
+function buildProjectContent(): string | null {
   const svgs = getAllPlotSvgs(graphAreaEl)
   if (svgs.length === 0) {
     alert('No plots available in workspace to export.')
-    return
+    return null
   }
+  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
+  return serializeSmpProject(docs)
+}
 
-  if (!customFileName && isProjectUntitled()) {
-    void handleSaveAsProject()
-    return
+function finishSave(fileName: string, content: string, handle: FileSystemFileHandle | null): void {
+  setCurrentProjectFileName(fileName)
+  setProjectFileHandle(handle)
+  addRecentFile(fileName, content)
+  updateRecentFilesMenu()
+  markProjectClean()
+}
+
+async function handleSaveProject(customFileName?: string): Promise<boolean> {
+  if (!customFileName && isProjectUntitled()) return handleSaveAsProject()
+  const content = buildProjectContent()
+  if (content === null) return false
+
+  const handle = customFileName ? null : getProjectFileHandle()
+  if (handle) {
+    if (await writeToHandle(handle, encodeWindows1252(content))) {
+      finishSave(handle.name, content, handle)
+      showNotice(`Saved ${handle.name}`, '', 2500)
+      return true
+    }
+    showNotice(`Could not write to ${handle.name}`, 'A copy was downloaded instead.')
   }
 
   const fileName = customFileName || getCurrentProjectFileName()
-
-  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
-  const content = serializeSmpProject(docs)
   downloadFile(content, fileName)
-
-  setCurrentProjectFileName(fileName)
-  addRecentFile(fileName, content)
-  updateRecentFilesMenu()
-
-  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-  if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
-  }
-  document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
-
-  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-  if (statusFileEl) {
-    statusFileEl.textContent = `1:${fileName}`
-  }
+  finishSave(fileName, content, null)
+  return true
 }
 
-async function handleSaveAsProject(): Promise<void> {
-  const svgs = getAllPlotSvgs(graphAreaEl)
-  if (svgs.length === 0) {
-    alert('No plots available in workspace to export.')
-    return
+async function handleSaveAsProject(): Promise<boolean> {
+  const content = buildProjectContent()
+  if (content === null) return false
+  const suggestedName = getCurrentProjectFileName()
+
+  const handle = await pickSaveHandle(suggestedName)
+  if (handle === null) return false
+  if (handle) {
+    if (await writeToHandle(handle, encodeWindows1252(content))) {
+      finishSave(handle.name, content, handle)
+      return true
+    }
+    showNotice(`Could not write to ${handle.name}`, 'Enter a file name to download a copy instead.')
   }
 
-  const defaultName = getCurrentProjectFileName()
-  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
-  const content = serializeSmpProject(docs)
-
-  const pickerResult = await saveFileWithPicker(content, defaultName)
-
-  if (pickerResult !== undefined) {
-    if (pickerResult === null) {
-      return
-    }
-    const fileName = pickerResult
-    setCurrentProjectFileName(fileName)
-    addRecentFile(fileName, content)
-    updateRecentFilesMenu()
-
-    const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-    if (appTitleEl) {
-      appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
-    }
-    document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
-
-
-    const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-    if (statusFileEl) {
-      statusFileEl.textContent = `1:${fileName}`
-    }
-    return
-  }
-
-  const customName = await showSaveAsDialog(defaultName)
-  if (!customName) return
-
-  handleSaveProject(customName)
+  const customName = await showSaveAsDialog(suggestedName)
+  if (!customName) return false
+  return handleSaveProject(customName)
 }
 
 async function handleNewProject(): Promise<void> {
-  const hasContent = getAllPlotSvgs(graphAreaEl).length > 0
-  if (hasContent) {
-    const choice = await showConfirmDialog(
-      'The current project has unsaved changes. Do you want to save it before creating a new project?'
-    )
-    if (choice === 'cancel') return
-    if (choice === 'save') handleSaveProject()
-  }
+  const proceed = await confirmDiscardChanges(
+    'The current project has unsaved changes. Do you want to save it before creating a new project?'
+  )
+  if (!proceed) return
 
+  hideNotice()
   setCurrentProjectFileName('untitled.SMP')
   setProjectUntitled(true)
+  setProjectFileHandle(null)
   clearAllPlots(graphAreaEl)
   await createDefaultPlot(graphAreaEl)
-
-  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-  if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - Untitled`
-  }
-  document.title = `SmaPlot v${APP_VERSION} - Untitled`
-
-  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-  if (statusFileEl) {
-    statusFileEl.textContent = 'Untitled'
-  }
   pushUndoState()
+  markProjectClean()
+}
+
+// open
+function reportProjectFeatures(fileName: string): void {
+  const docs = getAllPlotSvgs(graphAreaEl)
+    .map((svg) => getPlotSmpDoc(svg))
+    .filter((doc): doc is SmpPlotDoc => !!doc)
+  const { preserved, unreadable } = describeSmpFeatures(docs)
+  if (preserved.length === 0 && unreadable.length === 0) return
+  const parts: string[] = []
+  if (preserved.length > 0) parts.push(`Not displayed yet but kept when saving: ${preserved.join(', ')}.`)
+  if (unreadable.length > 0) parts.push(`Not supported and may be misread or lost: ${unreadable.join(', ')}.`)
+  showNotice(`${fileName} uses features SmaPlot cannot show yet`, parts.join(' '), 15000)
+}
+
+async function openProjectContent(content: string, fileName: string, handle: FileSystemFileHandle | null): Promise<void> {
+  const proceed = await confirmDiscardChanges(
+    `The current project has unsaved changes. Do you want to save it before opening ${fileName}?`
+  )
+  if (!proceed) return
+  hideNotice()
+  const loaded = await loadSmpProject(graphAreaEl, content, fileName)
+  if (!loaded) {
+    showNotice(`Could not open ${fileName}`, 'The file does not look like an SMP project.')
+    return
+  }
+  setProjectFileHandle(handle)
+  updateRecentFilesMenu()
+  pushUndoState()
+  markProjectClean()
+  reportProjectFeatures(fileName)
+}
+
+async function openDataFile(entry: IncomingFile, target?: SVGSVGElement): Promise<void> {
+  const svg = target || getSelectedPlotSvg() || (await createDefaultPlot(graphAreaEl))
+  const content = await readFileText(entry.file)
+  addDatasetToPlot(svg, parseDatasetContent(content, entry.file.name))
+  pushUndoState()
+}
+
+async function handleIncomingFiles(entries: IncomingFile[], target?: SVGSVGElement): Promise<void> {
+  const isProject = (entry: IncomingFile): boolean => PROJECT_EXTENSIONS.includes(fileExtension(entry.file.name))
+  const isData = (entry: IncomingFile): boolean =>
+    DATA_EXTENSIONS.includes(fileExtension(entry.file.name)) || entry.file.type.startsWith('text/')
+  const projects = entries.filter(isProject)
+  const data = entries.filter((entry) => !isProject(entry) && isData(entry))
+  const skipped = entries.filter((entry) => !isProject(entry) && !isData(entry))
+
+  if (projects.length > 0) {
+    const [first] = projects
+    await openProjectContent(await readFileText(first.file), first.file.name, first.handle ?? null)
+    if (projects.length > 1) {
+      showNotice(`Opened ${first.file.name} only`, 'A project replaces the workspace, so the other project files were skipped.')
+    }
+  }
+  for (const entry of data) await openDataFile(entry, target)
+  if (skipped.length > 0) {
+    showNotice('Unsupported file type', skipped.map((entry) => entry.file.name).join(', '))
+  }
+}
+
+async function openFiles(): Promise<void> {
+  if (canPickFiles()) {
+    const picked = await pickFilesToOpen()
+    if (picked !== null) {
+      if (picked.length > 0) await handleIncomingFiles(picked)
+      return
+    }
+  }
+  globalFileInput?.click()
 }
 
 async function handleInsertLegend(): Promise<void> {
@@ -424,9 +519,9 @@ if (menubarEl) {
       clearPlotScale('r')
       pushUndoState()
     } else if (action === 'open' || action === 'load' || action === 'open_data_file') {
-      if (globalFileInput) globalFileInput.click()
+      await openFiles()
     } else if (action === 'save') {
-      handleSaveProject()
+      await handleSaveProject()
     } else if (action === 'save_as' || action === 'export_smp') {
       await handleSaveAsProject()
     } else if (action === 'x_axis_title') {
@@ -558,9 +653,7 @@ if (menubarEl) {
         alert(`The local copy of "${recent.name}" is not available.`)
         return
       }
-      await loadSmpProject(graphAreaEl, recent.content, recent.name)
-      updateRecentFilesMenu()
-      pushUndoState()
+      await openProjectContent(recent.content, recent.name, null)
     } else if (action === 'property') {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'about') {
@@ -601,9 +694,9 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
       await createDefaultPlot(graphAreaEl)
       pushUndoState()
   } else if (action === 'open' || title === 'Open') {
-    if (globalFileInput) globalFileInput.click()
+    await openFiles()
   } else if (action === 'save' || title === 'Save') {
-    handleSaveProject()
+    await handleSaveProject()
   } else if (action === 'text' || title === 'Text') {
     showTitleDialog(titleOverlayEl)
   } else if (action === 'rectangle' || title === 'Rectangle') {
@@ -627,45 +720,11 @@ if (toolbarEl) {
   initToolbar(toolbarEl, handleToolbarAction)
 }
 
-// Global File Input Change Handler
 if (globalFileInput) {
-  globalFileInput.addEventListener('change', async (e: Event) => {
-    const input = e.target as HTMLInputElement
-    const files = input.files
-    if (!files || files.length === 0) return
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const ext = file.name.toLowerCase().split('.').pop()
-      if (ext === 'smp' || ext === 'sma') {
-        const reader = new FileReader()
-        reader.onload = async (evt) => {
-          const content = evt.target?.result as string
-          if (content) {
-            await loadSmpProject(graphAreaEl, content, file.name)
-            updateRecentFilesMenu()
-            pushUndoState()
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      } else if (ext === 'txt' || file.type.startsWith('text/')) {
-        let svg = getSelectedPlotSvg()
-        if (!svg) {
-          svg = await createDefaultPlot(graphAreaEl)
-        }
-        const reader = new FileReader()
-        reader.onload = (evt) => {
-          const content = evt.target?.result as string
-          if (content && svg) {
-            const ds = parseDatasetContent(content, file.name)
-            addDatasetToPlot(svg, ds)
-            pushUndoState()
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      }
-    }
-    input.value = ''
+  globalFileInput.addEventListener('change', () => {
+    const files = Array.from(globalFileInput.files || [])
+    globalFileInput.value = ''
+    if (files.length > 0) void handleIncomingFiles(files.map((file) => ({ file })))
   })
 }
 
@@ -846,7 +905,11 @@ function updateUndoRedoButtons(): void {
 }
 
 subscribeUndoState(updateUndoRedoButtons)
+subscribeUndoState(updateProjectTitle)
 updateUndoRedoButtons()
+
+const noticeEl = document.querySelector<HTMLElement>('#appNotice')
+if (noticeEl) initNotice(noticeEl)
 
 async function initApp() {
   await handleNewProject()
@@ -854,7 +917,11 @@ async function initApp() {
   pushUndoState()
 }
 
-initApp()
+const appReady = initApp()
+
+initLaunchQueue((entries) => {
+  void appReady.then(() => handleIncomingFiles(entries))
+})
 
 const pwaToast = document.querySelector<HTMLElement>('#pwaUpdateToast')
 const pwaUpdateBtn = document.querySelector<HTMLElement>('#pwaUpdateBtn')
@@ -933,42 +1000,23 @@ workspaceEl.addEventListener('dragover', (e: DragEvent) => {
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
 })
 
-workspaceEl.addEventListener('drop', async (e: DragEvent) => {
+workspaceEl.addEventListener('drop', (e: DragEvent) => {
   e.preventDefault()
-  const files = e.dataTransfer?.files
-  if (!files || files.length === 0) return
+  void collectDroppedFiles(e.dataTransfer).then((entries) => {
+    if (entries.length > 0) return handleIncomingFiles(entries)
+  })
+})
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const ext = file.name.toLowerCase().split('.').pop()
-    if (ext === 'smp' || ext === 'sma') {
-      const reader = new FileReader()
-      reader.onload = async (evt) => {
-        const content = evt.target?.result as string
-        if (content) {
-          await loadSmpProject(graphAreaEl, content, file.name)
-          updateRecentFilesMenu()
-          pushUndoState()
-        }
-      }
-      reader.readAsText(file, 'windows-1252')
-    } else if (ext === 'txt' || file.type.startsWith('text/')) {
-      let svg = getSelectedPlotSvg()
-      if (!svg) {
-        svg = await createDefaultPlot(graphAreaEl)
-      }
-      const reader = new FileReader()
-      reader.onload = (evt) => {
-        const content = evt.target?.result as string
-        if (content && svg) {
-          const ds = parseDatasetContent(content, file.name)
-          addDatasetToPlot(svg, ds)
-          pushUndoState()
-        }
-      }
-      reader.readAsText(file, 'windows-1252')
-    }
-  }
+setPlotFileDropHandler((e, svg) => {
+  void collectDroppedFiles(e.dataTransfer).then((entries) => {
+    if (entries.length > 0) return handleIncomingFiles(entries, svg)
+  })
+})
+
+window.addEventListener('beforeunload', (e) => {
+  if (!projectIsDirty()) return
+  e.preventDefault()
+  e.returnValue = ''
 })
 
 graphAreaEl.addEventListener('contextmenu', (e) => {
@@ -1012,7 +1060,7 @@ initAppShortcuts({
   handleSaveProject,
   handleSaveAsProject,
   openFileDialog: () => {
-    if (globalFileInput) globalFileInput.click()
+    void openFiles()
   },
   hideContextMenu: () => hideContextMenu(ctxMenuEl),
   zoomStep: doZoomStep,

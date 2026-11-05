@@ -34,6 +34,7 @@ export {
   removeDatasetFromAllPlots,
   removeDatasetFromPlot,
   setupPlotFileDrop,
+  setPlotFileDropHandler,
   wirePlotInteractions,
 } from './lifecycle.ts'
 export { isReadValueMode, isTrimmingMode, setReadValueMode, setTrimmingMode } from './modes.ts'

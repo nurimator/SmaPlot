@@ -43,7 +43,7 @@ interface SeriesTextLayout {
   height: number
 }
 
-// Sma4Win "show background" draws a solid white block with no border behind each text line.
+// The native "show background" draws a solid white block with no border behind each text line.
 // The block must hug the real glyph ink, so the rendered <text> box is measured directly and
 // the estimate is only a fallback for when the node is not laid out yet.
 const SHOW_BG_FILL = '#ffffff'

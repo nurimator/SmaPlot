@@ -45,7 +45,7 @@ const MASKS_HEADER = ' 0'
 const FONT_NAME_SYMBOL = 'Symbol'
 const FONT_NAME_ARCHIC = 'Arphic PRound-Gothic Medium JIS'
 const LEGEND_POS_TAIL = '0 1 0 0'
-const SMP_FALLBACK_DIR = 'C:\\Sma4Win\\'
+const SMP_FALLBACK_DIR = 'C:\\SmaPlot\\'
 const DEFAULT_DATA_SEPARATOR = '\t'
 
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
@@ -179,7 +179,7 @@ function uniqueDataDatasets(datasets: Dataset[]): Dataset[] {
 }
 
 // Rotation is stored in signed tenths of a degree in both 1.3/1.4 and 1.8, so this must
-// not normalize into 0..3599 - native Sma4Win writes -900 for a vertical Y-axis title.
+// not normalize into 0..3599 - the native writer stores -900 for a vertical Y-axis title.
 const rotationTenths = (degrees: number): number => Math.round((Number(degrees) || 0) * DEG_TO_SMP)
 
 // 1.3/1.4 store font size in points; 1.8 stores points x 100.
@@ -472,7 +472,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 
     const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
     const italic = axis?.fontStyle === 'italic'
-    // Sma4Win uses 255 as well as 1 for italic, so keep the source token when still italic.
+    // The native format uses 255 as well as 1 for italic, so keep the source token when still italic.
     const italicToken = italic ? (axis?.rawFontItalic || '1') : '0'
     const fontSz = Math.round((axis?.fontSize || 24) * fontSizeUnit(legacy))
     const fontExtra = axis?.rawFontExtra
@@ -690,7 +690,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
 }
 
 function dataSectionLines(datasets: Dataset[], legacy: boolean): string[] {
-  // A series derived from a formula (or from analysis) has no source data table - Sma4Win
+  // A series derived from a formula (or from analysis) has no source data table - the native format
   // stores only the expression. Emitting the sampled points would fabricate a data block.
   const sourceDatasets = uniqueDataDatasets(datasets)
     .filter((ds) => !ds.derivedKind)
@@ -766,41 +766,6 @@ export function downloadFile(content: string, fileName: string, mimeType = 'text
   URL.revokeObjectURL(url)
 }
 
-export async function saveFileWithPicker(
-  content: string,
-  suggestedName: string
-): Promise<string | null | undefined> {
-  if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
-    try {
-      const handle = await (window as unknown as {
-        showSaveFilePicker: (options: unknown) => Promise<FileSystemFileHandle>
-      }).showSaveFilePicker({
-        suggestedName,
-        types: [
-          {
-            description: 'Sma4Win Project (*.SMP)',
-            accept: {
-              'application/octet-stream': ['.smp', '.SMP'],
-              'text/plain': ['.smp', '.SMP'],
-            },
-          },
-        ],
-      })
-      const writable = await handle.createWritable()
-      const data = encodeWindows1252(content)
-      await writable.write(data)
-      await writable.close()
-      return handle.name || suggestedName
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return null
-      }
-      console.warn('Native showSaveFilePicker failed:', err)
-    }
-  }
-  return undefined
-}
-
 const WINDOWS_1252_SPECIAL_BYTES = new Map<number, number>([
   [0x20ac, 0x80], [0x201a, 0x82], [0x0192, 0x83], [0x201e, 0x84],
   [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02c6, 0x88],
@@ -811,7 +776,7 @@ const WINDOWS_1252_SPECIAL_BYTES = new Map<number, number>([
   [0x0153, 0x9c], [0x017e, 0x9e], [0x0178, 0x9f],
 ])
 
-function encodeWindows1252(text: string): ArrayBuffer {
+export function encodeWindows1252(text: string): ArrayBuffer {
   const buffer = new ArrayBuffer(text.length)
   const bytes = new Uint8Array(buffer)
   let byteCount = 0

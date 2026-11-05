@@ -10,7 +10,7 @@
     <title>SmaPlot - Untitled</title>
   </head>
   <body>
-    <input type="file" id="globalFileInput" accept=".txt,.smp,.SMP" multiple style="display: none;" />    <div id="app" class="app">
+    <input type="file" id="globalFileInput" accept=".smp,.SMP,.sma,.SMA,.txt,.TXT,.dat,.DAT,.csv,.CSV,.prn,.PRN,.asc,.ASC" multiple style="display: none;" />    <div id="app" class="app">
       <!-- Title Bar -->
       <header class="titlebar">
         <div class="titlebar-left">
@@ -1703,7 +1703,7 @@ a*x*exp(b*x)</textarea>
           />
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--slate-500);">
             <span>Save as type:</span>
-            <span style="font-weight: 500; color: var(--slate-700);">Sma4Win Project (*.SMP)</span>
+            <span style="font-weight: 500; color: var(--slate-700);">SMP Project (*.SMP)</span>
           </div>
         </div>
         <div class="confirm-footer" style="padding: 10px 18px; display: flex; justify-content: flex-end; gap: 8px; background: var(--slate-50); border-top: 1px solid var(--slate-200);">
@@ -1832,6 +1832,13 @@ a*x*exp(b*x)</textarea>
     </div>
 
     <!-- PWA Update Toast -->
+    <div class="app-notice" id="appNotice" role="status" aria-live="polite" hidden>
+      <div class="app-notice-text">
+        <span class="app-notice-title"></span>
+        <span class="app-notice-detail"></span>
+      </div>
+      <button class="app-notice-close" type="button" aria-label="Dismiss">&times;</button>
+    </div>
     <div class="pwa-update-toast" id="pwaUpdateToast" style="display: none;">
       <div class="pwa-update-text">
         <span>A new version of SmaPlot is available.</span>
