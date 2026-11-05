@@ -18,6 +18,7 @@ import {
   getAllPlotSvgs,
   getPlotDatasets,
   getPlotSvgFromElement,
+  datasetIdentifier,
   datasetMatchesIdentifier,
   getSelectedPlotSvg,
   hitTestGraph,
@@ -792,11 +793,23 @@ initCustomSelects()
 
 if (dmOverlayEl) {
   const getDataManagerDatasets = (): Dataset[] => {
-    const svg = getSelectedPlotSvg()
-    if (svg) {
-      const plotDatasets = getPlotDatasets(svg)
-      if (plotDatasets.length > 0) return plotDatasets
+    // A multi-frame .SMP is one project, so list the data of every frame, the selected frame
+    // first. Scoping to the selected frame alone showed just that frame's single series.
+    const selected = getSelectedPlotSvg()
+    const all = getAllPlotSvgs(graphAreaEl)
+    const ordered = selected ? [selected, ...all.filter((s) => s !== selected)] : all
+
+    const seen = new Set<string>()
+    const rows: Dataset[] = []
+    for (const svg of ordered) {
+      for (const ds of getPlotDatasets(svg)) {
+        const key = datasetIdentifier(ds)
+        if (seen.has(key)) continue
+        seen.add(key)
+        rows.push(ds)
+      }
     }
+    if (rows.length > 0) return rows
     return globalDataManager.getDatasets()
   }
 
