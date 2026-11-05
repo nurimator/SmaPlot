@@ -1,15 +1,96 @@
-import { formatTick, getLogAxisTicks, resolveAxisStep } from '../../utils/scale.ts'
+import type { SmpAxisSpec } from '../../types.ts'
+import { getLogAxisTicks, resolveAxisStep } from '../../utils/scale.ts'
+import {
+  axisLabelExponent,
+  formatAxisValue,
+  logDecadeExponent,
+  readAxisLabelFormat,
+  selectAxisLabelIndices,
+} from '../../utils/axisLabels.ts'
 
 import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 
+type LabelRun = { text: string; sup?: boolean }
+
+interface AxisLabelPlan {
+  labels: Map<number, LabelRun[]>
+  exponent: number
+  showExponent: boolean
+}
+
+function planAxisLabels(
+  spec: SmpAxisSpec | undefined,
+  ticks: number[],
+  min: number,
+  max: number,
+  isLog: boolean,
+  skipZero: boolean
+): AxisLabelPlan {
+  const format = readAxisLabelFormat(spec)
+  const decadeOnly = isLog && spec?.scaleType === 1
+  const exponent = isLog ? 0 : axisLabelExponent(min, max, format)
+  const counted = ticks.filter((v) => !(skipZero && v === 0))
+  const picked = selectAxisLabelIndices(counted.length, format)
+  const labels = new Map<number, LabelRun[]>()
+  counted.forEach((v, index) => {
+    if (!picked.has(index)) return
+    if (decadeOnly) {
+      const decade = logDecadeExponent(v)
+      if (decade !== null) labels.set(v, [{ text: '10' }, { text: String(decade), sup: true }])
+      return
+    }
+    labels.set(v, [{ text: formatAxisValue(v, format, exponent) }])
+  })
+  return { labels, exponent, showExponent: format.drawExponent && exponent !== 0 && !decadeOnly && labels.size > 0 }
+}
+
+function setLabelRuns(el: SVGElement, runs: LabelRun[]): void {
+  if (runs.length === 1 && !runs[0].sup) {
+    el.textContent = runs[0].text
+    return
+  }
+  el.textContent = ''
+  for (const run of runs) {
+    const span = createSVGElement('tspan')
+    if (run.sup) {
+      span.setAttribute('baseline-shift', 'super')
+      span.setAttribute('font-size', '70%')
+    }
+    span.textContent = run.text
+    el.appendChild(span)
+  }
+}
+
+function exponentRuns(exponent: number): LabelRun[] {
+  return [{ text: '[×10' }, { text: String(-exponent), sup: true }, { text: ']' }]
+}
+
 export function renderAxes(ctx: PlotRenderContext): void {
   const { svg, margin, plotW, plotH, scaleX, scaleY, sx, sy, smpDoc } = ctx
 
-  const formatLabel = (v: number, addPlus?: boolean): string => {
-    const base = formatTick(v)
-    if (addPlus && v > 0) return `+${base}`
-    return base
+  const appendExponentLabel = (
+    frag: DocumentFragment,
+    plan: AxisLabelPlan,
+    x: number,
+    y: number,
+    anchor: 'start' | 'end',
+    baseline: 'hanging' | 'auto',
+    fontSize: number,
+    fontFamily: string,
+    color: string
+  ): void => {
+    if (!plan.showExponent) return
+    const label = createSVGElement('text')
+    label.setAttribute('x', String(x))
+    label.setAttribute('y', String(y))
+    label.setAttribute('text-anchor', anchor)
+    label.setAttribute('dominant-baseline', baseline)
+    label.setAttribute('font-size', String(fontSize))
+    label.setAttribute('font-family', fontFamily)
+    label.setAttribute('fill', color)
+    setLabelRuns(label, exponentRuns(plan.exponent))
+    frag.appendChild(label)
   }
   const getMajorTicks = (minVal: number, maxVal: number, stepVal: number): number[] => {
     const ticks: number[] = []
@@ -150,9 +231,11 @@ export function renderAxes(ctx: PlotRenderContext): void {
     })
   }
 
+  const xPlan = planAxisLabels(smpDoc?.axisX, xMajorTicks, ctx.xMin, ctx.xMax, ctx.xValueScale.kind === 'log', mergeZero)
   if (showXLabels) {
     xMajorTicks.forEach((v) => {
-      if (mergeZero && v === 0) return
+      const runs = xPlan.labels.get(v)
+      if (!runs) return
       const px = sx(v)
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
@@ -165,10 +248,14 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (xFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (xFontStyle === 'bold' || xFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', xLabelColor)
-        label.textContent = formatLabel(v, smpDoc?.axisX.addPlusSign)
+        setLabelRuns(label, runs)
         xLabelFrag.appendChild(label)
       }
     })
+    appendExponentLabel(
+      xLabelFrag, xPlan, margin.l + plotW + xShiftRight, axisXBaseY + 1 + xShiftDown + xRenderFontSize * 1.2,
+      'end', 'hanging', xRenderFontSize, xFontFamily, xLabelColor
+    )
   }
 
   if (xTickPathD) {
@@ -307,8 +394,11 @@ export function renderAxes(ctx: PlotRenderContext): void {
     })
   }
 
+  const uPlan = planAxisLabels(uSpec, uMajorTicks, uMin, uMax, ctx.uValueScale.kind === 'log', false)
   if (showULabels) {
     uMajorTicks.forEach((v) => {
+      const runs = uPlan.labels.get(v)
+      if (!runs) return
       const px = su(v)
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
@@ -321,10 +411,14 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (uFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (uFontStyle === 'bold' || uFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', uLabelColor)
-        label.textContent = formatLabel(v, uSpec?.addPlusSign)
+        setLabelRuns(label, runs)
         uLabelFrag.appendChild(label)
       }
     })
+    appendExponentLabel(
+      uLabelFrag, uPlan, margin.l + plotW + uShiftRight, topY - 4 + uShiftDown - uRenderFontSize * 1.2,
+      'end', 'auto', uRenderFontSize, uFontFamily, uLabelColor
+    )
   }
 
   if (uTickPathD) {
@@ -434,10 +528,12 @@ export function renderAxes(ctx: PlotRenderContext): void {
     })
   }
 
+  const shareZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
+  const yPlan = planAxisLabels(smpDoc?.axisY, yMajorTicks, ctx.yMin, ctx.yMax, ctx.yValueScale.kind === 'log', shareZero)
   if (showYLabels) {
-    const shareZero = !!smpDoc?.mergeZeroLabels && ctx.xMin === 0 && ctx.yMin === 0 && showXLabels
     yMajorTicks.forEach((v) => {
-      if (shareZero && v === 0) return
+      const runs = yPlan.labels.get(v)
+      if (!runs) return
       const py = sy(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
@@ -449,10 +545,14 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (yFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (yFontStyle === 'bold' || yFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', yLabelColor)
-        label.textContent = formatLabel(v, smpDoc?.axisY.addPlusSign)
+        setLabelRuns(label, runs)
         yLabelFrag.appendChild(label)
       }
     })
+    appendExponentLabel(
+      yLabelFrag, yPlan, axisYBaseX - 4 + yShiftRight, topY - yRenderFontSize * 0.6 + yShiftDown,
+      'end', 'auto', yRenderFontSize, yFontFamily, yLabelColor
+    )
 
     if (mergeZero) {
       const zLabel = createSVGElement('text')
@@ -465,7 +565,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
       if (yFontStyle === 'italic') zLabel.setAttribute('font-style', 'italic')
       if (yFontStyle === 'bold' || yFontWeight >= 600) zLabel.setAttribute('font-weight', 'bold')
       zLabel.setAttribute('fill', yLabelColor)
-      zLabel.textContent = formatLabel(0, smpDoc?.axisY.addPlusSign)
+      zLabel.textContent = formatAxisValue(0, readAxisLabelFormat(smpDoc?.axisY))
       yLabelFrag.appendChild(zLabel)
     }
   }
@@ -606,8 +706,11 @@ export function renderAxes(ctx: PlotRenderContext): void {
     })
   }
 
+  const rPlan = planAxisLabels(rSpec, rMajorTicks, rMin, rMax, ctx.rValueScale.kind === 'log', false)
   if (showRLabels) {
     rMajorTicks.forEach((v) => {
+      const runs = rPlan.labels.get(v)
+      if (!runs) return
       const py = sr(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
@@ -619,10 +722,14 @@ export function renderAxes(ctx: PlotRenderContext): void {
         if (rFontStyle === 'italic') label.setAttribute('font-style', 'italic')
         if (rFontStyle === 'bold' || rFontWeight >= 600) label.setAttribute('font-weight', 'bold')
         label.setAttribute('fill', rLabelColor)
-        label.textContent = formatLabel(v, rSpec?.addPlusSign)
+        setLabelRuns(label, runs)
         rLabelFrag.appendChild(label)
       }
     })
+    appendExponentLabel(
+      rLabelFrag, rPlan, rightX + 4 + rShiftRight, topY - rRenderFontSize * 0.6 + rShiftDown,
+      'start', 'auto', rRenderFontSize, rFontFamily, rLabelColor
+    )
   }
 
   if (rTickPathD) {

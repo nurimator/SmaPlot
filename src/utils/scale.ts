@@ -1,4 +1,5 @@
 import type { NiceScaleResult } from '../types.ts'
+import { logMajorMantissas } from './axisLabels.ts'
 
 export type ValueScaleKind = 'linear' | 'log'
 
@@ -127,7 +128,7 @@ export function resolveAxisStep(
   const stored = Math.abs(storedStep)
   if (logScale) {
     return {
-      increment: Number.isFinite(stored) && stored > 0 ? stored : 1,
+      increment: Number.isFinite(stored) && stored > 0 ? stored : 10,
       division: 5,
       automatic: false,
     }
@@ -155,9 +156,7 @@ export function getLogAxisTicks(
   const tolerance = 1e-12
   const major: number[] = []
   const minor: number[] = []
-  const stepMantissa = Number.isFinite(majorStep) ? Math.round(majorStep) : 5
-  const majorMantissas = new Set<number>([1])
-  if (stepMantissa >= 1 && stepMantissa <= 9) majorMantissas.add(stepMantissa)
+  const majorMantissas = new Set<number>(logMajorMantissas(Number.isFinite(majorStep) ? majorStep : 10))
   const firstPower = Math.floor(Math.log10(low)) - 1
   const lastPower = Math.ceil(Math.log10(high)) + 1
   for (let power = firstPower; power <= lastPower; power++) {
