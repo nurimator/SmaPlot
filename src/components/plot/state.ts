@@ -12,6 +12,15 @@ export const autoScaleSvgs = new WeakSet<SVGSVGElement>()
 export const svgOverlayMap = new WeakMap<SVGSVGElement, HTMLDivElement>()
 export const svgCrossbarMap = new WeakMap<SVGSVGElement, { xVal: number; yVal: number }>()
 
+export interface LegendCellBox {
+  dx: number
+  dy: number
+  w: number
+  h: number
+  rotation: number
+}
+export const svgLegendBoxMap = new WeakMap<SVGSVGElement, Map<number, LegendCellBox>>()
+
 export const allDatasets: Dataset[] = []
 export const activeSvgs: SVGSVGElement[] = []
 

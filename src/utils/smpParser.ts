@@ -2,7 +2,8 @@ import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLegendRawObject, SmpLineAn
 import { smpToUnicode } from './smpSymbolMapper.ts'
 import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
 import { sampleFunction as sampleFunctionSpec } from './analyze/functionSeries.ts'
-import { readDataCellPair, splitDataFields } from './dataset.ts'
+import { readDataCellPair, readDataColumns, splitDataFields } from './dataset.ts'
+import { parseSeriesCountLine } from './smpSeriesSpec.ts'
 import { isLogScaleType } from './scale.ts'
 
 export function bgrToHex(bgr: number): string {
@@ -1476,6 +1477,12 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
       let seriesRawLines = [...data.rawLines]
       let seriesRawText: string[] | undefined = data.rawText ? [...data.rawText] : undefined
       let funcKind: string | undefined
+      const countSpec = parseSeriesCountLine(spec.countLine)
+      if (countSpec && (countSpec.columnX !== 0 || countSpec.columnY !== 1)) {
+        const picked = readDataColumns(seriesRawLines, countSpec.columnX, countSpec.columnY)
+        seriesX = picked.x
+        seriesY = picked.y
+      }
       const flagKind = parseInt((spec.countLine || '').trim().split(/\s+/)[0] || '0', 10)
       const hasFormula = spec.yExpr && spec.yExpr !== 'y' && /[a-z(]/.test(spec.yExpr)
       if (seriesX.length === 0 && flagKind === 3 && hasFormula) {
@@ -1553,6 +1560,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           xExpr: spec.xExpr,
           yTransCheck: spec.yExpr !== 'y',
           yExpr: spec.yExpr,
+          ...(countSpec && funcKind !== 'function'
+            ? { xColumn: countSpec.columnX + 1, yColumn: countSpec.columnY + 1 }
+            : {}),
         },
       }
       docDatasets.push(ds)

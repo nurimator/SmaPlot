@@ -8,7 +8,8 @@ import {
   selectAxisLabelIndices,
 } from '../../utils/axisLabels.ts'
 
-import { createSVGElement } from './svg.ts'
+import { createSVGElement, PX_PER_MM, ptToPx } from './svg.ts'
+import { getLineDashArray } from './symbols.ts'
 import type { PlotRenderContext } from './svg.ts'
 
 type LabelRun = { text: string; sup?: boolean }
@@ -43,6 +44,12 @@ function planAxisLabels(
     labels.set(v, [{ text: formatAxisValue(v, format, exponent) }])
   })
   return { labels, exponent, showExponent: format.drawExponent && exponent !== 0 && !decadeOnly && labels.size > 0 }
+}
+
+function applyGridDash(path: SVGElement, style: string, widthPx: number, rawPitch: string | undefined): void {
+  const pitchMm = parseFloat(rawPitch || '') / 100
+  const dash = getLineDashArray(style, widthPx, (Number.isFinite(pitchMm) && pitchMm > 0 ? pitchMm : 3) * PX_PER_MM)
+  if (dash !== 'none') path.setAttribute('stroke-dasharray', dash)
 }
 
 function setLabelRuns(el: SVGElement, runs: LabelRun[]): void {
@@ -168,7 +175,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const xMinorTicks = xTickValues.minor
 
   const xFontFamily = smpDoc?.axisX.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
-  const xRenderFontSize = Math.max(7, Math.round((smpDoc?.axisX.fontSize || 24) * 0.72))
+  const xRenderFontSize = ptToPx(smpDoc?.axisX.fontSize || 24)
   const xFontWeight = smpDoc?.axisX.fontWeight || 400
   const xFontStyle = smpDoc?.axisX.fontStyle || 'regular'
   const xLabelColor = smpDoc?.axisX.labelColor || '#000000'
@@ -210,7 +217,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   if (showXTicks) {
     xMajorTicks.forEach((v) => {
       const px = sx(v)
-      if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
+      if (px >= margin.l - 0.5 && px <= margin.l + plotW + 0.5) {
         const bYStart = xMajOut ? axisXBaseY + xMajLen : axisXBaseY
         const bYEnd = isSection ? (xMajIn ? topY : axisXBaseY) : (xMajIn ? axisXBaseY - xMajLen : axisXBaseY)
         if (xMajIn || xMajOut) {
@@ -221,7 +228,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     xMinorTicks.forEach((v) => {
       const px = sx(v)
-      if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
+      if (px >= margin.l - 0.5 && px <= margin.l + plotW + 0.5) {
         const bYStart = xMinOut ? axisXBaseY + xMinLen : axisXBaseY
         const bYEnd = isSection ? (xMinIn ? topY : axisXBaseY) : (xMinIn ? axisXBaseY - xMinLen : axisXBaseY)
         if (xMinIn || xMinOut) {
@@ -240,9 +247,9 @@ export function renderAxes(ctx: PlotRenderContext): void {
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
         label.setAttribute('x', String(px + xShiftRight))
-        label.setAttribute('y', String(axisXBaseY + 1 + xShiftDown))
+        label.setAttribute('y', String(axisXBaseY + xShiftDown + xRenderFontSize))
         label.setAttribute('text-anchor', 'middle')
-        label.setAttribute('dominant-baseline', 'hanging')
+        label.setAttribute('dominant-baseline', 'text-after-edge')
         label.setAttribute('font-size', String(xRenderFontSize))
         label.setAttribute('font-family', xFontFamily)
         if (xFontStyle === 'italic') label.setAttribute('font-style', 'italic')
@@ -253,7 +260,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
       }
     })
     appendExponentLabel(
-      xLabelFrag, xPlan, margin.l + plotW + xShiftRight, axisXBaseY + 1 + xShiftDown + xRenderFontSize * 1.2,
+      xLabelFrag, xPlan, margin.l + plotW + xShiftRight, axisXBaseY + xShiftDown + xRenderFontSize * 1.2,
       'end', 'hanging', xRenderFontSize, xFontFamily, xLabelColor
     )
   }
@@ -265,8 +272,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xTickPath.setAttribute('stroke-width', String(xMajW))
     xTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (xMajStyle === 'dashed') xTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (xMajStyle === 'dotted') xTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(xTickPath, xMajStyle, xMajW, smpDoc?.axisX?.rawMajorTickMid)
     }
     xTickPath.setAttribute('fill', 'none')
     svg.appendChild(xTickPath)
@@ -278,8 +284,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     xSubTickPath.setAttribute('stroke-width', String(xMinW))
     xSubTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (xMinStyle === 'dashed') xSubTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (xMinStyle === 'dotted') xSubTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(xSubTickPath, xMinStyle, xMinW, smpDoc?.axisX?.rawMinorTickMid)
     }
     xSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(xSubTickPath)
@@ -333,7 +338,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const su = ctx.uValueScale.valueToPixel
 
   const uFontFamily = uSpec?.fontFamily || xFontFamily
-  const uRenderFontSize = Math.max(7, Math.round((uSpec?.fontSize || 24) * 0.72))
+  const uRenderFontSize = ptToPx(uSpec?.fontSize || 24)
   const uFontWeight = uSpec?.fontWeight || 400
   const uFontStyle = uSpec?.fontStyle || 'regular'
   const uLabelColor = uSpec?.labelColor || '#000000'
@@ -361,7 +366,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   if (showUTicks) {
     uMajorTicks.forEach((v) => {
       const px = su(v)
-      if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
+      if (px >= margin.l - 0.5 && px <= margin.l + plotW + 0.5) {
         if (isSection && ctx.syncWithU) {
           if (uMajOut) {
             uTickPathD += `M${px} ${topY - uMajLen}V${topY}`
@@ -378,7 +383,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     uMinorTicks.forEach((v) => {
       const px = su(v)
-      if (px > margin.l + 0.5 && px < margin.l + plotW - 0.5) {
+      if (px >= margin.l - 0.5 && px <= margin.l + plotW + 0.5) {
         if (isSection && ctx.syncWithU) {
           if (uMinOut) {
             uSubTickPathD += `M${px} ${topY - uMinLen}V${topY}`
@@ -403,9 +408,9 @@ export function renderAxes(ctx: PlotRenderContext): void {
       if (px >= margin.l - 2 && px <= margin.l + plotW + 2) {
         const label = createSVGElement('text')
         label.setAttribute('x', String(px + uShiftRight))
-        label.setAttribute('y', String(topY - 4 + uShiftDown))
+        label.setAttribute('y', String(topY + uShiftDown))
         label.setAttribute('text-anchor', 'middle')
-        label.setAttribute('dominant-baseline', 'auto')
+        label.setAttribute('dominant-baseline', 'text-after-edge')
         label.setAttribute('font-size', String(uRenderFontSize))
         label.setAttribute('font-family', uFontFamily)
         if (uFontStyle === 'italic') label.setAttribute('font-style', 'italic')
@@ -428,8 +433,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uTickPath.setAttribute('stroke-width', String(uMajW))
     uTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (uMajStyle === 'dashed') uTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (uMajStyle === 'dotted') uTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(uTickPath, uMajStyle, uMajW, uSpec?.rawMajorTickMid)
     }
     uTickPath.setAttribute('fill', 'none')
     svg.appendChild(uTickPath)
@@ -441,8 +445,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     uSubTickPath.setAttribute('stroke-width', String(uMinW))
     uSubTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (uMinStyle === 'dashed') uSubTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (uMinStyle === 'dotted') uSubTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(uSubTickPath, uMinStyle, uMinW, uSpec?.rawMinorTickMid)
     }
     uSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(uSubTickPath)
@@ -467,7 +470,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const yMinorTicks = yTickValues.minor
 
   const yFontFamily = smpDoc?.axisY.fontFamily || 'Times New Roman, Segoe UI, sans-serif'
-  const yRenderFontSize = Math.max(7, Math.round((smpDoc?.axisY.fontSize || 24) * 0.72))
+  const yRenderFontSize = ptToPx(smpDoc?.axisY.fontSize || 24)
   const yFontWeight = smpDoc?.axisY.fontWeight || 400
   const yFontStyle = smpDoc?.axisY.fontStyle || 'regular'
   const yLabelColor = smpDoc?.axisY.labelColor || '#000000'
@@ -507,7 +510,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   if (showYTicks) {
     yMajorTicks.forEach((v) => {
       const py = sy(v)
-      if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
+      if (py >= margin.t - 0.5 && py <= margin.t + plotH + 0.5) {
         const lXStart = yMajOut ? axisYBaseX - yMajLen : axisYBaseX
         const lXEnd = isSection ? (yMajIn ? rightX : axisYBaseX) : (yMajIn ? axisYBaseX + yMajLen : axisYBaseX)
         if (yMajIn || yMajOut) {
@@ -518,7 +521,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     yMinorTicks.forEach((v) => {
       const py = sy(v)
-      if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
+      if (py >= margin.t - 0.5 && py <= margin.t + plotH + 0.5) {
         const lXStart = yMinOut ? axisYBaseX - yMinLen : axisYBaseX
         const lXEnd = isSection ? (yMinIn ? rightX : axisYBaseX) : (yMinIn ? axisYBaseX + yMinLen : axisYBaseX)
         if (yMinIn || yMinOut) {
@@ -537,9 +540,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
       const py = sy(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
-        label.setAttribute('x', String(axisYBaseX - 4 + yShiftRight))
-        label.setAttribute('y', String(py + Math.round(yRenderFontSize * 0.35) + yShiftDown))
+        label.setAttribute('x', String(axisYBaseX + yShiftRight))
+        label.setAttribute('y', String(py + yRenderFontSize / 2 + yShiftDown))
         label.setAttribute('text-anchor', 'end')
+        label.setAttribute('dominant-baseline', 'text-after-edge')
         label.setAttribute('font-size', String(yRenderFontSize))
         label.setAttribute('font-family', yFontFamily)
         if (yFontStyle === 'italic') label.setAttribute('font-style', 'italic')
@@ -550,16 +554,16 @@ export function renderAxes(ctx: PlotRenderContext): void {
       }
     })
     appendExponentLabel(
-      yLabelFrag, yPlan, axisYBaseX - 4 + yShiftRight, topY - yRenderFontSize * 0.6 + yShiftDown,
+      yLabelFrag, yPlan, axisYBaseX + yShiftRight, topY - yRenderFontSize * 0.6 + yShiftDown,
       'end', 'auto', yRenderFontSize, yFontFamily, yLabelColor
     )
 
     if (mergeZero) {
       const zLabel = createSVGElement('text')
-      zLabel.setAttribute('x', String(axisYBaseX - 4 + yShiftRight))
-      zLabel.setAttribute('y', String(axisXBaseY + 1 + xShiftDown))
+      zLabel.setAttribute('x', String(axisYBaseX + yShiftRight))
+      zLabel.setAttribute('y', String(axisXBaseY + xShiftDown + xRenderFontSize))
       zLabel.setAttribute('text-anchor', 'end')
-      zLabel.setAttribute('dominant-baseline', 'hanging')
+      zLabel.setAttribute('dominant-baseline', 'text-after-edge')
       zLabel.setAttribute('font-size', String(yRenderFontSize))
       zLabel.setAttribute('font-family', yFontFamily)
       if (yFontStyle === 'italic') zLabel.setAttribute('font-style', 'italic')
@@ -577,8 +581,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     yTickPath.setAttribute('stroke-width', String(yMajW))
     yTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (yMajStyle === 'dashed') yTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (yMajStyle === 'dotted') yTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(yTickPath, yMajStyle, yMajW, smpDoc?.axisY?.rawMajorTickMid)
     }
     yTickPath.setAttribute('fill', 'none')
     svg.appendChild(yTickPath)
@@ -590,8 +593,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     ySubTickPath.setAttribute('stroke-width', String(yMinW))
     ySubTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (yMinStyle === 'dashed') ySubTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (yMinStyle === 'dotted') ySubTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(ySubTickPath, yMinStyle, yMinW, smpDoc?.axisY?.rawMinorTickMid)
     }
     ySubTickPath.setAttribute('fill', 'none')
     svg.appendChild(ySubTickPath)
@@ -645,7 +647,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   const sr = ctx.rValueScale.valueToPixel
 
   const rFontFamily = rSpec?.fontFamily || yFontFamily
-  const rRenderFontSize = Math.max(7, Math.round((rSpec?.fontSize || 24) * 0.72))
+  const rRenderFontSize = ptToPx(rSpec?.fontSize || 24)
   const rFontWeight = rSpec?.fontWeight || 400
   const rFontStyle = rSpec?.fontStyle || 'regular'
   const rLabelColor = rSpec?.labelColor || '#000000'
@@ -673,7 +675,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
   if (showRTicks) {
     rMajorTicks.forEach((v) => {
       const py = sr(v)
-      if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
+      if (py >= margin.t - 0.5 && py <= margin.t + plotH + 0.5) {
         if (isSection && ctx.syncWithR) {
           if (rMajOut) {
             rTickPathD += `M${rightX} ${py}H${rightX + rMajLen}`
@@ -690,7 +692,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
 
     rMinorTicks.forEach((v) => {
       const py = sr(v)
-      if (py > margin.t + 0.5 && py < margin.t + plotH - 0.5) {
+      if (py >= margin.t - 0.5 && py <= margin.t + plotH + 0.5) {
         if (isSection && ctx.syncWithR) {
           if (rMinOut) {
             rSubTickPathD += `M${rightX} ${py}H${rightX + rMinLen}`
@@ -714,9 +716,10 @@ export function renderAxes(ctx: PlotRenderContext): void {
       const py = sr(v)
       if (py >= margin.t - 2 && py <= margin.t + plotH + 2) {
         const label = createSVGElement('text')
-        label.setAttribute('x', String(rightX + 4 + rShiftRight))
-        label.setAttribute('y', String(py + Math.round(rRenderFontSize * 0.35) + rShiftDown))
+        label.setAttribute('x', String(rightX + rShiftRight))
+        label.setAttribute('y', String(py + rRenderFontSize / 2 + rShiftDown))
         label.setAttribute('text-anchor', 'start')
+        label.setAttribute('dominant-baseline', 'text-after-edge')
         label.setAttribute('font-size', String(rRenderFontSize))
         label.setAttribute('font-family', rFontFamily)
         if (rFontStyle === 'italic') label.setAttribute('font-style', 'italic')
@@ -727,7 +730,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
       }
     })
     appendExponentLabel(
-      rLabelFrag, rPlan, rightX + 4 + rShiftRight, topY - rRenderFontSize * 0.6 + rShiftDown,
+      rLabelFrag, rPlan, rightX + rShiftRight, topY - rRenderFontSize * 0.6 + rShiftDown,
       'start', 'auto', rRenderFontSize, rFontFamily, rLabelColor
     )
   }
@@ -739,8 +742,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rTickPath.setAttribute('stroke-width', String(rMajW))
     rTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (rMajStyle === 'dashed') rTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (rMajStyle === 'dotted') rTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(rTickPath, rMajStyle, rMajW, rSpec?.rawMajorTickMid)
     }
     rTickPath.setAttribute('fill', 'none')
     svg.appendChild(rTickPath)
@@ -752,8 +754,7 @@ export function renderAxes(ctx: PlotRenderContext): void {
     rSubTickPath.setAttribute('stroke-width', String(rMinW))
     rSubTickPath.setAttribute('stroke-linecap', 'butt')
     if (isSection) {
-      if (rMinStyle === 'dashed') rSubTickPath.setAttribute('stroke-dasharray', '4 4')
-      else if (rMinStyle === 'dotted') rSubTickPath.setAttribute('stroke-dasharray', '2 2')
+      applyGridDash(rSubTickPath, rMinStyle, rMinW, rSpec?.rawMinorTickMid)
     }
     rSubTickPath.setAttribute('fill', 'none')
     svg.appendChild(rSubTickPath)

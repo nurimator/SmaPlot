@@ -922,7 +922,7 @@ function resetTextState(state: SmpTextState): void {
 
 // Sub/superscript runs are rendered at this fraction of the base size, and the value is baked
 // into SmpTextStyle.fontSize. Width measurement must not scale it a second time.
-const SCRIPT_SIZE_RATIO = 0.72
+export const SCRIPT_SIZE_RATIO = 0.7
 
 function getTextStyle(state: SmpTextState, char: string): SmpTextStyle {
   let fontFamily = state.base.fontFamily

@@ -59,6 +59,13 @@ export function hexagonPoints(cx: number, cy: number, r: number): string {
 
 export const PLOT_MARGIN = { l: 20, r: 20, t: 20, b: 20 }
 
+export const PX_PER_MM = 2
+const MM_PER_PT = 25.4 / 72
+
+export function ptToPx(pt: number): number {
+  return pt * MM_PER_PT * PX_PER_MM
+}
+
 export const BORDER_TOL = 2
 
 export function hitsRectBorder(gx: number, gy: number, l: number, t: number, w: number, h: number): boolean {
@@ -129,4 +136,5 @@ export interface PlotRenderContext {
   datasets: Dataset[]
   processedDatasets: Dataset[]
   seriesGroup: SVGGElement
+  markerGroup?: SVGGElement
 }

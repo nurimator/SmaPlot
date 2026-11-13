@@ -102,14 +102,25 @@ function renderCurveOverlay(
   path.setAttribute('fill', 'none')
   path.setAttribute('stroke', style.color)
   path.setAttribute('stroke-width', String(curveWidthPx))
-  const dash = getLineDashArray(style.lineType, curveWidthPx)
+  const dash = getLineDashArray(style.lineType, curveWidthPx, style.pitch * scaleX)
   if (dash) path.setAttribute('stroke-dasharray', dash)
   path.setAttribute('vector-effect', 'non-scaling-stroke')
   dsScaleGroup.appendChild(path)
 }
 
+const FRAME_TOLERANCE_PX = 0.5
+
+export function seriesPitchMm(ds: Dataset): number {
+  const token = (ds.smpSeriesStyleLine || '').trim().split(/\s+/)[2]
+  const pitch = parseFloat(token || '')
+  return Number.isFinite(pitch) && pitch > 0 ? pitch / 100 : 3
+}
+
 export function renderSeries(ctx: PlotRenderContext): void {
-  const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr, xValueScale, yValueScale, uValueScale, rValueScale } = ctx
+  const { processedDatasets, seriesGroup, markerGroup, margin, plotW, plotH, scaleX, sx, sy, su, sr, xValueScale, yValueScale, uValueScale, rValueScale } = ctx
+  const insideFrame = (px: number, py: number): boolean =>
+    px >= margin.l - FRAME_TOLERANCE_PX && px <= margin.l + plotW + FRAME_TOLERANCE_PX &&
+    py >= margin.t - FRAME_TOLERANCE_PX && py <= margin.t + plotH + FRAME_TOLERANCE_PX
 
   for (let dIdx = 0; dIdx < processedDatasets.length; dIdx++) {
     const ds = processedDatasets[dIdx]
@@ -141,7 +152,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const plotType = opts.plotType || 'no_dot'
     const lineType = opts.lineType || 'solid'
 
-    const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth))
+    const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth), seriesPitchMm(ds) * scaleX)
 
     if (plotType === 'bar') {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))
@@ -232,12 +243,18 @@ export function renderSeries(ctx: PlotRenderContext): void {
       ) {
         const step = Math.max(1, opts.pitch || 1)
         const markerSw = parseFloat(strokeWidth)
+        const markerParent = markerGroup ? createSVGElement('g') : dsGroup
+        if (markerGroup) {
+          markerParent.setAttribute('data-series-markers', String(dIdx))
+          markerGroup.appendChild(markerParent)
+        }
         for (let i = 0; i < ds.x.length; i += step) {
           if (!isValidPoint(i)) continue
           const px = dsSx(ds.x[i])
           const py = dsSy(ds.y[i])
+          if (markerGroup && !insideFrame(px, py)) continue
           const symbol = createSeriesSymbol(plotType, px, py, dotSize, dotColor, paintColor, markerSw)
-          if (symbol) dsGroup.appendChild(symbol)
+          if (symbol) markerParent.appendChild(symbol)
         }
       }
 

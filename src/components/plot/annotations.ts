@@ -14,7 +14,34 @@ import { buildGroupDragItems, capturePointerForDrag, setActiveGroupDrag } from '
 import { updatePlotVisual } from './drawPlot.ts'
 import { showArrowDialog } from './../ArrowDialog.ts'
 import { showRectangleDialog } from './../RectangleDialog.ts'
-import { getLineDashArray } from './symbols.ts'
+import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
+import { SYM_CODE_TO_PLOT } from '../../utils/smpMarkerCodes.ts'
+import { bgrToHex } from '../../utils/smpParser.ts'
+
+const HEAD_OUTLINE_PX = 0.02
+
+// dots
+export function renderDotObjects(ctx: PlotRenderContext): void {
+  const { svg, smpDoc, margin, scaleX, scaleY } = ctx
+  for (const obj of smpDoc?.legendRawObjects || []) {
+    if (obj.legendType !== 9 || obj.lines.length === 0) continue
+    const t = obj.lines[0].trim().split(/\s+/).map((v) => parseFloat(v))
+    if (t.length < 9 || !Number.isFinite(t[0]) || !Number.isFinite(t[1])) continue
+    const plotType = SYM_CODE_TO_PLOT[Math.round(t[2])]
+    if (!plotType || plotType === 'no_dot') continue
+    const cx = margin.l + (t[0] / 100) * scaleX
+    const cy = margin.t + (t[1] / 100) * scaleY
+    const radius = (t[6] / 100) * (scaleX / 2)
+    const strokePx = Math.max(0.4, ((t[3] || 0) / 100) * scaleX)
+    const dotColor = bgrToHex(Math.max(0, t[8] || 0))
+    const paintColor = t.length > 11 && Number.isFinite(t[11]) ? bgrToHex(Math.max(0, t[11])) : '#ffffff'
+    const symbol = createSeriesSymbol(plotType, cx, cy, radius, dotColor, paintColor, strokePx)
+    if (symbol) {
+      symbol.setAttribute('pointer-events', 'none')
+      svg.appendChild(symbol)
+    }
+  }
+}
 
 let lastAnnotationClickTime = 0
 let lastAnnotationClickKey = ''
@@ -184,7 +211,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aWidthMm = aLine.thickness || aLine.width || 0.4
       rectElem.setAttribute('stroke-width', String(Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))))
       rectElem.setAttribute('pointer-events', 'all')
-      const rectDash = getLineDashArray(aLine.style, Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2))))
+      const rectDash = getLineDashArray(aLine.style, Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2))), (aLine.pitch ?? 3) * scaleX)
       if (rectDash !== 'none') rectElem.setAttribute('stroke-dasharray', rectDash)
       rectElem.style.cursor = 'pointer'
       rectElem.addEventListener('pointerdown', handleMouseDown('line'))
@@ -210,7 +237,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
       const aStrokeW = Math.max(0.4, Number((aWidthMm * scaleX).toFixed(2)))
       const aLineStyle = aLine.style || 'solid'
 
-      const dashArray = getLineDashArray(aLineStyle, aStrokeW)
+      const dashArray = getLineDashArray(aLineStyle, aStrokeW, (aLine.pitch ?? 3) * scaleX)
 
       const isMeasureLine = aLine.shape === 'measure_line' || aLine.rawType === '2'
       const mode = aLine.arrowMode !== undefined ? aLine.arrowMode : (
@@ -281,10 +308,9 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const px = -uy
         const py = ux
 
-        const rawHeadLen = (aLine.arrowhead ?? 5.0) * scaleX
-        const headLenPx = Math.min(rawHeadLen, len * 0.45)
+        const headLenPx = (aLine.arrowhead ?? 5.0) * scaleX
         const spreadVal = aLine.spread ?? 30
-        const halfWidthPx = headLenPx * (spreadVal / 150)
+        const halfWidthPx = Math.abs(headLenPx * (spreadVal / 100) - (aWidthMm * scaleX) / 2)
         const shutPct = (aLine.shut !== undefined ? aLine.shut : 100) / 100
         const notchDist = headLenPx * shutPct
 
@@ -309,7 +335,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           headElem.setAttribute('d', `M${c1X.toFixed(1)},${c1Y.toFixed(1)}L${tipX.toFixed(1)},${tipY.toFixed(1)}L${c2X.toFixed(1)},${c2Y.toFixed(1)}L${notchX.toFixed(1)},${notchY.toFixed(1)}Z`)
           headElem.setAttribute('fill', aColor)
           headElem.setAttribute('stroke', aColor)
-          headElem.setAttribute('stroke-width', '1')
+          headElem.setAttribute('stroke-width', String(HEAD_OUTLINE_PX))
           headElem.setAttribute('stroke-linejoin', 'miter')
           headElem.setAttribute('stroke-miterlimit', '10')
           headElem.setAttribute('stroke-linecap', 'butt')
@@ -338,7 +364,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
           headElem.setAttribute('d', `M${c1X.toFixed(1)},${c1Y.toFixed(1)}L${tipX.toFixed(1)},${tipY.toFixed(1)}L${c2X.toFixed(1)},${c2Y.toFixed(1)}L${notchX.toFixed(1)},${notchY.toFixed(1)}Z`)
           headElem.setAttribute('fill', aColor)
           headElem.setAttribute('stroke', aColor)
-          headElem.setAttribute('stroke-width', '1')
+          headElem.setAttribute('stroke-width', String(HEAD_OUTLINE_PX))
           headElem.setAttribute('stroke-linejoin', 'miter')
           headElem.setAttribute('stroke-miterlimit', '10')
           headElem.setAttribute('stroke-linecap', 'butt')
@@ -352,7 +378,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         }
 
         const lineElem = createSVGElement('path')
-        lineElem.setAttribute('d', `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`)
+        lineElem.setAttribute('d', `M${endX.toFixed(2)},${endY.toFixed(2)}L${startX.toFixed(2)},${startY.toFixed(2)}`)
         lineElem.setAttribute('stroke', aColor)
         lineElem.setAttribute('stroke-width', String(aStrokeW))
         lineElem.setAttribute('stroke-linecap', 'round')

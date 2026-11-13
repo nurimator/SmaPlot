@@ -2,6 +2,7 @@ import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLegendRawObject, SmpLineAn
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 import { PLOT_TO_SYM_CODE } from './smpMarkerCodes.ts'
 import { isLogScaleType } from './scale.ts'
+import { withSeriesColumns } from './smpSeriesSpec.ts'
 
 const MM_TO_SMP = 100
 const SMP_TICK_UNIT_MM = 0.02
@@ -49,6 +50,15 @@ const SMP_FALLBACK_DIR = 'C:\\SmaPlot\\'
 const DEFAULT_DATA_SEPARATOR = '\t'
 
 const SERIES_COUNT_LINE = (n: number): string => `0 0 0 0 0 1 ${n} 0 -1 `
+const seriesCountLine = (ds: Dataset, n: number): string => {
+  const line = ds.smpSeriesCountLine || SERIES_COUNT_LINE(n)
+  if (!ds.options?.xColumn && !ds.options?.yColumn) return line
+  return withSeriesColumns(
+    line,
+    Math.max(0, (ds.options.xColumn || 1) - 1),
+    Math.max(0, (ds.options.yColumn || 2) - 1)
+  )
+}
 const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} ${color} 300 0 0 0 0`
 const SERIES_STYLE_LINE_LEGACY = (prefix: number, color: number): string => `${prefix} ${color} 300`
 const SERIES_SYMBOL_LINE = (pen: number, sym: number, size: number, color: number): string => `${pen} ${sym} ${size} ${color}`
@@ -358,7 +368,7 @@ function seriesSpecLines(ds: Dataset, pointCount: number, legacy: boolean): stri
   const out: string[] = [
     `[${seriesTag}]`,
     srcPath,
-    ds.smpSeriesCountLine || SERIES_COUNT_LINE(pointCount),
+    seriesCountLine(ds, pointCount),
     styleLine,
     SERIES_SYMBOL_LINE(lineTypeToCode(ds.options?.lineType), symCode, sizeVal, dotColorBgr),
     ds.smpSeriesFillLine || SERIES_FILL_LINE(hexToBgr(ds.options?.paintColor || COLOR_FACE_HEX)),

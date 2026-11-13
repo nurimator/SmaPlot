@@ -305,6 +305,11 @@ export function applyTransDragVisual(
       if (dsGroup) {
         if (kx !== 0 || ky !== 0) dsGroup.setAttribute('transform', `translate(${kx}, ${ky})`)
         else dsGroup.removeAttribute('transform')
+        const markerGroup = svg.querySelector<SVGGElement>(`g[data-series-markers="${idx}"]`)
+        if (markerGroup) {
+          if (kx !== 0 || ky !== 0) markerGroup.setAttribute('transform', `translate(${kx}, ${ky})`)
+          else markerGroup.removeAttribute('transform')
+        }
         const scaleGroup = dsGroup.querySelector<SVGGElement>('g[data-scale-group]')
         if (scaleGroup) {
           if (mx !== 1 || my !== 1) scaleGroup.setAttribute('transform', `scale(${mx}, ${my})`)

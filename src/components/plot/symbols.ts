@@ -5,24 +5,35 @@ import {
   diamondPoints,
   hexagonPoints,
   pentagonPoints,
+  PX_PER_MM,
   starPoints,
   triangleDownPoints,
   triangleUpPoints,
 } from './svg.ts'
 
-export function getLineDashArray(lineType: string | undefined, strokeWidth = 0): string {
-  if (lineType === 'dotted') return dashedPair(2, 2, strokeWidth)
-  if (lineType === 'dash_dot') return `${dashedPair(6, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)}`
-  if (lineType === 'dash_dot_dot') {
-    return `${dashedPair(6, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)} ${dashedPair(2, 3, strokeWidth)}`
-  }
-  if (lineType === 'dash' || lineType === 'dashed') return dashedPair(6, 3, strokeWidth)
-  return 'none'
+const DEFAULT_LINE_PITCH_PX = 3 * PX_PER_MM
+
+function lineStyleCode(lineType: string | undefined): number {
+  if (lineType === 'dash' || lineType === 'dashed') return 2
+  if (lineType === 'dotted') return 3
+  if (lineType === 'dash_dot') return 4
+  if (lineType === 'dash_dot_dot') return 5
+  return 0
 }
 
-function dashedPair(on: number, gap: number, strokeWidth: number): string {
-  if (strokeWidth <= 0) return `${on} ${gap}`
-  return `${Math.max(0.5, on - strokeWidth).toFixed(1)} ${Math.max(0.5, gap + strokeWidth).toFixed(1)}`
+export function getLineDashArray(lineType: string | undefined, strokeWidth = 0, pitch = DEFAULT_LINE_PITCH_PX): string {
+  const code = lineStyleCode(lineType)
+  if (code === 0) return 'none'
+  const w = Math.max(0, strokeWidth)
+  const period = Math.max(pitch > 0 ? pitch : DEFAULT_LINE_PITCH_PX, 5 * w)
+  const half = period / 2
+  const dot = half <= w ? period / 4 : w
+  const pattern =
+    code === 2 ? [half, half]
+      : code === 3 ? [dot, period - dot]
+        : code === 4 ? [half, period / 4 - dot / 2, dot, period / 4 - dot / 2]
+          : [half, period / 6 - dot / 2, dot, period / 6 - dot, dot, period / 6 - dot / 2]
+  return pattern.map((v) => Math.max(0, v).toFixed(2)).join(' ')
 }
 
 const f2 = (n: number): string => n.toFixed(2)

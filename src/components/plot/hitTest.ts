@@ -3,9 +3,25 @@ import { getCanvasZoom } from '../../utils/canvasZoom.ts'
 import { isSeriesLegendText, getProcessedDataset } from './dataset.ts'
 import { PLOT_MARGIN, distToSeg } from './svg.ts'
 import { getLegendTextAnchor, legendRenderFontSize, measureLegendItemText } from './legendText.ts'
-import { activeSvgs, svgDataMap, svgSmpDocMap } from './state.ts'
+import { activeSvgs, svgDataMap, svgLegendBoxMap, svgSmpDocMap } from './state.ts'
+import type { LegendCellBox } from './state.ts'
 import type { SelectableObject } from './selection.ts'
 import { getPlotValueScales } from './smpDoc.ts'
+
+function rotatedCellBounds(box: LegendCellBox, px: number, py: number): { l: number; t: number; w: number; h: number } {
+  const rad = (box.rotation * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const [cx, cy] of [[box.dx, box.dy], [box.dx + box.w, box.dy], [box.dx, box.dy + box.h], [box.dx + box.w, box.dy + box.h]]) {
+    xs.push(px + cx * cos - cy * sin)
+    ys.push(py + cx * sin + cy * cos)
+  }
+  const l = Math.min(...xs)
+  const t = Math.min(...ys)
+  return { l, t, w: Math.max(...xs) - l, h: Math.max(...ys) - t }
+}
 
 export function hitTestGraph(svg: SVGSVGElement, clientX: number, clientY: number): Dataset | null {
   const rawDatasets = svgDataMap.get(svg) || []
@@ -140,16 +156,21 @@ export function getSelectableObjects(): { obj: SelectableObject; l: number; t: n
     const plotH = Math.max(10, height - PLOT_MARGIN.t - PLOT_MARGIN.b)
     const valueScales = getPlotValueScales(svg, plotW, plotH)
 
+    const cellBoxes = svgLegendBoxMap.get(svg)
     smpDoc.legendItems.forEach((item, itemIdx) => {
       const px = left + PLOT_MARGIN.l + (item.xNorm / 10000) * plotW
       const py = top + PLOT_MARGIN.t + (item.yNorm / 10000) * plotH
       let objW: number
       let objH: number
       if (isSeriesLegendText(item.text)) {
-        const lines = item.text.split('\n').length
-        objW = 90
-        objH = lines * 11 + 6
-        result.push({ obj: { kind: 'legend', svg, itemIdx }, l: px - 4, t: py - objH / 2, w: objW + 8, h: objH + 4 })
+        const lines = item.text.replace(/\\n/g, '\n').split('\n')
+        const em = legendRenderFontSize(item)
+        const longest = Math.max(...lines.map((line) => line.replace(/%\d+[EN]/g, 'XXXX').length))
+        objW = em * 2 + longest * em * 0.55
+        objH = lines.length * em + em * 0.3
+        result.push({ obj: { kind: 'legend', svg, itemIdx }, l: px - 2, t: py - em - 2, w: objW + 4, h: objH + 4 })
+      } else if (cellBoxes?.has(itemIdx)) {
+        result.push({ obj: { kind: 'legend', svg, itemIdx }, ...rotatedCellBounds(cellBoxes.get(itemIdx)!, px, py) })
       } else {
         const isRot = item.rotation !== 0
         const renderFontSz = legendRenderFontSize(item)

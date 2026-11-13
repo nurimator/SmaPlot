@@ -1,6 +1,6 @@
 import type { Dataset } from '../../types.ts'
 import { createValueScale, niceAxisBounds, niceLogAxisBounds, resolveAxisStep } from '../../utils/scale.ts'
-import { renderAnnotations } from './annotations.ts'
+import { renderAnnotations, renderDotObjects } from './annotations.ts'
 import { renderAxes } from './axes.ts'
 import { renderPlotCrossbar } from './crossbar.ts'
 import { getProcessedDataset } from './dataset.ts'
@@ -231,6 +231,8 @@ export function drawPlot(
   const seriesGroup = createSVGElement('g')
   seriesGroup.setAttribute('clip-path', `url(#${clipId})`)
   svg.appendChild(seriesGroup)
+  const markerGroup = createSVGElement('g')
+  svg.appendChild(markerGroup)
 
   const ctx: PlotRenderContext = {
     svg,
@@ -266,11 +268,13 @@ export function drawPlot(
     datasets,
     processedDatasets,
     seriesGroup,
+    markerGroup,
   }
 
   renderAxes(ctx)
   renderSeries(ctx)
   renderAnnotations(ctx)
+  renderDotObjects(ctx)
   renderLegend(ctx)
 
   if (isMultiSelected(svg)) {

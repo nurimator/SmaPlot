@@ -1,5 +1,6 @@
 import type { Dataset } from '../../types.ts'
 import { readDataCellPair } from '../dataset.ts'
+import { parseSeriesCountLine } from '../smpSeriesSpec.ts'
 
 export interface ErrorBarData {
   yPlus: number[]
@@ -9,6 +10,8 @@ export interface ErrorBarData {
 export function extractErrorBars(ds: Dataset): ErrorBarData | null {
   const lines = ds.rawLines
   if (!lines || lines.length === 0) return null
+  const countSpec = parseSeriesCountLine(ds.smpSeriesCountLine)
+  if (countSpec && countSpec.errorBarY === 0) return null
   const yPlus: number[] = []
   const yMinus: number[] = []
   const xIdx = Math.max(0, (ds.options?.xColumn || 1) - 1)

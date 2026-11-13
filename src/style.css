@@ -679,6 +679,7 @@ body.accesskey-mode .menu-accel {
   background: #00ffff;
   border: none;
   pointer-events: auto;
+  transform: translate(-50%, -50%);
 }
 
 .ov-rot-wrap {

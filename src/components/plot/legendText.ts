@@ -1,6 +1,7 @@
 import type { SmpLegendItem } from '../../types.ts'
 import { measureSmpText, tokenizeSmpText } from '../../utils/smpSymbolMapper.ts'
 import type { SmpTextOptions } from '../../utils/smpSymbolMapper.ts'
+import { ptToPx } from './svg.ts'
 
 export type LegendTextAnchor = 'start' | 'middle' | 'end'
 
@@ -22,7 +23,7 @@ export function getLegendTextOptions(
   const secondaryFont = metadata.fontFamily2 || item.optionFontFamily || mainFont
   const symbolFont = item.symbolFontFamily || secondaryFont
   const secondaryFontSize =
-    metadata.font2Size && metadata.font2Size > 0 ? metadata.font2Size * 0.72 : fontSize
+    metadata.font2Size && metadata.font2Size > 0 ? ptToPx(metadata.font2Size) : fontSize
   const mainWeight = item.fontWeight ?? 400
   const boldWeight = (item.fontStyle || '').toLowerCase().includes('bold')
     ? Math.max(mainWeight, 700)
@@ -52,7 +53,7 @@ export function getLegendTextAnchor(item: SmpLegendItem): LegendTextAnchor {
 }
 
 export function legendRenderFontSize(item: SmpLegendItem): number {
-  return Math.max(6, Math.round((item.fontSize || 12) * 0.72))
+  return ptToPx(item.fontSize || 12)
 }
 
 export interface LegendTextMetrics {

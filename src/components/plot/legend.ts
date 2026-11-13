@@ -1,12 +1,14 @@
-import { measureSmpLine, measureSmpText, tokenizeSmpText } from '../../utils/smpSymbolMapper.ts'
+import { measureSmpLine, measureSmpText, SCRIPT_SIZE_RATIO, tokenizeSmpText } from '../../utils/smpSymbolMapper.ts'
 import type { SmpTextLine, SmpTextOptions, SmpTextStyle } from '../../utils/smpSymbolMapper.ts'
-import { getLegendTextAnchor, getLegendTextOptions } from './legendText.ts'
+import { getLegendTextAnchor, getLegendTextOptions, legendRenderFontSize } from './legendText.ts'
 import type { LegendTextAnchor } from './legendText.ts'
 import { isSeriesLegendText } from './dataset.ts'
 import { createOverlayEl, createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
-import { getPlotOverlay } from './state.ts'
+import { seriesPitchMm } from './series.ts'
+import { getPlotOverlay, svgLegendBoxMap } from './state.ts'
+import type { LegendCellBox } from './state.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import {
   isObjectSelected,
@@ -47,6 +49,9 @@ interface SeriesTextLayout {
 // The block must hug the real glyph ink, so the rendered <text> box is measured directly and
 // the estimate is only a fallback for when the node is not laid out yet.
 const SHOW_BG_FILL = '#ffffff'
+const BOX_BORDER_PX = 1
+const SUPERSCRIPT_RISE = 0.5
+const SUBSCRIPT_DROP = 0.2
 const SHOW_BG_PAD_X_RATIO = 0.08
 const SHOW_BG_PAD_Y_RATIO = 0.1
 const SHOW_BG_ASCENT_RATIO = 0.8
@@ -209,7 +214,11 @@ function renderSvgText(
       const tspan = createSVGElement('tspan')
       tspan.textContent = run.text
       applySvgTextStyle(tspan, run.style)
-      if (run.style.script !== 'normal') tspan.setAttribute('baseline-shift', run.style.script)
+      if (run.style.script !== 'normal') {
+        const baseSize = run.style.fontSize / SCRIPT_SIZE_RATIO
+        const shift = run.style.script === 'sup' ? baseSize * SUPERSCRIPT_RISE : -baseSize * SUBSCRIPT_DROP
+        tspan.setAttribute('baseline-shift', shift.toFixed(2))
+      }
       const dx = (run.style.xOffset - previousXOffset) * run.style.fontSize * 0.01
       const dy = -(run.style.yOffset - previousYOffset) * run.style.fontSize * 0.01
       if (dx !== 0) tspan.setAttribute('dx', String(dx))
@@ -229,8 +238,13 @@ function renderSvgText(
     appendShowBgPlates(group, textNodes, lines, x, firstY, metrics.lineHeight, fontSize, anchor)
   }
 
-  // A rotated block is wrapped by the selection overlay, so its axis-aligned box is not usable there.
-  const ink = rotation === 0 ? measureGroupInk(group, textNodes) : null
+  const ink = measureGroupInk(group, textNodes)
+  if (ink) {
+    hitArea.setAttribute('x', String(ink.x))
+    hitArea.setAttribute('y', String(ink.y))
+    hitArea.setAttribute('width', String(ink.width))
+    hitArea.setAttribute('height', String(ink.height))
+  }
 
   return { group, width: metrics.width, height: metrics.height, lineHeight: metrics.lineHeight, ink }
 }
@@ -248,11 +262,10 @@ function addLegendSelectionOverlay(
   openTitleModal: (event: MouseEvent) => void,
   ink: InkBox | null = null
 ): void {
-  // Measured ink is the truth; the anchor arithmetic below is only a fallback estimate.
-  const boxW = ink ? Math.max(30, ink.width + 6) : Math.max(30, width + 6)
-  const boxH = ink ? Math.max(10, ink.height + 4) : Math.max(10, height + 4)
-  const boxX = ink ? ink.x - 3 : anchor === 'middle' ? x - boxW / 2 : anchor === 'end' ? x - boxW + 3 : x - 3
-  const boxY = ink ? ink.y - 2 : y - boxH / 2
+  const boxW = ink ? ink.width : Math.max(30, width + 6)
+  const boxH = ink ? ink.height : Math.max(10, height + 4)
+  const boxX = ink ? ink.x : anchor === 'middle' ? x - boxW / 2 : anchor === 'end' ? x - boxW + 3 : x - 3
+  const boxY = ink ? ink.y : y - boxH / 2
   const overlay = getPlotOverlay(svg)
   let parentEl: HTMLElement = overlay
 
@@ -278,11 +291,15 @@ function addLegendSelectionOverlay(
   cyanBox.addEventListener('dblclick', openTitleModal)
   parentEl.appendChild(cyanBox)
 
+  const edgeL = offsetX + BOX_BORDER_PX / 2
+  const edgeT = offsetY + BOX_BORDER_PX / 2
+  const edgeR = offsetX + boxW - BOX_BORDER_PX / 2
+  const edgeB = offsetY + boxH - BOX_BORDER_PX / 2
   const corners = [
-    { x: offsetX - 1.5, y: offsetY - 1.5 },
-    { x: offsetX + boxW - 1.5, y: offsetY - 1.5 },
-    { x: offsetX - 1.5, y: offsetY + boxH - 1.5 },
-    { x: offsetX + boxW - 1.5, y: offsetY + boxH - 1.5 },
+    { x: edgeL, y: edgeT },
+    { x: edgeR, y: edgeT },
+    { x: edgeL, y: edgeB },
+    { x: edgeR, y: edgeB },
   ]
   corners.forEach((corner) => {
     const handle = createOverlayEl('ov-box-corner')
@@ -335,6 +352,8 @@ export function renderLegend(ctx: PlotRenderContext): void {
   }
 
   const legendItems = smpDoc?.legendItems || []
+  const legendBoxes = new Map<number, LegendCellBox>()
+  svgLegendBoxMap.set(svg, legendBoxes)
   legendItems.forEach((item, itemIdx) => {
     const px = margin.l + (item.xNorm / 10000) * plotW
     const py = margin.t + (item.yNorm / 10000) * plotH
@@ -384,9 +403,10 @@ export function renderLegend(ctx: PlotRenderContext): void {
       svg.appendChild(legGroup)
       const rawLines = (item.text || '').replace(/\\n/g, '\n').split(/\r?\n/)
       const seriesLayouts: SeriesTextLayout[] = []
-      let legY = py
-      const legFontSize = 10
+      const legFontSize = legendRenderFontSize(item)
+      const sampleLength = legFontSize * 2
       const textOptions = getLegendTextOptions(item, legFontSize, '#000000')
+      let lineIndex = 0
 
       rawLines.forEach((lineStr) => {
         const head = lineStr.match(/%(\d+)E/)
@@ -401,51 +421,56 @@ export function renderLegend(ctx: PlotRenderContext): void {
           .replace(/%(\d+)E/g, '')
           .trim()
 
+        const baselineY = py + lineIndex * legFontSize
+        lineIndex++
+        const labelLayout = renderSvgText(legGroup, labelText, px + sampleLength, baselineY, textOptions, 'start', 0, cursor)
+        labelLayout.group.addEventListener('mousedown', handleLegendMouseDown)
+        labelLayout.group.addEventListener('dblclick', openTitleModal)
+        const midY = labelLayout.ink ? labelLayout.ink.y + labelLayout.ink.height / 2 : baselineY - legFontSize * 0.35
+
         if (ds) {
           const color = ds.options?.lineColor || ds.color || '#000000'
-          const legLine = createSVGElement('line')
-          legLine.setAttribute('x1', String(px))
-          legLine.setAttribute('y1', String(legY))
-          legLine.setAttribute('x2', String(px + 18))
-          legLine.setAttribute('y2', String(legY))
-          legLine.setAttribute('stroke', color)
           const legWidthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
           const legStrokeW = Math.max(0.4, Number((legWidthMm * scaleX).toFixed(2)))
-          legLine.setAttribute('stroke-width', String(legStrokeW))
-          legLine.setAttribute('stroke-linecap', 'round')
           const lineType = ds.options?.lineType || 'solid'
-          const dashArray = getLineDashArray(lineType, legStrokeW)
-          if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
-          legLine.style.cursor = cursor
-          legLine.addEventListener('mousedown', handleLegendMouseDown)
-          legLine.addEventListener('dblclick', openTitleModal)
-          legGroup.appendChild(legLine)
+          if (lineType !== 'no_line') {
+            const legLine = createSVGElement('line')
+            legLine.setAttribute('x1', String(px))
+            legLine.setAttribute('y1', String(midY))
+            legLine.setAttribute('x2', String(px + sampleLength))
+            legLine.setAttribute('y2', String(midY))
+            legLine.setAttribute('stroke', color)
+            legLine.setAttribute('stroke-width', String(legStrokeW))
+            legLine.setAttribute('stroke-linecap', 'round')
+            const dashArray = getLineDashArray(lineType, legStrokeW, seriesPitchMm(ds) * scaleX)
+            if (dashArray !== 'none') legLine.setAttribute('stroke-dasharray', dashArray)
+            legLine.style.cursor = cursor
+            legLine.addEventListener('mousedown', handleLegendMouseDown)
+            legLine.addEventListener('dblclick', openTitleModal)
+            legGroup.insertBefore(legLine, labelLayout.group)
+          }
 
           const plotType = ds.options?.plotType || 'no_dot'
           if (plotType !== 'no_dot' && plotType !== 'none' && plotType !== 'bar') {
             const dotColor = ds.options?.dotColor || color
             const paintColor = ds.options?.paintColor || '#ffffff'
-            const radius = Math.max(3, ds.options?.size || 3.5)
-            const symbol = createSeriesSymbol(plotType, px + 9, legY, radius, dotColor, paintColor, 1)
+            const radius = ds.options?.size || 3
+            const symbol = createSeriesSymbol(plotType, px + sampleLength / 2, midY, radius, dotColor, paintColor, legStrokeW)
             if (symbol) {
               symbol.style.cursor = cursor
               symbol.addEventListener('mousedown', handleLegendMouseDown)
               symbol.addEventListener('dblclick', openTitleModal)
-              legGroup.appendChild(symbol)
+              legGroup.insertBefore(symbol, labelLayout.group)
             }
           }
         }
 
-        const labelLayout = renderSvgText(legGroup, labelText, px + 22, legY, textOptions, 'start', 0, cursor)
-        labelLayout.group.addEventListener('mousedown', handleLegendMouseDown)
-        labelLayout.group.addEventListener('dblclick', openTitleModal)
         seriesLayouts.push({
           x: px,
-          y: legY,
-          width: 22 + labelLayout.width,
+          y: midY,
+          width: sampleLength + labelLayout.width,
           height: labelLayout.height,
         })
-        legY += 11
       })
 
       if (isSelected && seriesLayouts.length > 0) {
@@ -471,13 +496,22 @@ export function renderLegend(ctx: PlotRenderContext): void {
       legGroup.setAttribute('data-legend-item', String(itemIdx))
       legGroup.style.cursor = cursor
       const rawStr = item.rawText || item.text || ''
-      const fontSize = Math.max(6, Math.round((item.fontSize || 12) * 0.72))
+      const fontSize = legendRenderFontSize(item)
       const textOptions = getLegendTextOptions(item, fontSize, item.color || '#000000')
       const anchor: TextAnchor = item.align ? getLegendTextAnchor(item) : 'start'
       svg.appendChild(legGroup)
       const layout = renderSvgText(legGroup, rawStr, px, py, textOptions, anchor, rotation, cursor, item.showBg === true)
       layout.group.addEventListener('mousedown', handleLegendMouseDown)
       layout.group.addEventListener('dblclick', openTitleModal)
+      if (layout.ink) {
+        legendBoxes.set(itemIdx, {
+          dx: layout.ink.x - px,
+          dy: layout.ink.y - py,
+          w: layout.ink.width,
+          h: layout.ink.height,
+          rotation,
+        })
+      }
 
       if (isSelected) {
         addLegendSelectionOverlay(
