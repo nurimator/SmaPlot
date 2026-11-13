@@ -109,6 +109,7 @@ export {
   snapToGridThreshold,
   starPoints,
 } from './svg.ts'
+export { initSelectionLayer, requestSelectionLayerRender } from './selectionLayer.ts'
 export type { PlotRenderContext } from './svg.ts'
 export { createSeriesIcon, createSeriesSymbol, getLineDashArray } from './symbols.ts'
 export {

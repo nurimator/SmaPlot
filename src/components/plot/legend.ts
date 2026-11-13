@@ -49,7 +49,6 @@ interface SeriesTextLayout {
 // The block must hug the real glyph ink, so the rendered <text> box is measured directly and
 // the estimate is only a fallback for when the node is not laid out yet.
 const SHOW_BG_FILL = '#ffffff'
-const BOX_BORDER_PX = 1
 const SUPERSCRIPT_RISE = 0.5
 const SUBSCRIPT_DROP = 0.2
 const SHOW_BG_PAD_X_RATIO = 0.08
@@ -291,10 +290,10 @@ function addLegendSelectionOverlay(
   cyanBox.addEventListener('dblclick', openTitleModal)
   parentEl.appendChild(cyanBox)
 
-  const edgeL = offsetX + BOX_BORDER_PX / 2
-  const edgeT = offsetY + BOX_BORDER_PX / 2
-  const edgeR = offsetX + boxW - BOX_BORDER_PX / 2
-  const edgeB = offsetY + boxH - BOX_BORDER_PX / 2
+  const edgeL = offsetX
+  const edgeT = offsetY
+  const edgeR = offsetX + boxW
+  const edgeB = offsetY + boxH
   const corners = [
     { x: edgeL, y: edgeT },
     { x: edgeR, y: edgeT },

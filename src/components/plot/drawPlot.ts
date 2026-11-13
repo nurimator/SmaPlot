@@ -313,8 +313,8 @@ export function drawPlot(
     const ov = getPlotOverlay(svg)
     const addVisualHandle = (cx: number, cy: number) => {
       const dot = createOverlayEl('ov-dot')
-      dot.style.left = `${cx - 3}px`
-      dot.style.top = `${cy - 3}px`
+      dot.style.left = `${cx}px`
+      dot.style.top = `${cy}px`
       ov.appendChild(dot)
     }
 

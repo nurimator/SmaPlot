@@ -621,13 +621,7 @@ body.accesskey-mode .menu-accel {
 .plot-svg .handle-bottom-left { cursor: nesw-resize; }
 .plot-svg .handle-bottom-right { cursor: nwse-resize; }
 
-/* Transform-box indicator drawn on the selected boxplot itself (via its overlay) */
-.plot-overlay.plot-overlay-selected {
-  border: 1px solid #00ffff;
-  box-sizing: border-box;
-}
-
-/* ===== Plot Control Overlay (HTML selection/transform aids, not exported) ===== */
+/* ===== Plot Control Overlay (invisible hit areas; visuals drawn by .selection-layer) ===== */
 .plot-overlay {
   position: absolute;
   z-index: 10;
@@ -636,92 +630,74 @@ body.accesskey-mode .menu-accel {
   box-sizing: border-box;
 }
 
-.ov-box-multi {
+.selection-layer {
   position: absolute;
-  border: 1px solid #00ffff;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ov-box,
+.ov-box-multi,
+.ov-trans-box,
+.ov-frame-border {
+  position: absolute;
+  border: none;
   background: transparent;
-  pointer-events: auto;
   box-sizing: border-box;
+}
+
+.ov-box,
+.ov-box-multi {
+  pointer-events: auto;
   cursor: move;
+}
+
+.ov-trans-box {
+  pointer-events: auto;
+  z-index: 14;
 }
 
 .ov-line {
   position: absolute;
-  height: 0;
-  border-top: 1px solid #00ffff;
-  pointer-events: auto;
-  cursor: move;
-}
-
-.ov-handle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #00ffff;
-  border: none;
-  pointer-events: auto;
-  cursor: crosshair;
-  z-index: 12;
-}
-
-.ov-box {
-  position: absolute;
-  border: 1px solid #00ffff;
+  height: var(--ov-hit, 8px);
+  margin-top: calc(var(--ov-hit, 8px) / -2);
   background: transparent;
   pointer-events: auto;
   cursor: move;
 }
 
-.ov-box-corner {
+.ov-handle,
+.ov-box-corner,
+.ov-trans-handle,
+.ov-dot {
   position: absolute;
-  width: 3px;
-  height: 3px;
-  background: #00ffff;
+  width: var(--ov-hit, 8px);
+  height: var(--ov-hit, 8px);
+  background: transparent;
   border: none;
-  pointer-events: auto;
   transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.ov-handle {
+  cursor: crosshair;
+  z-index: 12;
+}
+
+.ov-trans-handle {
+  z-index: 16;
+}
+
+.ov-dot {
+  pointer-events: none;
 }
 
 .ov-rot-wrap {
   position: absolute;
   transform-origin: 0 0;
-}
-
-.ov-dot {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #00ffff;
-  border: none;
-  pointer-events: none;
-}
-
-.ov-trans-box {
-  position: absolute;
-  border: 1px solid #00ffff;
-  background: transparent;
-  pointer-events: auto;
-  box-sizing: border-box;
-  z-index: 14;
-}
-
-.ov-trans-handle {
-  position: absolute;
-  background: #00ffff;
-  border: none;
-  pointer-events: auto;
-  z-index: 16;
-  box-sizing: border-box;
-}
-
-.ov-trans-handle-h {
-  width: 10px;
-  height: 5px;
-}
-
-.ov-trans-handle-v {
-  width: 5px;
-  height: 10px;
 }
 
 .workspace-right {

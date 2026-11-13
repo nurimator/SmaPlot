@@ -25,6 +25,7 @@ import {
   hitTestAxisArea,
   isInsidePlotArea,
   initPlotDragListeners,
+  initSelectionLayer,
   isPropertyTabMode,
   isReadValueMode,
   loadSmpProject,
@@ -130,6 +131,7 @@ const aboutOverlayEl = document.querySelector<HTMLElement>('#aboutOverlay')
 
 if (workspaceEl && graphAreaEl) {
   initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
+  initSelectionLayer(graphAreaEl)
 
   const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
   const zoomValueEl = document.querySelector<HTMLElement>('.zoom-value')

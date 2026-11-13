@@ -20,6 +20,8 @@ import { bgrToHex } from '../../utils/smpParser.ts'
 
 const HEAD_OUTLINE_PX = 0.02
 
+type AnnotationDragTarget = 'start' | 'end' | 'line' | 'x1y2' | 'x2y1'
+
 // dots
 export function renderDotObjects(ctx: PlotRenderContext): void {
   const { svg, smpDoc, margin, scaleX, scaleY } = ctx
@@ -77,7 +79,7 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
 
     const isSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
 
-    const handleMouseDown = (targetType: 'start' | 'end' | 'line') => (e: PointerEvent) => {
+    const handleMouseDown = (targetType: AnnotationDragTarget) => (e: PointerEvent) => {
       if (e.button !== 0) return
       if (isTrimmingMode() || isReadValueMode() || isPropertyTabMode()) return
       const wasSelected = isObjectSelected({ kind: 'annotation', svg, annotationIdx: aIdx })
@@ -415,10 +417,10 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         const ov = getPlotOverlay(svg)
 
         const highlightEl = createOverlayEl('ov-box-multi')
-        highlightEl.style.left = `${rx1 - 0.5}px`
-        highlightEl.style.top = `${ry1 - 0.5}px`
-        highlightEl.style.width = `${rw + 1}px`
-        highlightEl.style.height = `${rh + 1}px`
+        highlightEl.style.left = `${rx1}px`
+        highlightEl.style.top = `${ry1}px`
+        highlightEl.style.width = `${rw}px`
+        highlightEl.style.height = `${rh}px`
         highlightEl.addEventListener('pointerdown', handleMouseDown('line'))
         highlightEl.addEventListener('dblclick', (e: MouseEvent) => {
           e.stopPropagation()
@@ -427,29 +429,23 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         })
         ov.appendChild(highlightEl)
 
-        const handleTL = createOverlayEl('ov-handle')
-        handleTL.style.left = `${rx1 - 2}px`
-        handleTL.style.top = `${ry1 - 2}px`
-        handleTL.addEventListener('pointerdown', handleMouseDown('start'))
-        ov.appendChild(handleTL)
-
-        const handleTR = createOverlayEl('ov-handle')
-        handleTR.style.left = `${rx1 + rw - 2}px`
-        handleTR.style.top = `${ry1 - 2}px`
-        handleTR.addEventListener('pointerdown', handleMouseDown('start'))
-        ov.appendChild(handleTR)
-
-        const handleBL = createOverlayEl('ov-handle')
-        handleBL.style.left = `${rx1 - 2}px`
-        handleBL.style.top = `${ry1 + rh - 2}px`
-        handleBL.addEventListener('pointerdown', handleMouseDown('end'))
-        ov.appendChild(handleBL)
-
-        const handleBR = createOverlayEl('ov-handle')
-        handleBR.style.left = `${rx1 + rw - 2}px`
-        handleBR.style.top = `${ry1 + rh - 2}px`
-        handleBR.addEventListener('pointerdown', handleMouseDown('end'))
-        ov.appendChild(handleBR)
+        const leftIdx = x1 <= x2 ? 1 : 2
+        const topIdx = y1 <= y2 ? 1 : 2
+        const cornerTarget = (xi: number, yi: number): AnnotationDragTarget =>
+          xi === yi ? (xi === 1 ? 'start' : 'end') : xi === 1 ? 'x1y2' : 'x2y1'
+        const corners: Array<[number, number, number, number]> = [
+          [rx1, ry1, leftIdx, topIdx],
+          [rx1 + rw, ry1, 3 - leftIdx, topIdx],
+          [rx1, ry1 + rh, leftIdx, 3 - topIdx],
+          [rx1 + rw, ry1 + rh, 3 - leftIdx, 3 - topIdx],
+        ]
+        corners.forEach(([hx, hy, xi, yi]) => {
+          const handle = createOverlayEl('ov-handle')
+          handle.style.left = `${hx}px`
+          handle.style.top = `${hy}px`
+          handle.addEventListener('pointerdown', handleMouseDown(cornerTarget(xi, yi)))
+          ov.appendChild(handle)
+        })
       } else {
         const len = Math.hypot(x2 - x1, y2 - y1) || 1
         const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
@@ -470,14 +466,14 @@ export function renderAnnotations(ctx: PlotRenderContext): void {
         ov.appendChild(cyanLineEl)
 
         const handle1 = createOverlayEl('ov-handle')
-        handle1.style.left = `${x1 - 2}px`
-        handle1.style.top = `${y1 - 2}px`
+        handle1.style.left = `${x1}px`
+        handle1.style.top = `${y1}px`
         handle1.addEventListener('pointerdown', handleMouseDown('start'))
         ov.appendChild(handle1)
 
         const handle2 = createOverlayEl('ov-handle')
-        handle2.style.left = `${x2 - 2}px`
-        handle2.style.top = `${y2 - 2}px`
+        handle2.style.left = `${x2}px`
+        handle2.style.top = `${y2}px`
         handle2.addEventListener('pointerdown', handleMouseDown('end'))
         ov.appendChild(handle2)
       }

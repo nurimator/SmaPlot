@@ -485,16 +485,11 @@ export function renderDatasetTransformOverlays(
       dir: 'top' | 'bottom' | 'left' | 'right',
       orientation: 'h' | 'v'
     ) => {
-      const isHorizontal = orientation === 'h'
-      const hw = isHorizontal ? 10 : 5
-      const hh = isHorizontal ? 5 : 10
-      const cursor = isHorizontal ? 'ns-resize' : 'ew-resize'
+      const cursor = orientation === 'h' ? 'ns-resize' : 'ew-resize'
 
       const handle = createOverlayEl(`ov-trans-handle ov-trans-handle-${orientation}`)
-      handle.style.left = `${hx - hw / 2}px`
-      handle.style.top = `${hy - hh / 2}px`
-      handle.style.width = `${hw}px`
-      handle.style.height = `${hh}px`
+      handle.style.left = `${hx}px`
+      handle.style.top = `${hy}px`
       handle.style.cursor = cursor
       handle.setAttribute('data-trans-dir', dir)
       handle.title = `Scale ${dir.toUpperCase()} (${exprText})`

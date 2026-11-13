@@ -52,7 +52,7 @@ export interface GroupDragItem {
   startY1Norm?: number
   startX2Norm?: number
   startY2Norm?: number
-  targetType?: 'start' | 'end' | 'line'
+  targetType?: 'start' | 'end' | 'line' | 'x1y2' | 'x2y1'
   geom?: Array<{ el: HTMLElement; left: number; top: number }>
 }
 
@@ -513,7 +513,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
-                aLine.y1Norm = item.startY1Norm!
+                aLine.y2Norm = item.startY1Norm!
                 aLine.x2Norm = rawX2
               } else {
                 aLine.x2Norm = item.startX1Norm!
@@ -523,6 +523,12 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
               aLine.x2Norm = rawX2
               aLine.y2Norm = rawY2
             }
+          } else if (item.targetType === 'x1y2') {
+            aLine.x1Norm = item.startX1Norm! + dxNorm
+            aLine.y2Norm = item.startY2Norm! + dyNorm
+          } else if (item.targetType === 'x2y1') {
+            aLine.x2Norm = item.startX2Norm! + dxNorm
+            aLine.y1Norm = item.startY1Norm! + dyNorm
           } else {
             aLine.x1Norm = item.startX1Norm! + dxNorm
             aLine.y1Norm = item.startY1Norm! + dyNorm
