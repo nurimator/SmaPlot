@@ -122,6 +122,7 @@ export interface SmpAxisSpec {
   step: number
   subDivs: number
   autoStep?: boolean
+  linkedAxis?: boolean
   logScale?: boolean
   scaleType?: number
   showTicks: boolean

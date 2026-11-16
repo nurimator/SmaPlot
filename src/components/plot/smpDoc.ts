@@ -53,6 +53,13 @@ export function getPlotSmpDoc(svg: SVGSVGElement): SmpPlotDoc | undefined {
 }
 
 export function setAxisSync(smpDoc: SmpPlotDoc, axis: 'u' | 'r', synced: boolean): void {
+  const primary = axis === 'u' ? smpDoc.axisX : smpDoc.axisY
+  const secondary = axis === 'u' ? smpDoc.axisTop : smpDoc.axisRight
+  const wasSynced = (axis === 'u' ? smpDoc.syncWithU : smpDoc.syncWithR) !== false && primary.isSynced !== false
+  if (wasSynced !== synced) {
+    delete primary.linkedAxis
+    if (secondary) delete secondary.linkedAxis
+  }
   if (axis === 'u') {
     if (!smpDoc.axisTop) {
       smpDoc.axisTop = { ...smpDoc.axisX, showLabels: !synced, isSynced: synced }

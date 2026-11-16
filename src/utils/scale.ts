@@ -127,13 +127,14 @@ export function resolveAxisStep(
 ): AxisStepResult {
   const stored = Math.abs(storedStep)
   if (logScale) {
+    if (autoStep) return { ...computeLogAutoStep(min, max), automatic: true }
     return {
-      increment: Number.isFinite(stored) && stored > 0 ? stored : 10,
+      increment: Number.isFinite(stored) && stored > 0 ? snapLogStep(stored) : 10,
       division: 5,
       automatic: false,
     }
   }
-  if (autoStep || !Number.isFinite(stored) || stored <= 0) {
+  if (autoStep || !Number.isFinite(stored) || stored <= 0 || stored * 20 < Math.abs(max - min)) {
     return { ...computeAutoStep(min, max), automatic: true }
   }
   return { increment: stored, division: 5, automatic: false }
@@ -230,27 +231,37 @@ export function computeAutoStep(min: number, max: number): AutoStepResult {
   if (!isFinite(range) || range <= 0) {
     return { increment: 1, division: 2 }
   }
-  const lo = range / 5
-  const hi = range / 2
-  const kLo = Math.floor(Math.log10(lo)) - 1
-  const kHi = Math.floor(Math.log10(hi)) + 1
-  let preferred: number | null = null
-  let fallback: number | null = null
-  for (let k = kLo; k <= kHi; k++) {
-    const mag = Math.pow(10, k)
-    for (const mult of [1, 2, 5]) {
-      const inc = mult * mag
-      if (inc < lo * (1 - 1e-9) || inc > hi * (1 + 1e-9)) continue
-      if (mult === 1 || mult === 2) {
-        if (preferred === null || inc < preferred) preferred = inc
-      } else if (fallback === null || inc < fallback) {
-        fallback = inc
-      }
-    }
+  const mag = Math.pow(10, Math.floor(Math.log10(range)))
+  const mantissa = range / mag
+  let factor = 2
+  let division = 2
+  if (mantissa <= 1.1) factor = 0.2
+  else if (mantissa < 2) {
+    factor = 0.5
+    division = 5
+  } else if (mantissa <= 6) factor = 1
+  return { increment: Number((factor * mag).toPrecision(12)), division }
+}
+
+export function computeLogAutoStep(min: number, max: number): AutoStepResult {
+  const lo = Math.min(Math.abs(min), Math.abs(max))
+  const hi = Math.max(Math.abs(min), Math.abs(max))
+  const decades = lo > 0 && Number.isFinite(hi / lo) ? Math.log10(hi / lo) : 1
+  if (decades <= 0.5) return { increment: 0.5, division: 10 }
+  if (decades <= 1) return { increment: 1, division: 10 }
+  if (decades <= 3) return { increment: 5, division: 10 }
+  return { increment: 10, division: 1 }
+}
+
+const LOG_STEP_TABLE: readonly [number, number][] = [
+  [0.1, 1], [0.2, 0.1], [0.5, 0.2], [1, 0.5], [2, 1], [3, 2], [4, 3], [5, 4], [10, 5],
+]
+
+export function snapLogStep(step: number): number {
+  for (const [limit, value] of LOG_STEP_TABLE) {
+    if (step < limit) return value
   }
-  const increment = preferred !== null ? preferred : fallback !== null ? fallback : 1
-  const division = preferred !== null ? 2 : 5
-  return { increment, division }
+  return 10
 }
 
 export function formatTick(value: number): string {

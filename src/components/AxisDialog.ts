@@ -1,6 +1,6 @@
 import type { SmpAxisSpec, SmpPlotDoc } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
-import { AXIS_SCALE_TYPE_CODES, axisScaleTypeName, computeAutoStep, isLogScaleType } from '../utils/scale.ts'
+import { AXIS_SCALE_TYPE_CODES, axisScaleTypeName, computeAutoStep, computeLogAutoStep, isLogScaleType } from '../utils/scale.ts'
 import { getPlotSmpDoc, getSelectedPlotSvg, setAxisSync, updatePlotVisual } from './plot/index.ts'
 import { pushUndoState } from '../utils/undoManager.ts'
 
@@ -161,7 +161,8 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
     }
 
     if (targetSpec.logScale) {
-      if (!Number.isFinite(targetSpec.step) || Math.abs(targetSpec.step) <= 0) targetSpec.step = 1
+      if (targetSpec.autoStep) targetSpec.step = computeLogAutoStep(targetSpec.min, targetSpec.max).increment
+      else if (!Number.isFinite(targetSpec.step) || Math.abs(targetSpec.step) <= 0) targetSpec.step = 1
       if (axisIncrement) axisIncrement.value = String(Math.abs(targetSpec.step))
     } else if (targetSpec.autoStep) {
       const auto = computeAutoStep(targetSpec.min, targetSpec.max)

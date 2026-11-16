@@ -1063,8 +1063,8 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
             axisSpec.logScale = isLogScaleType(scaleType)
           }
           if (parts2.length >= 6) {
-            axisSpec.insideTicks = parts2[2] === '1'
-            axisSpec.autoStep = parts2[3] === '1'
+            axisSpec.autoStep = parts2[2] === '1'
+            axisSpec.linkedAxis = parts2[3] === '1'
             axisSpec.showTicks = parts2[4] === '1'
             axisSpec.showLabels = parts2[5] === '1'
             axisLine2Parsed = true

@@ -443,7 +443,7 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
   }
   lines.push('')
 
-  const formatAxis = (idx: number, axis?: SmpAxisSpec) => {
+  const formatAxis = (idx: number, axis: SmpAxisSpec | undefined, synced: boolean) => {
     lines.push(`[AXIS-${idx}]`)
     let minStr: string
     let maxStr: string
@@ -473,12 +473,12 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
     const autoSt = axis?.autoStep ? 1 : 0
     const labelColor = axis?.labelColorCode || (AXIS_LABEL_COLOR[idx] ?? '300')
     const l2Tail = axis?.rawLine2Tail || '100 0'
-    const insideTk = axis?.insideTicks ? 1 : 0
+    const linked = (axis?.linkedAxis ?? synced) ? 1 : 0
     const subDivs = axis?.subDivs || DEFAULT_AXIS.subDivs
     const scaleType = axis?.scaleType !== undefined && isLogScaleType(axis.scaleType) === !!axis.logScale
       ? axis.scaleType
       : axis?.logScale ? 3 : 0
-    lines.push(`${subDivs} ${scaleType} ${insideTk} ${autoSt} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
+    lines.push(`${subDivs} ${scaleType} ${autoSt} ${linked} ${showTicks} ${showLabels} ${shiftR} ${shiftD} 0 ${labelColor} ${l2Tail}`)
 
     const weight = (axis?.fontWeight || DEFAULT_AXIS.weight) >= DEFAULT_AXIS.boldWeight ? 700 : 400
     const italic = axis?.fontStyle === 'italic'
@@ -543,10 +543,10 @@ export function serializeSmpDoc(doc: SmpPlotDoc, isMultiDoc = false, writeData =
       }
     : (doc.axisRight || doc.axisY)
 
-  formatAxis(0, doc.axisX)
-  formatAxis(1, doc.axisY)
-  formatAxis(2, axisTopExport)
-  formatAxis(3, axisRightExport)
+  formatAxis(0, doc.axisX, uIsSynced)
+  formatAxis(1, doc.axisY, rIsSynced)
+  formatAxis(2, axisTopExport, uIsSynced)
+  formatAxis(3, axisRightExport, rIsSynced)
 
   if (legacy) {
     lines.push(...legacyTitleSectionLines(doc))
