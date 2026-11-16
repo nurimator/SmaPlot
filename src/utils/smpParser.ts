@@ -3,7 +3,7 @@ import { smpToUnicode } from './smpSymbolMapper.ts'
 import { SYM_CODE_TO_PLOT } from './smpMarkerCodes.ts'
 import { sampleFunction as sampleFunctionSpec } from './analyze/functionSeries.ts'
 import { readDataCellPair, readDataColumns, splitDataFields } from './dataset.ts'
-import { parseSeriesCountLine } from './smpSeriesSpec.ts'
+import { parseExprTransformFlags, parseSeriesCountLine } from './smpSeriesSpec.ts'
 import { isLogScaleType } from './scale.ts'
 
 export function bgrToHex(bgr: number): string {
@@ -1508,6 +1508,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
         }
       }
 
+      const exprFlags = parseExprTransformFlags(spec.exprFlag)
       const ds: Dataset = {
         name: spec.cleanName,
         color: spec.color,
@@ -1556,9 +1557,9 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           dotColor: spec.dotColor || spec.color,
           paintColor: spec.fillColor || '#ffffff',
           size: spec.markerSize || 3,
-          xTransCheck: spec.xExpr !== 'x',
+          xTransCheck: exprFlags ? exprFlags[0] : spec.xExpr !== 'x',
           xExpr: spec.xExpr,
-          yTransCheck: spec.yExpr !== 'y',
+          yTransCheck: exprFlags ? exprFlags[1] : spec.yExpr !== 'y',
           yExpr: spec.yExpr,
           ...(countSpec && funcKind !== 'function'
             ? { xColumn: countSpec.columnX + 1, yColumn: countSpec.columnY + 1 }

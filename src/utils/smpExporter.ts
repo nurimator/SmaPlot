@@ -2,7 +2,7 @@ import type { Dataset, SmpAxisSpec, SmpLegendItem, SmpLegendRawObject, SmpLineAn
 import { unicodeToSmp } from './smpSymbolMapper.ts'
 import { PLOT_TO_SYM_CODE } from './smpMarkerCodes.ts'
 import { isLogScaleType } from './scale.ts'
-import { withSeriesColumns } from './smpSeriesSpec.ts'
+import { withExprTransformFlags, withSeriesColumns } from './smpSeriesSpec.ts'
 
 const MM_TO_SMP = 100
 const SMP_TICK_UNIT_MM = 0.02
@@ -63,7 +63,6 @@ const SERIES_STYLE_LINE = (prefix: number, color: number): string => `${prefix} 
 const SERIES_STYLE_LINE_LEGACY = (prefix: number, color: number): string => `${prefix} ${color} 300`
 const SERIES_SYMBOL_LINE = (pen: number, sym: number, size: number, color: number): string => `${pen} ${sym} ${size} ${color}`
 const SERIES_FILL_LINE = (fillBgr: number): string => `0 0 1 0 0 0 ${fillBgr} 5`
-const SERIES_EXPR_LINE = (transformed: boolean): string => `0 ${transformed ? 1 : 0} 0`
 const SERIES_ZEROS_LINE = '0 0 0 0 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00'
 const SERIES_FIXED_LINE_5 = '1 40 0 300 1'
 
@@ -358,11 +357,14 @@ function seriesSpecLines(ds: Dataset, pointCount: number, legacy: boolean): stri
   const sizeVal = Math.round((ds.options?.size || DEFAULT_SERIES_SIZE) * MM_TO_SMP)
   const xExpr = ds.options?.xExpr || 'x'
   const yExpr = ds.options?.yExpr || 'y'
-  const hasTransform = ds.options?.xTransCheck || ds.options?.yTransCheck || xExpr !== 'x' || yExpr !== 'y'
+  const xTrans = ds.options?.xTransCheck ?? xExpr !== 'x'
+  const yTrans = ds.options?.yTransCheck ?? yExpr !== 'y'
   const widthMm = ds.options?.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
   const stylePrefix = Math.round(widthMm * 100)
   const styleLine = seriesStyleLine(ds, stylePrefix, bgrColor, legacy)
-  const exprFlag = ds.smpExprFlag || SERIES_EXPR_LINE(hasTransform)
+  const exprFlag = ds.smpExprFlag && !/^\s*[01]\s+[01]\s+\S+\s*$/.test(ds.smpExprFlag)
+    ? ds.smpExprFlag
+    : withExprTransformFlags(ds.smpExprFlag, xTrans, yTrans)
   const zerosLine = ds.smpSeriesZerosLine || SERIES_ZEROS_LINE
   const fixed5 = ds.smpSeriesFixed5 || SERIES_FIXED_LINE_5
   const out: string[] = [

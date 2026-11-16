@@ -30,6 +30,20 @@ export function parseSeriesCountLine(line: string | undefined): SmpSeriesCountSp
   }
 }
 
+const EXPR_FLAG_PATTERN = /^\s*([01])\s+([01])\s+(\S+)\s*$/
+
+export function parseExprTransformFlags(line: string | undefined): [boolean, boolean] | null {
+  const match = EXPR_FLAG_PATTERN.exec(line || '')
+  return match ? [match[1] === '1', match[2] === '1'] : null
+}
+
+export function withExprTransformFlags(line: string | undefined, xTrans: boolean, yTrans: boolean): string {
+  const match = EXPR_FLAG_PATTERN.exec(line || '')
+  if (!line || !match) return `${xTrans ? 1 : 0} ${yTrans ? 1 : 0} 0`
+  if ((match[1] === '1') === xTrans && (match[2] === '1') === yTrans) return line
+  return `${xTrans ? 1 : 0} ${yTrans ? 1 : 0} ${match[3]}`
+}
+
 export function withSeriesColumns(line: string, columnX: number, columnY: number): string {
   const spec = parseSeriesCountLine(line)
   if (!spec || (spec.columnX === columnX && spec.columnY === columnY)) return line
