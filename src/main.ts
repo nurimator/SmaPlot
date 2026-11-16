@@ -364,7 +364,8 @@ async function handleInsertLegend(): Promise<void> {
     const codes = identifiers
       .map((id) => {
         const index = plotDatasets.findIndex((d) => datasetMatchesIdentifier(d, id))
-        return index >= 0 ? `%0${index + 1}E%0${index + 1}N` : null
+        const code = String(index + 1).padStart(2, '0')
+        return index >= 0 ? `%${code}E%${code}N` : null
       })
       .filter((c): c is string => c !== null)
 

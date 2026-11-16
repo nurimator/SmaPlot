@@ -1,4 +1,4 @@
-import { measureSmpLine, measureSmpText, SCRIPT_SIZE_RATIO, tokenizeSmpText } from '../../utils/smpSymbolMapper.ts'
+import { literalSmpText, measureSmpLine, measureSmpText, SCRIPT_SIZE_RATIO, tokenizeSmpText } from '../../utils/smpSymbolMapper.ts'
 import type { SmpTextLine, SmpTextOptions, SmpTextStyle } from '../../utils/smpSymbolMapper.ts'
 import { getLegendTextAnchor, getLegendTextOptions, legendRenderFontSize } from './legendText.ts'
 import type { LegendTextAnchor } from './legendText.ts'
@@ -415,7 +415,8 @@ export function renderLegend(ctx: PlotRenderContext): void {
         const labelText = lineStr
           .replace(/%(\d+)N/g, (_match, n) => {
             const dataset = processedDatasets[parseInt(n, 10) - 1]
-            return (dataset?.fileName || dataset?.name || `Series ${n}`).toUpperCase()
+            const label = dataset?.smpSeriesName || dataset?.fileName || dataset?.name || `Series ${n}`
+            return literalSmpText(label.replace(/^.*[\\/]/, '').toUpperCase())
           })
           .replace(/%(\d+)E/g, '')
           .trim()

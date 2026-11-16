@@ -1024,6 +1024,13 @@ function pushTextLine(lines: SmpTextLine[]): void {
   lines.push({ runs: [] })
 }
 
+const LITERAL_OPEN = '\u0001'
+const LITERAL_CLOSE = '\u0002'
+
+export function literalSmpText(text: string): string {
+  return `${LITERAL_OPEN}${text.replace(/[\u0001\u0002]/g, '')}${LITERAL_CLOSE}`
+}
+
 export function tokenizeSmpText(rawText: string, options: SmpTextOptions = {}): SmpTextLine[] {
   const decoded = smpToUnicode(rawText || '')
   const lines: SmpTextLine[] = [{ runs: [] }]
@@ -1032,6 +1039,14 @@ export function tokenizeSmpText(rawText: string, options: SmpTextOptions = {}): 
 
   while (index < decoded.length) {
     const char = decoded[index]
+
+    if (char === LITERAL_OPEN) {
+      const end = decoded.indexOf(LITERAL_CLOSE, index + 1)
+      const stop = end < 0 ? decoded.length : end
+      appendText(lines, state, decoded.slice(index + 1, stop), false)
+      index = stop + 1
+      continue
+    }
 
     if (char === '\\' && decoded[index + 1] === 'n') {
       pushTextLine(lines)
