@@ -31,25 +31,27 @@ The practical bridge is the **native `.SMP` format**. SmaPlot can import existin
 ## Features
 
 - **Multi-plot SVG workspace.** Create multiple plots, drag, resize, and group-move them; marquee multi-select of boxes, labels, legends, and annotation lines/arrows.
-- **4-axis system.** Independent X, Y, Top, and Right axes with configurable min/max, step, subdivisions, and font options.
-- **Series & legend management.** Per-series color, original file path, and X/Y math transforms, with an editable legend.
+- **4-axis system.** Independent X, Y, Top, and Right axes with configurable min/max, step, subdivisions, and font options; linear and log scales.
+- **Analysis & fitting.** Least-squares variants, user-function Levenberg–Marquardt fits, splines, Gauss-Lorentz, peak detection, FFT and smoothing, with results added as derived datasets.
+- **Series & legend management.** Per-series color, original file path, and X/Y math transforms, with an editable legend, 46 marker types and step markers.
 - **Annotations.** Line and arrow annotations with a dedicated dialog.
 - **Title / text editor.** Edit plot text items (string, rotation, position in mm, size, font family, style, alignment) for legends and labels.
 - **Data Manager.** Load `.SMA` / `.TXT` datasets with automatic naming/coloring by filename and `x`/`y` math expression transforms (`evaluateMathExpr`).
 - **Canvas zoom & pan.** Ctrl/Cmd + wheel zoom; panning via two-finger trackpad scroll, two-finger touch drag, middle-click drag, or Space + drag; pinch-zoom and touch smoothing on the desktop variant.
-- **Installable web app.** Service-worker auto-update toggle and a persisted recent-files list (`localStorage`).
+- **Installable web app.** Service-worker auto-update toggle, OS file association for `.SMP` / `.SMA` projects, and a persisted recent-files list (`localStorage`).
+- **Unsaved-change tracking.** A ` *` marker in the title bar, save prompts before opening another project, and a `beforeunload` guard.
 - **Read value.** Inspect data-point values directly via the Read Value dialog.
 - **Insert symbol.** A math & symbol glyph picker for text and legend items, a convenience not available in the original Sma4Win.
 - **Project save / export.** Save and export projects; native `.SMP` export preserving Sma4Win compatibility (CRLF line endings, 2-digit scientific exponents, `[End of Data]` markers).
 
 ## Current status & limitations
 
-> **This project is in early development (`v0.1.0`).**
+> **This project is in early development (`v0.2.0`).**
 
 SmaPlot is functional but intentionally incomplete. Expect the following.
 
 - **Not yet at full Sma4Win feature parity.** Some legacy behaviors, dialogs, and export nuances may be missing or simplified.
-- **No automated tests, linter, or formatter** are configured yet. Correctness is currently verified manually via `npm run build` (TypeScript typecheck + Vite bundle).
+- **No automated tests, linter, or formatter** are configured yet. Correctness is currently verified manually via `npm run build` (TypeScript typecheck + Vite bundle) and `npm run test:compat` (SMP parse/serialize round trip).
 - Native window controls and other desktop-only features are available in the desktop build. The default web build runs in any browser.
 - The UI targets a desktop-like (Sma4Win clone) experience and is not optimized for mobile.
 
