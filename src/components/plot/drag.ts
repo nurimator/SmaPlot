@@ -2,7 +2,7 @@ import type { ActiveDrag } from '../../types.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
 import { formatLinearExpr } from './dataset.ts'
 import { getPlotSmpDoc, syncDocGeometry } from './smpDoc.ts'
-import { PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
+import { createSVGElement, PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
 import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
 import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag, isPropertyTabMode } from './transform.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
@@ -77,6 +77,101 @@ export function capturePointerForDrag(pointerId: number, svg: SVGSVGElement): vo
     if (!svg.hasPointerCapture(pointerId)) svg.setPointerCapture(pointerId)
   } catch {
   }
+}
+
+// center snap
+const CENTER_SNAP_PX = 2
+type CenterSnapBox = { svg: SVGSVGElement; cx: number; cy: number }
+const centerSnapBoxes = new WeakMap<object, CenterSnapBox | null>()
+
+function getCenterSnapBox(dragRef: { items: GroupDragItem[] }): CenterSnapBox | null {
+  if (centerSnapBoxes.has(dragRef)) return centerSnapBoxes.get(dragRef) ?? null
+  let box: CenterSnapBox | null = null
+  const legends = dragRef.items.filter((it) => it.kind === 'legend')
+  const svg = legends[0]?.svg
+  if (svg && legends.length === dragRef.items.length && legends.every((it) => it.svg === svg)) {
+    let l = Infinity
+    let t = Infinity
+    let r = -Infinity
+    let b = -Infinity
+    for (const it of legends) {
+      const g = svg.querySelector<SVGGElement>(`g[data-legend-item="${it.itemIdx}"]`)
+      if (!g) continue
+      try {
+        const bb = g.getBBox()
+        if (bb.width <= 0 && bb.height <= 0) continue
+        l = Math.min(l, bb.x)
+        t = Math.min(t, bb.y)
+        r = Math.max(r, bb.x + bb.width)
+        b = Math.max(b, bb.y + bb.height)
+      } catch {
+      }
+    }
+    if (Number.isFinite(l)) box = { svg, cx: (l + r) / 2, cy: (t + b) / 2 }
+  }
+  centerSnapBoxes.set(dragRef, box)
+  return box
+}
+
+function setCenterSnapGuides(svg: SVGSVGElement | null, showV: boolean, showH: boolean, tx = 0, ty = 0): void {
+  document.querySelectorAll<SVGLineElement>('.plot-svg [data-center-snap-guide]').forEach((el) => {
+    if (!svg || el.ownerSVGElement !== svg) el.remove()
+  })
+  if (!svg) return
+  const w = parseFloat(svg.style.width) || 500
+  const h = parseFloat(svg.style.height) || 350
+  const plotW = Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const plotH = Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b)
+  const fx = PLOT_MARGIN.l + plotW / 2
+  const fy = PLOT_MARGIN.t + plotH / 2
+  const specs: Array<['v' | 'h', boolean, number, number, number, number]> = [
+    ['v', showV, fx, Math.min(PLOT_MARGIN.t, ty), fx, Math.max(PLOT_MARGIN.t + plotH, ty)],
+    ['h', showH, Math.min(PLOT_MARGIN.l, tx), fy, Math.max(PLOT_MARGIN.l + plotW, tx), fy],
+  ]
+  for (const [dir, show, x1, y1, x2, y2] of specs) {
+    let line = svg.querySelector<SVGLineElement>(`line[data-center-snap-guide="${dir}"]`)
+    if (!show) {
+      line?.remove()
+      continue
+    }
+    if (!line) {
+      line = createSVGElement('line')
+      line.setAttribute('data-center-snap-guide', dir)
+      line.setAttribute('stroke', '#ff00ff')
+      line.setAttribute('stroke-width', '0.75')
+      line.setAttribute('stroke-dasharray', '4 3')
+      line.setAttribute('vector-effect', 'non-scaling-stroke')
+      line.style.pointerEvents = 'none'
+      svg.appendChild(line)
+    }
+    line.setAttribute('x1', String(x1))
+    line.setAttribute('y1', String(y1))
+    line.setAttribute('x2', String(x2))
+    line.setAttribute('y2', String(y2))
+  }
+}
+
+function applyCenterSnap(
+  dragRef: { items: GroupDragItem[] },
+  dx: number,
+  dy: number,
+  disabled: boolean
+): { dx: number; dy: number } {
+  const box = disabled ? null : getCenterSnapBox(dragRef)
+  if (!box) {
+    setCenterSnapGuides(null, false, false)
+    return { dx, dy }
+  }
+  const w = parseFloat(box.svg.style.width) || 500
+  const h = parseFloat(box.svg.style.height) || 350
+  const fx = PLOT_MARGIN.l + Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r) / 2
+  const fy = PLOT_MARGIN.t + Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b) / 2
+  const offX = fx - (box.cx + dx)
+  const offY = fy - (box.cy + dy)
+  const snapX = Math.abs(offX) <= CENTER_SNAP_PX
+  const snapY = Math.abs(offY) <= CENTER_SNAP_PX
+  setCenterSnapGuides(box.svg, snapX, snapY, box.cx + dx + (snapX ? offX : 0), box.cy + dy + (snapY ? offY : 0))
+  return { dx: snapX ? dx + offX : dx, dy: snapY ? dy + offY : dy }
 }
 
 let _cachedTitleOverlay: HTMLElement | null = null
@@ -273,7 +368,7 @@ function schedulePlotVisualSync(
 }
 
 export function initPlotDragListeners(onDragCommit?: () => void): void {
-  const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean) => {
+  const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean, altKey = false) => {
     if (getActiveTransDrag()) {
       const activeTransDrag = getActiveTransDrag()!
       const zoom = getCanvasZoom()
@@ -413,11 +508,12 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
       const zoom = getCanvasZoom()
-      const dx = (clientX - dragRef.startX) / zoom
-      const dy = (clientY - dragRef.startY) / zoom
+      let dx = (clientX - dragRef.startX) / zoom
+      let dy = (clientY - dragRef.startY) / zoom
       const touchedSvgs = new Set<SVGSVGElement>()
 
       const liveLegendDrag = dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
+      if (liveLegendDrag) ({ dx, dy } = applyCenterSnap(dragRef, dx, dy, altKey))
 
       for (const item of dragRef.items) {
         if (item.kind === 'plot') {
@@ -649,6 +745,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
+      setCenterSnapGuides(null, false, false)
 
       const liveLegendDrag =
         dragRef.items.some((it) => it.kind === 'legend') &&
@@ -710,7 +807,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   }
 
   document.addEventListener('mousemove', (e: MouseEvent) => {
-    if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey)
+    if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey, e.altKey)
   })
 
   document.addEventListener(
@@ -760,7 +857,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
   document.addEventListener('pointermove', (e: PointerEvent) => {
     if (activePointerId !== null && e.pointerId === activePointerId) {
-      handleDragMove(e.clientX, e.clientY, e.shiftKey)
+      handleDragMove(e.clientX, e.clientY, e.shiftKey, e.altKey)
     }
   })
 
