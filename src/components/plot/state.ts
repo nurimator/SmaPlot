@@ -1,6 +1,7 @@
 import type { Dataset, SmpMetadata, SmpPlotDoc } from '../../types.ts'
 
 export const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
+export const markerAnchorMap = new WeakMap<Element, { px: number; py: number }>()
 export const svgSmpMetaMap = new WeakMap<SVGSVGElement, SmpMetadata>()
 export const svgSmpDocMap = new WeakMap<SVGSVGElement, SmpPlotDoc>()
 export const svgBaseScaleMap = new WeakMap<

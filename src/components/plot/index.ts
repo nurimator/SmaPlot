@@ -113,8 +113,6 @@ export { initSelectionLayer, requestSelectionLayerRender } from './selectionLaye
 export type { PlotRenderContext } from './svg.ts'
 export { createSeriesIcon, createSeriesSymbol, getLineDashArray } from './symbols.ts'
 export {
-  applyTransDragVisual,
-  clearActiveTransDrag,
   getActiveTransDrag,
   isPropertyTabMode,
   renderDatasetTransformOverlays,

@@ -5,6 +5,7 @@ import { resolveErrorBars } from '../../utils/analyze/errorBars.ts'
 import { computeCurvePoints, getCurveDrawStyle, shouldDrawCurve } from '../../utils/analyze/curveRender.ts'
 import { evaluateMathExpr } from '../../utils/dataset.ts'
 import { getRawDatasetCoords } from './dataset.ts'
+import { markerAnchorMap } from './state.ts'
 import type { Dataset, PlotVisualOptions } from '../../types.ts'
 
 function buildStepOverlayPath(
@@ -230,7 +231,7 @@ export function renderSeries(ctx: PlotRenderContext): void {
           overlay.setAttribute('vector-effect', 'non-scaling-stroke')
           overlay.setAttribute('stroke-linejoin', 'round')
           overlay.setAttribute('stroke-linecap', 'round')
-          dsGroup.appendChild(overlay)
+          dsScaleGroup.appendChild(overlay)
         }
       }
 
@@ -254,7 +255,9 @@ export function renderSeries(ctx: PlotRenderContext): void {
           const py = dsSy(ds.y[i])
           if (markerGroup && !insideFrame(px, py)) continue
           const symbol = createSeriesSymbol(plotType, px, py, dotSize, dotColor, paintColor, markerSw)
-          if (symbol) markerParent.appendChild(symbol)
+          if (!symbol) continue
+          markerAnchorMap.set(symbol, { px, py })
+          markerParent.appendChild(symbol)
         }
       }
 

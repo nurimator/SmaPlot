@@ -1,4 +1,5 @@
 import { PLOT_MARGIN } from './svg.ts'
+import { isTransformModeFor } from './transform.ts'
 import {
   activeSvgs,
   svgDataMap,
@@ -93,7 +94,7 @@ export function getSelectedObjects(): SelectableObject[] {
 export function updateSelectionBorder(svg: SVGSVGElement): void {
   const ov = svgOverlayMap.get(svg)
   if (!ov) return
-  const isSel = isMultiSelected(svg)
+  const isSel = isMultiSelected(svg) && !isTransformModeFor(svg)
 
   const existing = ov.querySelector('.ov-frame-border')
   if (existing) existing.remove()

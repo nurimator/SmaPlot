@@ -7,7 +7,7 @@ import { getProcessedDataset } from './dataset.ts'
 import { renderLegend } from './legend.ts'
 import { renderSeries } from './series.ts'
 import { isMultiSelected, updateSelectionBorder } from './selection.ts'
-import { renderDatasetTransformOverlays } from './transform.ts'
+import { isTransformModeFor, renderDatasetTransformOverlays } from './transform.ts'
 import { createOverlayEl, createSVGElement, PLOT_MARGIN } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
 import {
@@ -277,7 +277,7 @@ export function drawPlot(
   renderDotObjects(ctx)
   renderLegend(ctx)
 
-  if (isMultiSelected(svg)) {
+  if (isMultiSelected(svg) && !isTransformModeFor(svg)) {
     const hs = 10
     const addHandle = (x: number, y: number, width: number, height: number, dir: string) => {
       const r = createSVGElement('rect')

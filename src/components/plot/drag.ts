@@ -1,10 +1,9 @@
 import type { ActiveDrag } from '../../types.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
-import { formatLinearExpr } from './dataset.ts'
 import { getPlotSmpDoc, syncDocGeometry } from './smpDoc.ts'
 import { createSVGElement, PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
 import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
-import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag, isPropertyTabMode } from './transform.ts'
+import { endTransDrag, getActiveTransDrag, isPropertyTabMode, moveTransDrag } from './transform.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import { updatePlotVisual, drawPlot } from './drawPlot.ts'
 import { isShapeDrawing } from './../ShapeDraw.ts'
@@ -370,138 +369,7 @@ function schedulePlotVisualSync(
 export function initPlotDragListeners(onDragCommit?: () => void): void {
   const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean, altKey = false) => {
     if (getActiveTransDrag()) {
-      const activeTransDrag = getActiveTransDrag()!
-      const zoom = getCanvasZoom()
-      const dxPx = (clientX - activeTransDrag.startX) / zoom
-      const dyPx = (clientY - activeTransDrag.startY) / zoom
-
-      const {
-        svg,
-        dataset,
-        dir,
-        xTransActive,
-        yTransActive,
-        startXLinear,
-        startYLinear,
-        rawXMin,
-        rawXMax,
-        rawYMin,
-        rawYMax,
-        startXTransMin,
-        startXTransMax,
-        startYTransMin,
-        startYTransMax,
-        xMin,
-        xMax,
-        yMin,
-        yMax,
-        plotW,
-        plotH,
-      } = activeTransDrag
-
-      const deltaVx = (dxPx / plotW) * (xMax - xMin)
-      const deltaVy = -(dyPx / plotH) * (yMax - yMin)
-
-      if (!dataset.options) dataset.options = {}
-
-      let curAx = startXLinear.a
-      let curBx = startXLinear.b
-      let curAy = startYLinear.a
-      let curBy = startYLinear.b
-
-      if (yTransActive) {
-        let newAy = startYLinear.a
-        let newBy = startYLinear.b
-        const isYInverted = startYLinear.a < 0
-
-        if (dir === 'box') {
-          newBy = startYLinear.b + deltaVy
-        } else if (dir === 'top' || dir === 'top-left' || dir === 'top-right') {
-          const rawYAnchor = isYInverted ? rawYMax : rawYMin
-          const rawYMoving = isYInverted ? rawYMin : rawYMax
-          const yBottom = startYTransMin
-          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
-          let yMovingNew = startYTransMax + deltaVy
-          if (yMovingNew < yBottom + minSpanY) yMovingNew = yBottom + minSpanY
-
-          const rawSpan = rawYMoving - rawYAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAy = (yMovingNew - yBottom) / rawSpan
-            newBy = yBottom - newAy * rawYAnchor
-          }
-        } else if (dir === 'bottom' || dir === 'bottom-left' || dir === 'bottom-right') {
-          const rawYAnchor = isYInverted ? rawYMin : rawYMax
-          const rawYMoving = isYInverted ? rawYMax : rawYMin
-          const yTop = startYTransMax
-          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
-          let yMovingNew = startYTransMin + deltaVy
-          if (yMovingNew > yTop - minSpanY) yMovingNew = yTop - minSpanY
-
-          const rawSpan = rawYMoving - rawYAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAy = (yMovingNew - yTop) / rawSpan
-            newBy = yTop - newAy * rawYAnchor
-          }
-        }
-
-        const formattedY = formatLinearExpr(newAy, newBy, 'y')
-        dataset.options.yExpr = formattedY
-
-        const propYInput = document.querySelector<HTMLInputElement>('#propYTransExpr')
-        if (propYInput) propYInput.value = formattedY
-
-        curAy = newAy
-        curBy = newBy
-      }
-
-      if (xTransActive) {
-        let newAx = startXLinear.a
-        let newBx = startXLinear.b
-        const isXInverted = startXLinear.a < 0
-
-        if (dir === 'box') {
-          newBx = startXLinear.b + deltaVx
-        } else if (dir === 'right' || dir === 'top-right' || dir === 'bottom-right') {
-          const rawXAnchor = isXInverted ? rawXMax : rawXMin
-          const rawXMoving = isXInverted ? rawXMin : rawXMax
-          const xLeft = startXTransMin
-          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
-          let xMovingNew = startXTransMax + deltaVx
-          if (xMovingNew < xLeft + minSpanX) xMovingNew = xLeft + minSpanX
-
-          const rawSpan = rawXMoving - rawXAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAx = (xMovingNew - xLeft) / rawSpan
-            newBx = xLeft - newAx * rawXAnchor
-          }
-        } else if (dir === 'left' || dir === 'top-left' || dir === 'bottom-left') {
-          const rawXAnchor = isXInverted ? rawXMax : rawXMin
-          const rawXMoving = isXInverted ? rawXMax : rawXMin
-          const xRight = startXTransMax
-          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
-          let xMovingNew = startXTransMin + deltaVx
-          if (xMovingNew > xRight - minSpanX) xMovingNew = xRight - minSpanX
-
-          const rawSpan = rawXMoving - rawXAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAx = (xMovingNew - xRight) / rawSpan
-            newBx = xRight - newAx * rawXAnchor
-          }
-        }
-
-        const formattedX = formatLinearExpr(newAx, newBx, 'x')
-        dataset.options.xExpr = formattedX
-
-        const propXInput = document.querySelector<HTMLInputElement>('#propXTransExpr')
-        if (propXInput) propXInput.value = formattedX
-
-        curAx = newAx
-        curBx = newBx
-      }
-
-      if (!applyTransDragVisual(activeTransDrag, curAx, curBx, curAy, curBy)) {
-        schedulePlotVisualSync(svg)
-      }
+      moveTransDrag(clientX, clientY)
       return
     }
 
@@ -734,12 +602,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   const handleDragEnd = () => {
     let wasDragging = false
     if (getActiveTransDrag()) {
-      const { svg } = getActiveTransDrag()!
-      clearActiveTransDrag()
-      document.body.style.userSelect = ''
-      if (svgDataMap.get(svg)) {
-        updatePlotVisual(svg)
-      }
+      endTransDrag()
       wasDragging = true
     }
 
