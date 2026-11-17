@@ -69,6 +69,20 @@ function setLabelRuns(el: SVGElement, runs: LabelRun[]): void {
   }
 }
 
+const LABEL_CHAR_EM: Record<string, number> = { '.': 0.25, ',': 0.25, '-': 0.333, '+': 0.564, ' ': 0.25 }
+
+function planLabelWidth(plan: AxisLabelPlan, fontSize: number): number {
+  let widest = 0
+  plan.labels.forEach((runs) => {
+    let em = 0
+    for (const run of runs) {
+      for (const ch of run.text) em += (LABEL_CHAR_EM[ch] ?? 0.5) * (run.sup ? 0.7 : 1)
+    }
+    widest = Math.max(widest, em)
+  })
+  return widest * fontSize
+}
+
 function exponentRuns(exponent: number): LabelRun[] {
   return [{ text: '[×10' }, { text: String(-exponent), sup: true }, { text: ']' }]
 }
@@ -554,8 +568,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
       }
     })
     appendExponentLabel(
-      yLabelFrag, yPlan, axisYBaseX + yShiftRight, topY - yRenderFontSize * 0.6 + yShiftDown,
-      'end', 'auto', yRenderFontSize, yFontFamily, yLabelColor
+      yLabelFrag, yPlan, axisYBaseX + yShiftRight - planLabelWidth(yPlan, yRenderFontSize) - yRenderFontSize * 0.15,
+      topY + yRenderFontSize * 0.75 + yShiftDown, 'end', 'auto', yRenderFontSize, yFontFamily, yLabelColor
     )
 
     if (mergeZero) {
@@ -730,8 +744,8 @@ export function renderAxes(ctx: PlotRenderContext): void {
       }
     })
     appendExponentLabel(
-      rLabelFrag, rPlan, rightX + rShiftRight, topY - rRenderFontSize * 0.6 + rShiftDown,
-      'start', 'auto', rRenderFontSize, rFontFamily, rLabelColor
+      rLabelFrag, rPlan, rightX + rShiftRight + planLabelWidth(rPlan, rRenderFontSize) + rRenderFontSize * 0.15,
+      topY + rRenderFontSize * 0.75 + rShiftDown, 'start', 'auto', rRenderFontSize, rFontFamily, rLabelColor
     )
   }
 

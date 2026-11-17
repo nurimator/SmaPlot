@@ -60,7 +60,7 @@ export function axisLabelExponent(min: number, max: number, format: AxisLabelFor
   const peak = Math.max(Math.abs(min), Math.abs(max))
   if (!Number.isFinite(peak) || peak <= 0) return 0
   const order = Math.floor(Math.log10(peak))
-  if (order < 1) return format.fracDigits <= -order ? 1 - order : 0
+  if (order < 1) return format.fracDigits <= -order ? -order : 0
   return format.intDigits <= order ? -order : 0
 }
 

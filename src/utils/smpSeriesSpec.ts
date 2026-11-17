@@ -8,7 +8,7 @@ export interface SmpSeriesCountSpec {
 
 const COUNT_FIELD_KIND = 0
 const COUNT_FIELD_ERR_X = 1
-const COUNT_FIELD_ERR_Y = 2
+const COUNT_FIELD_ERR_Y = 3
 const COUNT_FIELD_COL_X = 4
 const COUNT_FIELD_COL_Y = 5
 

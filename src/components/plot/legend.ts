@@ -423,7 +423,7 @@ export function renderLegend(ctx: PlotRenderContext): void {
 
         const baselineY = py + lineIndex * legFontSize
         lineIndex++
-        const labelLayout = renderSvgText(legGroup, labelText, px + sampleLength, baselineY, textOptions, 'start', 0, cursor)
+        const labelLayout = renderSvgText(legGroup, labelText, px + sampleLength, baselineY, textOptions, 'start', 0, cursor, item.showBg === true)
         labelLayout.group.addEventListener('mousedown', handleLegendMouseDown)
         labelLayout.group.addEventListener('dblclick', openTitleModal)
         const midY = labelLayout.ink ? labelLayout.ink.y + labelLayout.ink.height / 2 : baselineY - legFontSize * 0.35

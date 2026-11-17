@@ -549,7 +549,7 @@ function parseDataBlockLines(lines: string[]): Record<string, SmpDataTable> {
       table.y.push(pair.y)
       table.rawLines.push(parts)
       if (table.separator === undefined) table.separator = dataSeparatorFrom(rawLine)
-      ;(table.rawText ||= []).push(rawLine.replace(/^\s+/, ''))
+      ;(table.rawText ||= []).push(rawLine)
     } else {
       ;(table.pendingRows ||= []).push({ parts, text: rawLine })
     }
@@ -879,7 +879,7 @@ export function parseSmpContent(text: string, defaultFileName: string): ParseSmp
           }
           if (parts.length >= 3) {
             const mSz = parseInt(parts[2], 10)
-            if (!isNaN(mSz) && mSz > 0) markerSize = Math.max(1, Math.round(mSz / 100))
+            if (!isNaN(mSz) && mSz > 0) markerSize = mSz / 100
           }
           if (parts.length >= 4) {
             const dcInt = parseInt(parts[3], 10)
