@@ -1,4 +1,6 @@
 import type { Dataset } from '../types.ts'
+import { compileMathExpr } from './mathExpr.ts'
+import type { MathVar } from './mathExpr.ts'
 
 export async function loadDataset(path: string): Promise<Dataset> {
   const res = await fetch(path)
@@ -7,24 +9,66 @@ export async function loadDataset(path: string): Promise<Dataset> {
   return parseDatasetContent(text, fileName, path)
 }
 
-export function parseDatasetContent(text: string, fileName: string, filePath?: string): Dataset {
+// data rows
+const MISSING_CELL = '='
+const SKIP_CELL = '|'
+
+export function splitDataFields(line: string): string[] {
+  const trimmed = line.trim()
+  if (!trimmed) return []
+  const cells: string[] = []
+  for (const field of trimmed.split(/[,\t]/)) {
+    cells.push(...field.trim().split(/ +/))
+  }
+  return cells
+}
+
+function isMissingCell(cell: string): boolean {
+  return cell === '' || cell === MISSING_CELL
+}
+
+function cellNumber(cell: string): number {
+  return parseFloat(cell)
+}
+
+export type DataCellPair = { x: number; y: number } | null
+
+export function readDataCellPair(cells: string[], xIdx: number, yIdx: number): DataCellPair {
+  const cx = cells[xIdx]
+  const cy = cells[yIdx]
+  if (cx === undefined || cy === undefined) return null
+  if (cx === SKIP_CELL || cy === SKIP_CELL) return null
+  const vx = cellNumber(cx)
+  const vy = cellNumber(cy)
+  const okX = Number.isFinite(vx)
+  const okY = Number.isFinite(vy)
+  if (okX && okY) return { x: vx, y: vy }
+  if ((okX || isMissingCell(cx)) && (okY || isMissingCell(cy))) {
+    return { x: okX ? vx : NaN, y: okY ? vy : NaN }
+  }
+  return null
+}
+
+export function readDataColumns(rows: string[][], xIdx: number, yIdx: number): { x: number[]; y: number[] } {
   const x: number[] = []
   const y: number[] = []
+  for (const cells of rows) {
+    const pair = readDataCellPair(cells, xIdx, yIdx)
+    if (!pair) continue
+    x.push(pair.x)
+    y.push(pair.y)
+  }
+  return { x, y }
+}
+
+export function parseDatasetContent(text: string, fileName: string, filePath?: string): Dataset {
   const rawLines: string[][] = []
 
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue
-    const parts = line.trim().split(/\s+/)
-    rawLines.push(parts)
-    if (parts.length >= 2) {
-      const px = parseFloat(parts[0])
-      const py = parseFloat(parts[1])
-      if (!isNaN(px) && !isNaN(py)) {
-        x.push(px)
-        y.push(py)
-      }
-    }
+    rawLines.push(splitDataFields(line))
   }
+  const { x, y } = readDataColumns(rawLines, 0, 1)
 
   const cleanName = fileName.replace(/\.txt$/i, '')
   const color = '#000000'
@@ -41,29 +85,20 @@ export function parseDatasetContent(text: string, fileName: string, filePath?: s
   }
 }
 
-const mathExprCache = new Map<string, ((v: number) => number) | null>()
+export function evaluateMathExprWithConstants(
+  expr: string,
+  val: number,
+  varName: MathVar,
+  constants?: readonly number[]
+): number {
+  const source = expr ? expr.trim() : ''
+  if (!source) return val
+  const compiled = compileMathExpr(source, varName)
+  if (!compiled) return val
+  const res = compiled(val, constants)
+  return Number.isFinite(res) ? res : NaN
+}
 
-export function evaluateMathExpr(expr: string, val: number, varName: 'x' | 'y'): number {
-  if (!expr || !expr.trim()) return val
-  const trimmed = expr.trim().toLowerCase()
-  const key = `${varName}::${trimmed}`
-
-  let evaluator = mathExprCache.get(key)
-  if (evaluator === undefined) {
-    evaluator = null
-      if (trimmed !== varName) {
-        const validCharsRegex = new RegExp(`^[0-9\\s\\+\\-\\*/\\(\\)${varName}\\.]+$`)
-      if (validCharsRegex.test(trimmed)) {
-        try {
-          evaluator = new Function(varName, `return ${trimmed};`) as (v: number) => number
-        } catch {
-        }
-      }
-    }
-    mathExprCache.set(key, evaluator)
-  }
-
-  if (evaluator === null) return val
-  const res = evaluator(val)
-  return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : val
+export function evaluateMathExpr(expr: string, val: number, varName: MathVar): number {
+  return evaluateMathExprWithConstants(expr, val, varName)
 }

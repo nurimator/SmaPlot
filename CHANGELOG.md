@@ -5,6 +5,84 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-17
+
+Feature release focused on analysis, native Sma4Win rendering parity, and project
+handling.
+
+### Added
+
+#### Analyze & fitting
+- Analyze menu with fitting engines: least-squares variants, user-function
+  Levenberg–Marquardt fits, splines, Gauss-Lorentz, peak detection, FFT and
+  smoothing.
+- Fit results are added as derived datasets with undo, repeat, clear and
+  clipboard copy, plus a per-plot constants editor.
+- Curve tab in the Property dialog (range, division, style, increment, out-of-range).
+- Error bars and analyzed curves are rendered as plot series.
+
+#### Plot & axis
+- Frame properties dialog with type, title and scale tabs, including a stored
+  frame title that round-trips through the SMP export.
+- Log-scale axes (log 10ⁿ) wired to the Axis dialog, synced Top/Right axes,
+  log ticks and the native increment table.
+- Extended marker set with 46 marker types, discrete step markers, and a shared
+  two-way marker mapping table used by the parser and the exporter.
+- Legacy SMP 1.3 / 1.4 files are read and exported again (`[TITLE]`, `[ARROW]`,
+  `[DOT]` sections), and legacy Dot objects are drawn.
+- Editable font-size combobox for axis frame and text sizes.
+
+#### Project & files
+- Unsaved-change tracking: a ` *` marker in the title bar, Save / Don't save /
+  Cancel prompts before opening another project or starting a new one, and a
+  `beforeunload` guard.
+- The installed PWA can open `.SMP` / `.SMA` projects from the operating system
+  via file handlers.
+- After a project is opened, SmaPlot reports the features it keeps but cannot
+  draw or read.
+
+### Changed
+
+- Saving always downloads a copy instead of writing back to the opened file.
+- Selection outlines and handles are drawn on a dedicated, devicePixelRatio-aware
+  canvas layer; the DOM overlays are transparent hit areas only.
+- Axis, legend and secondary text sizes are converted from points to pixels
+  (`ptToPx`) instead of using a flat factor.
+- Legend text is rendered as native SVG `tspan` runs instead of HTML
+  `foreignObject`, and series legend rows follow the measured text ink.
+- Dash patterns are derived from the native style codes with a pitch derived
+  from the stroke width.
+- Arrow head geometry and annotation drawing direction follow the native
+  application.
+- Kana and CJK text support: hiragana, katakana, halfwidth/fullwidth forms and
+  6356 CJK unified ideographs, with a faster two-way symbol conversion.
+- The math expression evaluator follows the native Sma4Win grammar (unary sign
+  binds tighter than `^`, `^` is right-associative, `ln` / `log` constants).
+
+### Fixed
+
+- The Axis dialog creates Top and Right axis specs on demand instead of
+  throwing when a project has no such spec.
+- Series markers stay aligned with the scaled line while X/Y transforms are
+  dragged.
+- Dragged legend text snaps to the frame center with guide lines.
+- Native parity fixes: exponent multiplier scale and placement, series legend
+  background, error bar flag, marker size, data row whitespace, axis tick style
+  codes, axis label offsets as fractional millimetres, auto tick flag and auto
+  step rules.
+- Series names encoded as `%nnN` are shown literally, and inserted series legend
+  codes are padded to two digits.
+- Native X/Y expression transform flags are honoured on parse and on export.
+- Stacked frame clicks resolve to the right plot, series legends are skipped on
+  click select, and the Data Manager lists data across all frames.
+- Unmodeled SMP content (masks, dots, header lines, raw markers) survives a
+  parse/serialize round trip, the native axis scale type is kept, and frame
+  geometry no longer drifts on export.
+- Data rows follow the strict Sma4Win separator rules (comma and TAB are strict,
+  `=` marks a missing value, `|` skips a row, non-numeric rows are ignored).
+- Added `npm run test:compat`, a round-trip script that parses and re-serializes
+  every `.SMP` / `.SMA` sample file and reports byte-level differences.
+
 ## [0.1.1] - 2026-08-19
 
 ### Fixed
@@ -108,5 +186,6 @@ Sma4Win plotting software with native `.SMP` project format compatibility.
 - Vite + TypeScript build pipeline (`tsc` typecheck then `vite build`).
 - MIT License and project documentation.
 
+[0.2.0]: https://github.com/nurimator/SmaPlot/releases/tag/v0.2.0
 [0.1.1]: https://github.com/nurimator/SmaPlot/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nurimator/SmaPlot/releases/tag/v0.1.0

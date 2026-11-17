@@ -1,21 +1,33 @@
-import { getPlotLimits } from './smpDoc.ts'
+import { getPlotValueScales } from './smpDoc.ts'
 import { PLOT_MARGIN, createSVGElement } from './svg.ts'
 import { svgCrossbarMap } from './state.ts'
 
-export function setPlotCrossbar(svg: SVGSVGElement, xVal: number | null, yVal: number | null): void {
+type CrossbarAxis = 'x' | 'u' | 'y' | 'r'
+const crossbarAxes = new WeakMap<SVGSVGElement, { x: 'x' | 'u'; y: 'y' | 'r' }>()
+
+export function setPlotCrossbar(
+  svg: SVGSVGElement,
+  xVal: number | null,
+  yVal: number | null,
+  xAxis: CrossbarAxis = 'x',
+  yAxis: CrossbarAxis = 'y'
+): void {
   if (xVal === null || yVal === null || isNaN(xVal) || isNaN(yVal)) {
     svgCrossbarMap.delete(svg)
+    crossbarAxes.delete(svg)
     const existing = svg.querySelector('.plot-crossbar')
     if (existing) existing.remove()
     return
   }
 
+  crossbarAxes.set(svg, { x: xAxis === 'u' ? 'u' : 'x', y: yAxis === 'r' ? 'r' : 'y' })
   svgCrossbarMap.set(svg, { xVal, yVal })
   renderPlotCrossbar(svg, xVal, yVal)
 }
 
 export function removePlotCrossbar(svg: SVGSVGElement): void {
   svgCrossbarMap.delete(svg)
+  crossbarAxes.delete(svg)
   const existing = svg.querySelector('.plot-crossbar')
   if (existing) existing.remove()
 }
@@ -38,14 +50,10 @@ export function renderPlotCrossbar(svg: SVGSVGElement, xVal: number, yVal: numbe
   const plotW = Math.max(10, w - margin.l - margin.r)
   const plotH = Math.max(10, h - margin.t - margin.b)
 
-  const limits = getPlotLimits(svg)
-  const xMin = limits.xMin
-  const xMax = limits.xMax
-  const yMin = limits.yMin
-  const yMax = limits.yMax
-
-  const px = margin.l + ((xVal - xMin) / (xMax - xMin || 1)) * plotW
-  const py = margin.t + plotH - ((yVal - yMin) / (yMax - yMin || 1)) * plotH
+  const scales = getPlotValueScales(svg, plotW, plotH)
+  const axes = crossbarAxes.get(svg) || { x: 'x' as const, y: 'y' as const }
+  const px = scales[axes.x].valueToPixel(xVal)
+  const py = scales[axes.y].valueToPixel(yVal)
 
   let group = svg.querySelector<SVGGElement>('.plot-crossbar')
   if (!group) {

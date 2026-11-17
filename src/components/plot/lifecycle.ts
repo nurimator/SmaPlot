@@ -1,5 +1,4 @@
 import type { Dataset } from '../../types.ts'
-import { parseDatasetContent } from '../../utils/dataset.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
 import { addRecentFile } from '../../utils/recentFiles.ts'
 import { setCurrentProjectFileName } from '../../utils/projectState.ts'
@@ -39,7 +38,7 @@ export function addDatasetToPlot(svg: SVGSVGElement, dataset: Dataset): void {
   currentDatasets.push(dataset)
   svgDataMap.set(svg, currentDatasets)
 
-  if (!allDatasets.some((d) => d.name === dataset.name && d.filePath === dataset.filePath)) {
+  if (!allDatasets.some((d) => datasetIdentifier(d) === datasetIdentifier(dataset))) {
     allDatasets.push(dataset)
   }
   globalDataManager.addDataset(dataset)
@@ -153,12 +152,6 @@ export async function loadSmpProject(
     statusDotEl.classList.remove('status-dot-idle')
   }
 
-  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-  if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot - ${fileName}`
-  }
-  document.title = `SmaPlot - ${fileName}`
-
   return true
 }
 
@@ -171,37 +164,14 @@ export function setupPlotFileDrop(svg: SVGSVGElement): void {
   svg.addEventListener('drop', (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const files = e.dataTransfer?.files
-    if (!files || files.length === 0) return
-
-    const graphArea = svg.parentElement || document.querySelector<HTMLElement>('.graph-area')
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const ext = file.name.toLowerCase().split('.').pop()
-      if (ext === 'smp' || ext === 'sma') {
-        const reader = new FileReader()
-        reader.onload = async (evt) => {
-          const content = evt.target?.result as string
-          if (content && graphArea) {
-            await loadSmpProject(graphArea, content, file.name)
-            addRecentFile(file.name, content)
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      } else if (ext === 'txt' || file.type.startsWith('text/')) {
-        const reader = new FileReader()
-        reader.onload = (evt) => {
-          const content = evt.target?.result as string
-          if (content) {
-            const ds = parseDatasetContent(content, file.name)
-            addDatasetToPlot(svg, ds)
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      }
-    }
+    plotFileDropHandler?.(e, svg)
   })
+}
+
+let plotFileDropHandler: ((e: DragEvent, svg: SVGSVGElement) => void) | null = null
+
+export function setPlotFileDropHandler(handler: (e: DragEvent, svg: SVGSVGElement) => void): void {
+  plotFileDropHandler = handler
 }
 
 export function wirePlotInteractions(svg: SVGSVGElement): void {

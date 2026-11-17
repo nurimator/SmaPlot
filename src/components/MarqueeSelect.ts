@@ -1,5 +1,5 @@
 import { getCanvasZoom } from '../utils/canvasZoom.ts'
-import { clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitTestAxisArea, hitsRectBorder, isObjectSelected, isPropertyTabMode, isReadValueMode, isTrimmingMode, setObjectSelection } from './plot/index.ts'
+import { BORDER_TOL, clearObjectSelection, getPlotSmpDoc, getSelectableObjects, hitTestAxisArea, hitsRectBorder, isObjectSelected, isPropertyTabMode, isReadValueMode, isSeriesLegendText, isTrimmingMode, setObjectSelection } from './plot/index.ts'
 import type { SelectableObject } from './plot/index.ts'
 import { showRectangleDialog } from './RectangleDialog.ts'
 import { showArrowDialog } from './ArrowDialog.ts'
@@ -17,11 +17,74 @@ export function hitsSelectedObject(gx: number, gy: number): boolean {
   })
 }
 
-export function hitTestPoint(gx: number, gy: number): SelectableObject | null {
+function isSeriesLegendObj(obj: SelectableObject): boolean {
+  if (obj.kind !== 'legend' || obj.itemIdx === undefined) return false
+  const item = getPlotSmpDoc(obj.svg)?.legendItems?.[obj.itemIdx]
+  return item ? isSeriesLegendText(item.text) : false
+}
+
+export function hitTestPoint(gx: number, gy: number, excludeSeriesLegend = false): SelectableObject | null {
   const all = getSelectableObjects()
+  if (!excludeSeriesLegend) {
+    for (let i = all.length - 1; i >= 0; i--) {
+      const o = all[i]
+      if (o.obj.kind !== 'plot' && o.l <= gx && gx <= o.l + o.w && o.t <= gy && gy <= o.t + o.h) {
+        return o.obj
+      }
+    }
+    // Frames laid out edge to edge (native multi-frame files stack them with zero gap) share
+    // their border bands, so resolve the frame whose interior holds the point before falling back
+    // to the band. Without this the topmost frame wins every click in a stack.
+    for (let i = all.length - 1; i >= 0; i--) {
+      const o = all[i]
+      if (
+        o.obj.kind === 'plot' &&
+        gx > o.l + BORDER_TOL && gx < o.l + o.w - BORDER_TOL &&
+        gy > o.t + BORDER_TOL && gy < o.t + o.h - BORDER_TOL
+      ) {
+        return o.obj
+      }
+    }
+    for (let i = all.length - 1; i >= 0; i--) {
+      const o = all[i]
+      if (o.obj.kind === 'plot' && hitsRectBorder(gx, gy, o.l, o.t, o.w, o.h)) {
+        return o.obj
+      }
+    }
+    return null
+  }
+  const plotRectOf = new Map<SVGSVGElement, { l: number; t: number; w: number; h: number }>()
+  for (const o of all) {
+    if (o.obj.kind === 'plot' && !plotRectOf.has(o.obj.svg)) {
+      plotRectOf.set(o.obj.svg, { l: o.l, t: o.t, w: o.w, h: o.h })
+    }
+  }
+  const insideOwnInterior = (svg: SVGSVGElement): boolean => {
+    const r = plotRectOf.get(svg)
+    return !!r && gx > r.l + BORDER_TOL && gx < r.l + r.w - BORDER_TOL && gy > r.t + BORDER_TOL && gy < r.t + r.h - BORDER_TOL
+  }
   for (let i = all.length - 1; i >= 0; i--) {
     const o = all[i]
-    if (o.obj.kind !== 'plot' && o.l <= gx && gx <= o.l + o.w && o.t <= gy && gy <= o.t + o.h) {
+    if (o.obj.kind === 'plot' || isSeriesLegendObj(o.obj)) continue
+    if (!insideOwnInterior(o.obj.svg)) continue
+    if (o.l <= gx && gx <= o.l + o.w && o.t <= gy && gy <= o.t + o.h) {
+      return o.obj
+    }
+  }
+  for (let i = all.length - 1; i >= 0; i--) {
+    const o = all[i]
+    if (
+      o.obj.kind === 'plot' &&
+      gx > o.l + BORDER_TOL && gx < o.l + o.w - BORDER_TOL &&
+      gy > o.t + BORDER_TOL && gy < o.t + o.h - BORDER_TOL
+    ) {
+      return o.obj
+    }
+  }
+  for (let i = all.length - 1; i >= 0; i--) {
+    const o = all[i]
+    if (o.obj.kind === 'plot' || isSeriesLegendObj(o.obj)) continue
+    if (o.l <= gx && gx <= o.l + o.w && o.t <= gy && gy <= o.t + o.h) {
       return o.obj
     }
   }
@@ -79,7 +142,7 @@ export function updateMarqueeSelectBox(
 }
 
 export function handleSelectClickOrTap(startGraphX: number, startGraphY: number, clientX?: number, clientY?: number): void {
-  let hit = hitTestPoint(startGraphX, startGraphY)
+  let hit = hitTestPoint(startGraphX, startGraphY, true)
   if (!hit && clientX !== undefined && clientY !== undefined) {
     const objs = getSelectableObjects()
     for (let i = objs.length - 1; i >= 0; i--) {

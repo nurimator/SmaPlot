@@ -1,4 +1,5 @@
 import type { Dataset, SmpMetadata, SmpPlotDoc } from '../../types.ts'
+import type { ValueScale } from '../../utils/scale.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -9,14 +10,61 @@ export function createSVGElement<K extends keyof SVGElementTagNameMap>(tag: K): 
 export function starPoints(cx: number, cy: number, r: number): string {
   const pts: string[] = []
   for (let k = 0; k < 10; k++) {
-    const radius = k % 2 === 0 ? r : r * 0.45
+    const radius = k % 2 === 0 ? r : r * 0.381966
     const ang = -Math.PI / 2 + (k * Math.PI) / 5
     pts.push(`${(cx + radius * Math.cos(ang)).toFixed(2)},${(cy + radius * Math.sin(ang)).toFixed(2)}`)
   }
   return pts.join(' ')
 }
 
+const f2 = (n: number): string => n.toFixed(2)
+
+export function triangleUpPoints(cx: number, cy: number, r: number): string {
+  const top = r * 1.24
+  const halfBase = r * 1.08
+  const baseY = r * 0.62
+  return `${f2(cx)},${f2(cy - top)} ${f2(cx + halfBase)},${f2(cy + baseY)} ${f2(cx - halfBase)},${f2(cy + baseY)}`
+}
+
+export function triangleDownPoints(cx: number, cy: number, r: number): string {
+  const bot = r * 1.24
+  const halfBase = r * 1.08
+  const baseY = r * 0.62
+  return `${f2(cx)},${f2(cy + bot)} ${f2(cx + halfBase)},${f2(cy - baseY)} ${f2(cx - halfBase)},${f2(cy - baseY)}`
+}
+
+export function diamondPoints(cx: number, cy: number, r: number, scale = 1.428571): string {
+  const d = r * scale
+  return `${f2(cx)},${f2(cy - d)} ${f2(cx + d)},${f2(cy)} ${f2(cx)},${f2(cy + d)} ${f2(cx - d)},${f2(cy)}`
+}
+
+export function pentagonPoints(cx: number, cy: number, r: number, apexUp: boolean): string {
+  const pts: string[] = []
+  const start = apexUp ? -Math.PI / 2 : Math.PI / 2
+  for (let k = 0; k < 5; k++) {
+    const ang = start + (k * 2 * Math.PI) / 5
+    pts.push(`${f2(cx + r * Math.cos(ang))},${f2(cy + r * Math.sin(ang))}`)
+  }
+  return pts.join(' ')
+}
+
+export function hexagonPoints(cx: number, cy: number, r: number): string {
+  const pts: string[] = []
+  for (let k = 0; k < 6; k++) {
+    const ang = -Math.PI / 2 + (k * Math.PI) / 3
+    pts.push(`${f2(cx + r * Math.cos(ang))},${f2(cy + r * Math.sin(ang))}`)
+  }
+  return pts.join(' ')
+}
+
 export const PLOT_MARGIN = { l: 20, r: 20, t: 20, b: 20 }
+
+export const PX_PER_MM = 2
+const MM_PER_PT = 25.4 / 72
+
+export function ptToPx(pt: number): number {
+  return pt * MM_PER_PT * PX_PER_MM
+}
 
 export const BORDER_TOL = 2
 
@@ -67,6 +115,10 @@ export interface PlotRenderContext {
   sy: (v: number) => number
   su: (v: number) => number
   sr: (v: number) => number
+  xValueScale: ValueScale
+  yValueScale: ValueScale
+  uValueScale: ValueScale
+  rValueScale: ValueScale
   xMin: number
   xMax: number
   yMin: number
@@ -84,4 +136,5 @@ export interface PlotRenderContext {
   datasets: Dataset[]
   processedDatasets: Dataset[]
   seriesGroup: SVGGElement
+  markerGroup?: SVGGElement
 }

@@ -3,6 +3,7 @@ export { renderAnnotations } from './annotations.ts'
 export { renderPlotCrossbar, removePlotCrossbar, setPlotCrossbar } from './crossbar.ts'
 export {
   datasetIdentifier,
+  datasetMatchesIdentifier,
   extractLinearParams,
   formatLinearExpr,
   getDatasetRawMinMax,
@@ -33,6 +34,7 @@ export {
   removeDatasetFromAllPlots,
   removeDatasetFromPlot,
   setupPlotFileDrop,
+  setPlotFileDropHandler,
   wirePlotInteractions,
 } from './lifecycle.ts'
 export { isReadValueMode, isTrimmingMode, setReadValueMode, setTrimmingMode } from './modes.ts'
@@ -72,6 +74,7 @@ export {
   getPlotLimits,
   getPlotSmpDoc,
   getSvgRectForSmpDoc,
+  setAxisSync,
   getTargetPlotSvgs,
   hasIndependentRAxis,
   hasIndependentUAxis,
@@ -106,11 +109,10 @@ export {
   snapToGridThreshold,
   starPoints,
 } from './svg.ts'
+export { initSelectionLayer, requestSelectionLayerRender } from './selectionLayer.ts'
 export type { PlotRenderContext } from './svg.ts'
 export { createSeriesIcon, createSeriesSymbol, getLineDashArray } from './symbols.ts'
 export {
-  applyTransDragVisual,
-  clearActiveTransDrag,
   getActiveTransDrag,
   isPropertyTabMode,
   renderDatasetTransformOverlays,

@@ -1,7 +1,7 @@
 import './style.css'
 import { initTitlebar } from './components/Titlebar.ts'
 import { initMenubar, closeAllMenuDropdowns } from './components/Menubar.ts'
-import { initAppShortcuts } from './components/shortcut.ts'
+import { initAppShortcuts, registerShortcut } from './components/shortcut.ts'
 import { bindActionButtons, initToolbar } from './components/Toolbar.ts'
 import { initContextMenu, hideContextMenu, showContextMenu } from './components/ContextMenu.ts'
 import { initMarqueeExport } from './components/MarqueeExport.ts'
@@ -18,11 +18,14 @@ import {
   getAllPlotSvgs,
   getPlotDatasets,
   getPlotSvgFromElement,
+  datasetIdentifier,
+  datasetMatchesIdentifier,
   getSelectedPlotSvg,
   hitTestGraph,
   hitTestAxisArea,
   isInsidePlotArea,
   initPlotDragListeners,
+  initSelectionLayer,
   isPropertyTabMode,
   isReadValueMode,
   loadSmpProject,
@@ -34,6 +37,8 @@ import {
   getPlotSmpDoc,
   updatePlotVisual,
   setTrimmingMode,
+  captureWorkspaceDigest,
+  setPlotFileDropHandler,
 } from './components/plot/index.ts'
 import { canRedo, canUndo, pushUndoState, redo, subscribeUndoState, undo } from './utils/undoManager.ts'
 import { initPropertyDialog, hidePropertyDialog, showPropertyDialog } from './components/PropertyDialog.ts'
@@ -49,17 +54,48 @@ import {
 import { initAxisDialog, hideAxisDialog, showAxisDialog } from './components/AxisDialog.ts'
 import { initTitleDialog, hideTitleDialog, showTitleDialog } from './components/TitleDialog.ts'
 import type { TitlePreset } from './components/TitleDialog.ts'
-import type { Dataset } from './types.ts'
+import type { Dataset, SmpPlotDoc } from './types.ts'
 import { initArrowDialog, hideArrowDialog, showArrowDialog } from './components/ArrowDialog.ts'
 import { hideConstantDialog, initConstantDialog, showConstantDialog } from './components/ConstantDialog.ts'
+import { hideAnalyzeDialog, initAnalyzeDialog, showAnalyzeDialog } from './components/AnalyzeDialog.ts'
+import type { AnalyzeTab } from './components/AnalyzeDialog.ts'
+import {
+  copyAnalyzeResults,
+  resolveAnalyzeSvg,
+  runAnalyzeClear,
+  runAnalyzeRepeat,
+} from './components/AnalyzeOps.ts'
 import { initRectangleDialog, hideRectangleDialog, showRectangleDialog } from './components/RectangleDialog.ts'
 import { initCustomSelects } from './components/CustomSelect.ts'
+import { initFrameDialog, showFrameDialog } from './components/FrameDialog.ts'
 import { hideAboutDialog, initAboutDialog, showAboutDialog } from './components/AboutDialog.ts'
 import { initColorPickerDialog, hideColorPickerDialog } from './components/ColorPickerDialog.ts'
 import { hideReadValueDialog, initReadValueDialog, isReadValueOpen, showReadValueDialog } from './components/ReadValueDialog.ts'
 import { parseDatasetContent } from './utils/dataset.ts'
-import { downloadFile, saveFileWithPicker, serializeSmpProject } from './utils/smpExporter.ts'
-import { getCurrentProjectFileName, isProjectUntitled, setCurrentProjectFileName, setProjectUntitled } from './utils/projectState.ts'
+import { downloadFile, encodeWindows1252, serializeSmpProject } from './utils/smpExporter.ts'
+import {
+  getCurrentProjectFileName,
+  isProjectDirty,
+  isProjectUntitled,
+  markProjectSaved,
+  setCurrentProjectFileName,
+  setProjectUntitled,
+} from './utils/projectState.ts'
+import {
+  DATA_EXTENSIONS,
+  PROJECT_EXTENSIONS,
+  canPickFiles,
+  collectDroppedFiles,
+  fileExtension,
+  initLaunchQueue,
+  pickFilesToOpen,
+  pickSaveHandle,
+  readFileText,
+  writeToHandle,
+} from './utils/fileAccess.ts'
+import type { IncomingFile } from './utils/fileAccess.ts'
+import { describeSmpFeatures } from './utils/smpFeatures.ts'
+import { hideNotice, initNotice, showNotice } from './components/Notice.ts'
 import { ZOOM_BASE, initCanvasZoom, resetCanvasZoom, setCanvasZoom, subscribeZoom } from './utils/canvasZoom.ts'
 import { addRecentFile, getRecentFiles } from './utils/recentFiles.ts'
 import { initTouchGestures, wasTouchInteractionRecent } from './utils/touchGestures.ts'
@@ -82,15 +118,18 @@ const axisOverlayEl = document.querySelector<HTMLElement>('#axisDialogOverlay')!
 const titleOverlayEl = document.querySelector<HTMLElement>('#titleOverlay')!
 const arrowOverlayEl = document.querySelector<HTMLElement>('#arrowOverlay')!
 const constantOverlayEl = document.querySelector<HTMLElement>('#constantOverlay')!
+const analyzeOverlayEl = document.querySelector<HTMLElement>('#analyzeOverlay')!
 const rectOverlayEl = document.querySelector<HTMLElement>('#rectangleOverlay')!
 const readValueOverlayEl = document.querySelector<HTMLElement>('#readValueOverlay')!
 const colorPickerOverlayEl = document.querySelector<HTMLElement>('#colorPickerOverlay')!
+const frameOverlayEl = document.querySelector<HTMLElement>('#frameOverlay')
 const globalFileInput = document.querySelector<HTMLInputElement>('#globalFileInput')!
 const saveAsOverlayEl = document.querySelector<HTMLElement>('#saveAsOverlay')
 const aboutOverlayEl = document.querySelector<HTMLElement>('#aboutOverlay')
 
 if (workspaceEl && graphAreaEl) {
   initCanvasZoom(workspaceEl, graphAreaEl, statusCoordsEl)
+  initSelectionLayer(graphAreaEl)
 
   const zoomSliderEl = document.querySelector<HTMLInputElement>('.zoom-slider')
   const zoomValueEl = document.querySelector<HTMLElement>('.zoom-value')
@@ -130,114 +169,172 @@ document.title = `SmaPlot v${APP_VERSION} - Untitled`
 if (titleOverlayEl) initTitleDialog(titleOverlayEl)
 if (arrowOverlayEl) initArrowDialog(arrowOverlayEl)
 if (constantOverlayEl) initConstantDialog(constantOverlayEl)
+if (analyzeOverlayEl) initAnalyzeDialog(analyzeOverlayEl)
 if (rectOverlayEl) initRectangleDialog(rectOverlayEl)
 if (readValueOverlayEl) initReadValueDialog(readValueOverlayEl)
 if (colorPickerOverlayEl) initColorPickerDialog(colorPickerOverlayEl)
+if (frameOverlayEl) initFrameDialog(frameOverlayEl)
 if (saveAsOverlayEl) initSaveAsDialog(saveAsOverlayEl)
 if (aboutOverlayEl) initAboutDialog(aboutOverlayEl)
 
-function handleSaveProject(customFileName?: string): void {
+// project state
+function projectIsDirty(): boolean {
+  return isProjectDirty(captureWorkspaceDigest())
+}
+
+function updateProjectTitle(): void {
+  const name = isProjectUntitled() ? 'Untitled' : getCurrentProjectFileName()
+  const title = `SmaPlot v${APP_VERSION} - ${name}${projectIsDirty() ? ' *' : ''}`
+  if (initialAppTitleEl) initialAppTitleEl.textContent = title
+  document.title = title
+}
+
+function markProjectClean(): void {
+  markProjectSaved(captureWorkspaceDigest())
+  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
+  if (statusFileEl) statusFileEl.textContent = isProjectUntitled() ? 'Untitled' : `1:${getCurrentProjectFileName()}`
+  updateProjectTitle()
+}
+
+async function confirmDiscardChanges(message: string): Promise<boolean> {
+  if (!projectIsDirty()) return true
+  const choice = await showConfirmDialog(message)
+  if (choice === 'cancel') return false
+  if (choice === 'save') return handleSaveProject()
+  return true
+}
+
+// save
+function buildProjectContent(): string | null {
   const svgs = getAllPlotSvgs(graphAreaEl)
   if (svgs.length === 0) {
     alert('No plots available in workspace to export.')
-    return
+    return null
   }
-
-  if (!customFileName && isProjectUntitled()) {
-    void handleSaveAsProject()
-    return
-  }
-
-  const fileName = customFileName || getCurrentProjectFileName()
-
   const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
-  const content = serializeSmpProject(docs)
-  downloadFile(content, fileName)
+  return serializeSmpProject(docs)
+}
 
+function finishSave(fileName: string, content: string): void {
   setCurrentProjectFileName(fileName)
   addRecentFile(fileName, content)
   updateRecentFilesMenu()
-
-  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-  if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
-  }
-  document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
-
-  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-  if (statusFileEl) {
-    statusFileEl.textContent = `1:${fileName}`
-  }
+  markProjectClean()
 }
 
-async function handleSaveAsProject(): Promise<void> {
-  const svgs = getAllPlotSvgs(graphAreaEl)
-  if (svgs.length === 0) {
-    alert('No plots available in workspace to export.')
-    return
+async function handleSaveProject(customFileName?: string): Promise<boolean> {
+  if (!customFileName && isProjectUntitled()) return handleSaveAsProject()
+  const content = buildProjectContent()
+  if (content === null) return false
+
+  const fileName = customFileName || getCurrentProjectFileName()
+  downloadFile(content, fileName)
+  finishSave(fileName, content)
+  return true
+}
+
+async function handleSaveAsProject(): Promise<boolean> {
+  const content = buildProjectContent()
+  if (content === null) return false
+  const suggestedName = getCurrentProjectFileName()
+
+  const handle = await pickSaveHandle(suggestedName)
+  if (handle === null) return false
+  if (handle) {
+    if (await writeToHandle(handle, encodeWindows1252(content))) {
+      finishSave(handle.name, content)
+      return true
+    }
+    showNotice(`Could not write to ${handle.name}`, 'Enter a file name to download a copy instead.')
   }
 
-  const defaultName = getCurrentProjectFileName()
-  const docs = svgs.map((svg, idx) => exportPlotToSmpDoc(svg, `PLOT${idx + 1}.SMP`))
-  const content = serializeSmpProject(docs)
-
-  const pickerResult = await saveFileWithPicker(content, defaultName)
-
-  if (pickerResult !== undefined) {
-    if (pickerResult === null) {
-      return
-    }
-    const fileName = pickerResult
-    setCurrentProjectFileName(fileName)
-    addRecentFile(fileName, content)
-    updateRecentFilesMenu()
-
-    const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-    if (appTitleEl) {
-      appTitleEl.textContent = `SmaPlot v${APP_VERSION} - ${fileName}`
-    }
-    document.title = `SmaPlot v${APP_VERSION} - ${fileName}`
-
-
-    const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-    if (statusFileEl) {
-      statusFileEl.textContent = `1:${fileName}`
-    }
-    return
-  }
-
-  const customName = await showSaveAsDialog(defaultName)
-  if (!customName) return
-
-  handleSaveProject(customName)
+  const customName = await showSaveAsDialog(suggestedName)
+  if (!customName) return false
+  return handleSaveProject(customName)
 }
 
 async function handleNewProject(): Promise<void> {
-  const hasContent = getAllPlotSvgs(graphAreaEl).length > 0
-  if (hasContent) {
-    const choice = await showConfirmDialog(
-      'The current project has unsaved changes. Do you want to save it before creating a new project?'
-    )
-    if (choice === 'cancel') return
-    if (choice === 'save') handleSaveProject()
-  }
+  const proceed = await confirmDiscardChanges(
+    'The current project has unsaved changes. Do you want to save it before creating a new project?'
+  )
+  if (!proceed) return
 
+  hideNotice()
   setCurrentProjectFileName('untitled.SMP')
   setProjectUntitled(true)
   clearAllPlots(graphAreaEl)
   await createDefaultPlot(graphAreaEl)
-
-  const appTitleEl = document.querySelector<HTMLElement>('.app-title')
-  if (appTitleEl) {
-    appTitleEl.textContent = `SmaPlot v${APP_VERSION} - Untitled`
-  }
-  document.title = `SmaPlot v${APP_VERSION} - Untitled`
-
-  const statusFileEl = document.querySelector<HTMLElement>('#statusFileText')
-  if (statusFileEl) {
-    statusFileEl.textContent = 'Untitled'
-  }
   pushUndoState()
+  markProjectClean()
+}
+
+// open
+function reportProjectFeatures(fileName: string): void {
+  const docs = getAllPlotSvgs(graphAreaEl)
+    .map((svg) => getPlotSmpDoc(svg))
+    .filter((doc): doc is SmpPlotDoc => !!doc)
+  const { preserved, unreadable } = describeSmpFeatures(docs)
+  if (preserved.length === 0 && unreadable.length === 0) return
+  const parts: string[] = []
+  if (preserved.length > 0) parts.push(`Not displayed yet but kept when saving: ${preserved.join(', ')}.`)
+  if (unreadable.length > 0) parts.push(`Not supported and may be misread or lost: ${unreadable.join(', ')}.`)
+  showNotice(`${fileName} uses features SmaPlot cannot show yet`, parts.join(' '), 15000)
+}
+
+async function openProjectContent(content: string, fileName: string): Promise<void> {
+  const proceed = await confirmDiscardChanges(
+    `The current project has unsaved changes. Do you want to save it before opening ${fileName}?`
+  )
+  if (!proceed) return
+  hideNotice()
+  const loaded = await loadSmpProject(graphAreaEl, content, fileName)
+  if (!loaded) {
+    showNotice(`Could not open ${fileName}`, 'The file does not look like an SMP project.')
+    return
+  }
+  updateRecentFilesMenu()
+  pushUndoState()
+  markProjectClean()
+  reportProjectFeatures(fileName)
+}
+
+async function openDataFile(entry: IncomingFile, target?: SVGSVGElement): Promise<void> {
+  const svg = target || getSelectedPlotSvg() || (await createDefaultPlot(graphAreaEl))
+  const content = await readFileText(entry.file)
+  addDatasetToPlot(svg, parseDatasetContent(content, entry.file.name))
+  pushUndoState()
+}
+
+async function handleIncomingFiles(entries: IncomingFile[], target?: SVGSVGElement): Promise<void> {
+  const isProject = (entry: IncomingFile): boolean => PROJECT_EXTENSIONS.includes(fileExtension(entry.file.name))
+  const isData = (entry: IncomingFile): boolean =>
+    DATA_EXTENSIONS.includes(fileExtension(entry.file.name)) || entry.file.type.startsWith('text/')
+  const projects = entries.filter(isProject)
+  const data = entries.filter((entry) => !isProject(entry) && isData(entry))
+  const skipped = entries.filter((entry) => !isProject(entry) && !isData(entry))
+
+  if (projects.length > 0) {
+    const [first] = projects
+    await openProjectContent(await readFileText(first.file), first.file.name)
+    if (projects.length > 1) {
+      showNotice(`Opened ${first.file.name} only`, 'A project replaces the workspace, so the other project files were skipped.')
+    }
+  }
+  for (const entry of data) await openDataFile(entry, target)
+  if (skipped.length > 0) {
+    showNotice('Unsupported file type', skipped.map((entry) => entry.file.name).join(', '))
+  }
+}
+
+async function openFiles(): Promise<void> {
+  if (canPickFiles()) {
+    const picked = await pickFilesToOpen()
+    if (picked !== null) {
+      if (picked.length > 0) await handleIncomingFiles(picked)
+      return
+    }
+  }
+  globalFileInput?.click()
 }
 
 async function handleInsertLegend(): Promise<void> {
@@ -251,10 +348,9 @@ async function handleInsertLegend(): Promise<void> {
     const plotDatasets = getPlotDatasets(svg)
     const codes = identifiers
       .map((id) => {
-        const index = plotDatasets.findIndex(
-          (d) => (d.filePath || d.fileName || `${d.name}.txt`) === id
-        )
-        return index >= 0 ? `%0${index + 1}E%0${index + 1}N` : null
+        const index = plotDatasets.findIndex((d) => datasetMatchesIdentifier(d, id))
+        const code = String(index + 1).padStart(2, '0')
+        return index >= 0 ? `%${code}E%${code}N` : null
       })
       .filter((c): c is string => c !== null)
 
@@ -362,9 +458,7 @@ function handleReadValue(): void {
     showReadValueDialog(readValueOverlayEl, svg, datasets[0])
   } else if (datasets.length > 1) {
     showDataManagerDialog(dmOverlayEl, (fileName) => {
-      const chosen =
-        datasets.find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName) ||
-        datasets[0]
+      const chosen = datasets.find((d) => datasetMatchesIdentifier(d, fileName)) || datasets[0]
       showReadValueDialog(readValueOverlayEl, svg, chosen)
     })
   } else {
@@ -372,7 +466,7 @@ function handleReadValue(): void {
       showDataManagerDialog(dmOverlayEl, (fileName) => {
         const globalDs = globalDataManager
           .getDatasets()
-          .find((d) => (d.filePath || d.fileName || `${d.name}.txt`) === fileName || d.name === fileName)
+          .find((d) => datasetMatchesIdentifier(d, fileName))
         if (globalDs) {
           addDatasetToPlot(svg, globalDs)
           showReadValueDialog(readValueOverlayEl, svg, globalDs)
@@ -413,9 +507,9 @@ if (menubarEl) {
       clearPlotScale('r')
       pushUndoState()
     } else if (action === 'open' || action === 'load' || action === 'open_data_file') {
-      if (globalFileInput) globalFileInput.click()
+      await openFiles()
     } else if (action === 'save') {
-      handleSaveProject()
+      await handleSaveProject()
     } else if (action === 'save_as' || action === 'export_smp') {
       await handleSaveAsProject()
     } else if (action === 'x_axis_title') {
@@ -445,10 +539,92 @@ if (menubarEl) {
       showAxisDialog(axisOverlayEl, 'r')
     } else if (action === 'trimming') {
       toggleTrimMode()
+    } else if (action === 'frame') {
+      if (frameOverlayEl) showFrameDialog(frameOverlayEl)
     } else if (action === 'arrow') {
       showArrowDialog(arrowOverlayEl)
     } else if (action === 'constant') {
       showConstantDialog(constantOverlayEl)
+    } else if (
+      action === 'ls_poly' || action === 'ls_exp' || action === 'ls_log' ||
+      action === 'ls_power' || action === 'ls' || action === 'least_square_fit'
+    ) {
+      const tab: AnalyzeTab = action === 'least_square_fit' ? 'general' : 'fit'
+      showAnalyzeDialog(analyzeOverlayEl, tab)
+      if (action === 'ls_exp' || action === 'ls_log' || action === 'ls_power' || action === 'ls_poly') {
+        const modelSel = document.querySelector<HTMLSelectElement>('#analyzeFitModel')
+        if (modelSel) {
+          if (action === 'ls_exp') modelSel.value = 'exp'
+          else if (action === 'ls_log') modelSel.value = 'log'
+          else if (action === 'ls_power') modelSel.value = 'power'
+          else modelSel.value = 'poly'
+        }
+      }
+    } else if (action === 'ls_general') {
+      showAnalyzeDialog(analyzeOverlayEl, 'general')
+    } else if (action === 'ls_eval') {
+      if (isReadValueOpen() && readValueOverlayEl) {
+        hideReadValueDialog(readValueOverlayEl)
+      } else {
+        handleReadValue()
+      }
+    } else if (
+      action === 'spline_cubic' || action === 'spline_param' ||
+      action === 'spline_closed' || action === 'spline'
+    ) {
+      showAnalyzeDialog(analyzeOverlayEl, 'spline')
+      const modeSel = document.querySelector<HTMLSelectElement>('#analyzeSplineMode')
+      if (modeSel) {
+        if (action === 'spline_param') modeSel.value = 'parametric'
+        else if (action === 'spline_closed') modeSel.value = 'parametric_closed'
+        else modeSel.value = 'cubic'
+      }
+    } else if (
+      action === 'ext_gauss' || action === 'ext_lorentz' || action === 'ext_peak' ||
+      action === 'ext_fft' || action === 'ext_ifft' || action === 'extension'
+    ) {
+      if (action === 'ext_ifft') {
+        alert('IFFT reconstructs the signal from its spectrum; use FFT result with Copy, then Draw Function to re-import.')
+      }
+      showAnalyzeDialog(analyzeOverlayEl, 'special')
+      const kindSel = document.querySelector<HTMLSelectElement>('#analyzeSpecialKind')
+      if (kindSel) {
+        if (action === 'ext_gauss') kindSel.value = 'gauss'
+        else if (action === 'ext_lorentz') kindSel.value = 'lorentz'
+        else if (action === 'ext_peak') kindSel.value = 'peak'
+        else if (action === 'ext_fft' || action === 'ext_ifft') kindSel.value = 'fft'
+      }
+    } else if (action === 'analyze_repeat' || action === 'one_more') {
+      const svg = resolveAnalyzeSvg()
+      if (!svg) {
+        alert('No plot available.')
+      } else {
+        const res = runAnalyzeRepeat(svg)
+        if (res === null) showAnalyzeDialog(analyzeOverlayEl, 'fit')
+      }
+    } else if (action === 'analyze_clear') {
+      const svg = resolveAnalyzeSvg()
+      if (svg) {
+        const n = runAnalyzeClear(svg)
+        if (n === 0) alert('No analyze results to clear.')
+      } else {
+        alert('No plot available.')
+      }
+    } else if (action === 'function_a') {
+      showAnalyzeDialog(analyzeOverlayEl, 'function')
+    } else if (action === 'setup_constants') {
+      showConstantDialog(constantOverlayEl)
+    } else if (action === 'copy_clipboard') {
+      const svg = resolveAnalyzeSvg()
+      if (svg) {
+        void copyAnalyzeResults(svg).then((text) => {
+          alert(`Copied ${text.split('\n').length} line(s) to clipboard.`)
+        })
+      } else {
+        alert('No plot available.')
+      }
+    } else if (action === 'analyze_result') {
+      showAnalyzeDialog(analyzeOverlayEl, 'result')
     } else if (action === 'rectangle') {
       showRectangleDialog(rectOverlayEl)
     } else if (action === 'read_value' || action === 'read-value') {
@@ -465,9 +641,7 @@ if (menubarEl) {
         alert(`The local copy of "${recent.name}" is not available.`)
         return
       }
-      await loadSmpProject(graphAreaEl, recent.content, recent.name)
-      updateRecentFilesMenu()
-      pushUndoState()
+      await openProjectContent(recent.content, recent.name)
     } else if (action === 'property') {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'about') {
@@ -508,9 +682,9 @@ async function handleToolbarAction(action: string, title: string): Promise<void>
       await createDefaultPlot(graphAreaEl)
       pushUndoState()
   } else if (action === 'open' || title === 'Open') {
-    if (globalFileInput) globalFileInput.click()
+    await openFiles()
   } else if (action === 'save' || title === 'Save') {
-    handleSaveProject()
+    await handleSaveProject()
   } else if (action === 'text' || title === 'Text') {
     showTitleDialog(titleOverlayEl)
   } else if (action === 'rectangle' || title === 'Rectangle') {
@@ -534,45 +708,11 @@ if (toolbarEl) {
   initToolbar(toolbarEl, handleToolbarAction)
 }
 
-// Global File Input Change Handler
 if (globalFileInput) {
-  globalFileInput.addEventListener('change', async (e: Event) => {
-    const input = e.target as HTMLInputElement
-    const files = input.files
-    if (!files || files.length === 0) return
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const ext = file.name.toLowerCase().split('.').pop()
-      if (ext === 'smp' || ext === 'sma') {
-        const reader = new FileReader()
-        reader.onload = async (evt) => {
-          const content = evt.target?.result as string
-          if (content) {
-            await loadSmpProject(graphAreaEl, content, file.name)
-            updateRecentFilesMenu()
-            pushUndoState()
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      } else if (ext === 'txt' || file.type.startsWith('text/')) {
-        let svg = getSelectedPlotSvg()
-        if (!svg) {
-          svg = await createDefaultPlot(graphAreaEl)
-        }
-        const reader = new FileReader()
-        reader.onload = (evt) => {
-          const content = evt.target?.result as string
-          if (content && svg) {
-            const ds = parseDatasetContent(content, file.name)
-            addDatasetToPlot(svg, ds)
-            pushUndoState()
-          }
-        }
-        reader.readAsText(file, 'windows-1252')
-      }
-    }
-    input.value = ''
+  globalFileInput.addEventListener('change', () => {
+    const files = Array.from(globalFileInput.files || [])
+    globalFileInput.value = ''
+    if (files.length > 0) void handleIncomingFiles(files.map((file) => ({ file })))
   })
 }
 
@@ -591,6 +731,8 @@ if (ctxMenuEl) {
       showAxisDialog(axisOverlayEl, 'u')
     } else if (actionKey === 'raxis') {
       showAxisDialog(axisOverlayEl, 'r')
+    } else if (actionKey === 'frame') {
+      if (frameOverlayEl) showFrameDialog(frameOverlayEl)
     } else if (actionKey === 'string') {
       showTitleDialog(titleOverlayEl)
     } else if (actionKey === 'arrow') {
@@ -698,11 +840,23 @@ initCustomSelects()
 
 if (dmOverlayEl) {
   const getDataManagerDatasets = (): Dataset[] => {
-    const svg = getSelectedPlotSvg()
-    if (svg) {
-      const plotDatasets = getPlotDatasets(svg)
-      if (plotDatasets.length > 0) return plotDatasets
+    // A multi-frame .SMP is one project, so list the data of every frame, the selected frame
+    // first. Scoping to the selected frame alone showed just that frame's single series.
+    const selected = getSelectedPlotSvg()
+    const all = getAllPlotSvgs(graphAreaEl)
+    const ordered = selected ? [selected, ...all.filter((s) => s !== selected)] : all
+
+    const seen = new Set<string>()
+    const rows: Dataset[] = []
+    for (const svg of ordered) {
+      for (const ds of getPlotDatasets(svg)) {
+        const key = datasetIdentifier(ds)
+        if (seen.has(key)) continue
+        seen.add(key)
+        rows.push(ds)
+      }
     }
+    if (rows.length > 0) return rows
     return globalDataManager.getDatasets()
   }
 
@@ -739,7 +893,11 @@ function updateUndoRedoButtons(): void {
 }
 
 subscribeUndoState(updateUndoRedoButtons)
+subscribeUndoState(updateProjectTitle)
 updateUndoRedoButtons()
+
+const noticeEl = document.querySelector<HTMLElement>('#appNotice')
+if (noticeEl) initNotice(noticeEl)
 
 async function initApp() {
   await handleNewProject()
@@ -747,7 +905,11 @@ async function initApp() {
   pushUndoState()
 }
 
-initApp()
+const appReady = initApp()
+
+initLaunchQueue((entries) => {
+  void appReady.then(() => handleIncomingFiles(entries))
+})
 
 const pwaToast = document.querySelector<HTMLElement>('#pwaUpdateToast')
 const pwaUpdateBtn = document.querySelector<HTMLElement>('#pwaUpdateBtn')
@@ -826,42 +988,23 @@ workspaceEl.addEventListener('dragover', (e: DragEvent) => {
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
 })
 
-workspaceEl.addEventListener('drop', async (e: DragEvent) => {
+workspaceEl.addEventListener('drop', (e: DragEvent) => {
   e.preventDefault()
-  const files = e.dataTransfer?.files
-  if (!files || files.length === 0) return
+  void collectDroppedFiles(e.dataTransfer).then((entries) => {
+    if (entries.length > 0) return handleIncomingFiles(entries)
+  })
+})
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const ext = file.name.toLowerCase().split('.').pop()
-    if (ext === 'smp' || ext === 'sma') {
-      const reader = new FileReader()
-      reader.onload = async (evt) => {
-        const content = evt.target?.result as string
-        if (content) {
-          await loadSmpProject(graphAreaEl, content, file.name)
-          updateRecentFilesMenu()
-          pushUndoState()
-        }
-      }
-      reader.readAsText(file, 'windows-1252')
-    } else if (ext === 'txt' || file.type.startsWith('text/')) {
-      let svg = getSelectedPlotSvg()
-      if (!svg) {
-        svg = await createDefaultPlot(graphAreaEl)
-      }
-      const reader = new FileReader()
-      reader.onload = (evt) => {
-        const content = evt.target?.result as string
-        if (content && svg) {
-          const ds = parseDatasetContent(content, file.name)
-          addDatasetToPlot(svg, ds)
-          pushUndoState()
-        }
-      }
-      reader.readAsText(file, 'windows-1252')
-    }
-  }
+setPlotFileDropHandler((e, svg) => {
+  void collectDroppedFiles(e.dataTransfer).then((entries) => {
+    if (entries.length > 0) return handleIncomingFiles(entries, svg)
+  })
+})
+
+window.addEventListener('beforeunload', (e) => {
+  if (!projectIsDirty()) return
+  e.preventDefault()
+  e.returnValue = ''
 })
 
 graphAreaEl.addEventListener('contextmenu', (e) => {
@@ -905,7 +1048,7 @@ initAppShortcuts({
   handleSaveProject,
   handleSaveAsProject,
   openFileDialog: () => {
-    if (globalFileInput) globalFileInput.click()
+    void openFiles()
   },
   hideContextMenu: () => hideContextMenu(ctxMenuEl),
   zoomStep: doZoomStep,
@@ -914,6 +1057,20 @@ initAppShortcuts({
   },
   openXAxis: () => showAxisDialog(axisOverlayEl, 'x'),
   openYAxis: () => showAxisDialog(axisOverlayEl, 'y'),
+})
+
+registerShortcut({ key: 'b', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  showAnalyzeDialog(analyzeOverlayEl, 'fit')
+})
+registerShortcut({ key: 'g', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  showConstantDialog(constantOverlayEl)
+})
+registerShortcut({ key: 'a', ctrlOrCmd: true }, (e) => {
+  e.preventDefault()
+  const svg = resolveAnalyzeSvg()
+  if (svg && runAnalyzeRepeat(svg) === null) showAnalyzeDialog(analyzeOverlayEl, 'fit')
 })
 
 // ── Mobile: header + footer bars ──
@@ -972,6 +1129,7 @@ registerDialogCloser(axisOverlayEl, hideAxisDialog)
 registerDialogCloser(titleOverlayEl, hideTitleDialog)
 registerDialogCloser(arrowOverlayEl, hideArrowDialog)
 registerDialogCloser(constantOverlayEl, hideConstantDialog)
+registerDialogCloser(analyzeOverlayEl, hideAnalyzeDialog)
 registerDialogCloser(rectOverlayEl, hideRectangleDialog)
 registerDialogCloser(readValueOverlayEl, hideReadValueDialog)
 registerDialogCloser(colorPickerOverlayEl, hideColorPickerDialog)

@@ -1,6 +1,7 @@
 import type { Dataset } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import { createSeriesIcon } from './plot/symbols.ts'
+import { datasetIdentifier } from './plot/dataset.ts'
 
 export class DataManager {
   private datasets: Dataset[] = []
@@ -11,7 +12,8 @@ export class DataManager {
   }
 
   public addDataset(ds: Dataset): void {
-    if (!this.datasets.some((d) => d.name === ds.name && d.filePath === ds.filePath)) {
+    const identifier = datasetIdentifier(ds)
+    if (!this.datasets.some((d) => datasetIdentifier(d) === identifier)) {
       this.datasets.push(ds)
       this.notify()
     }
@@ -133,14 +135,16 @@ export function renderDataManagerListBox(
   datasets.forEach((ds, idx) => {
     const item = document.createElement('div')
     item.className = `dm-list-item${idx === 0 ? ' selected' : ''}`
-    const identifier = ds.filePath || ds.fileName || `${ds.name}.txt`
+    const identifier = datasetIdentifier(ds)
     item.setAttribute('data-filename', identifier)
 
     const indicator = createSeriesIcon(ds)
 
     const text = document.createElement('span')
     text.className = 'dm-item-text'
-    text.textContent = `${ds.name}.txt`
+    const dataLabel = ds.smpDataName || `${ds.name}.txt`
+    const seriesLabel = ds.seriesIndex !== undefined ? ` [${ds.seriesIndex + 1}]` : ''
+    text.textContent = `${dataLabel}${seriesLabel}`
 
     item.appendChild(indicator)
     item.appendChild(text)

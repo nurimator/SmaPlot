@@ -1,6 +1,7 @@
 import type { Dataset, PlotVisualOptions } from '../types.ts'
 import { makeDraggable } from '../utils/draggable.ts'
 import {
+  datasetMatchesIdentifier,
   exportPlotToSmpDoc,
   getPlotDatasets,
   getSelectedPlotSvg,
@@ -8,7 +9,18 @@ import {
   updatePlotVisual,
 } from './plot/index.ts'
 import { globalDataManager } from './DataManager.ts'
-import { downloadFile, serializeSmpDoc } from '../utils/smpExporter.ts'
+import { downloadFile, hexToBgr, serializeSmpDoc } from '../utils/smpExporter.ts'
+import { bgrToHex } from '../utils/smpParser.ts'
+import {
+  analyzeTypeName,
+  buildFixed5,
+  buildZerosLine,
+  curveLineToName,
+  curveNameToCode,
+  fixed5HasExtra,
+  parseCurveParams,
+} from '../utils/analyze/curveParams.ts'
+import type { CurveParams } from '../utils/analyze/curveParams.ts'
 import { createSeriesIconFromOpts } from './plot/symbols.ts'
 
 let currentActiveDataset: Dataset | undefined
@@ -90,6 +102,7 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
 
   const propSaveBtn1 = overlayEl.querySelector('#propSaveBtn1')
   const propSaveBtn2 = overlayEl.querySelector('#propSaveBtn2')
+  const propSaveBtn3 = overlayEl.querySelector('#propSaveBtn3')
 
   const handleSave = () => {
     const svg = currentTargetSvg || getSelectedPlotSvg()
@@ -105,6 +118,25 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
 
   propSaveBtn1?.addEventListener('click', handleSave)
   propSaveBtn2?.addEventListener('click', handleSave)
+  propSaveBtn3?.addEventListener('click', handleSave)
+
+  const curveInputs = [
+    '#propCurveFrom',
+    '#propCurveTo',
+    '#propCurveDivision',
+    '#propCurveWidth',
+    '#propCurvePitch',
+    '#propCurveColor',
+    '#propCurveLineType',
+    '#propCurveOutrange',
+  ]
+  for (const sel of curveInputs) {
+    overlayEl.querySelector(sel)?.addEventListener('input', () => applyCurveForm(overlayEl))
+    overlayEl.querySelector(sel)?.addEventListener('change', () => applyCurveForm(overlayEl))
+  }
+  overlayEl.querySelectorAll('input[name="propCurveIncrement"]').forEach((r) => {
+    r.addEventListener('change', () => applyCurveForm(overlayEl))
+  })
 
   fileShow?.addEventListener('change', applyVisualOptions)
   fileLineStyle?.addEventListener('change', applyVisualOptions)
@@ -163,6 +195,84 @@ export function initPropertyDialog(overlayEl: HTMLElement): void {
     const sampleObserver = new ResizeObserver(() => renderSamplePreview(overlayEl))
     sampleObserver.observe(sampleContainer)
   }
+}
+
+function readCurveForm(overlayEl: HTMLElement): CurveParams {
+  const fromEl = overlayEl.querySelector<HTMLInputElement>('#propCurveFrom')
+  const toEl = overlayEl.querySelector<HTMLInputElement>('#propCurveTo')
+  const divEl = overlayEl.querySelector<HTMLInputElement>('#propCurveDivision')
+  const widthEl = overlayEl.querySelector<HTMLInputElement>('#propCurveWidth')
+  const pitchEl = overlayEl.querySelector<HTMLInputElement>('#propCurvePitch')
+  const colorEl = overlayEl.querySelector<HTMLInputElement>('#propCurveColor')
+  const lineEl = overlayEl.querySelector<HTMLSelectElement>('#propCurveLineType')
+  const outEl = overlayEl.querySelector<HTMLInputElement>('#propCurveOutrange')
+  const incrEl = overlayEl.querySelector<HTMLInputElement>('input[name="propCurveIncrement"]:checked')
+  const num = (el: HTMLInputElement | null, fallback: number): number => {
+    if (!el) return fallback
+    const v = parseFloat(el.value)
+    return isNaN(v) ? fallback : v
+  }
+  const division = Math.max(1, Math.min(4999, Math.round(num(divEl, 100))))
+  return {
+    count: division + 1,
+    analyzeType: currentActiveDataset
+      ? parseCurveParams(currentActiveDataset.smpSeriesZerosLine, currentActiveDataset.smpSeriesFixed5).analyzeType
+      : 0,
+    increment: incrEl ? parseInt(incrEl.value, 10) || 0 : 0,
+    from: num(fromEl, 0),
+    to: num(toEl, 10),
+    line: curveNameToCode(lineEl?.value || 'solid'),
+    width: Math.max(0.1, num(widthEl, 0.4)),
+    colorBgr: colorEl && /^#[0-9a-f]{6}$/i.test(colorEl.value) ? hexToBgr(colorEl.value) : 0,
+    pitch: Math.max(0.5, num(pitchEl, 3)),
+    outrange: outEl?.checked || false,
+  }
+}
+
+function populateCurveForm(overlayEl: HTMLElement, dataset?: Dataset): void {
+  const cp = parseCurveParams(dataset?.smpSeriesZerosLine, dataset?.smpSeriesFixed5)
+  const set = (sel: string, value: string): void => {
+    const el = overlayEl.querySelector<HTMLInputElement>(sel)
+    if (el) el.value = value
+  }
+  set('#propCurveFrom', String(cp.from))
+  set('#propCurveTo', String(cp.to))
+  set('#propCurveDivision', String(Math.max(1, cp.count - 1)))
+  set('#propCurveWidth', String(cp.width))
+  set('#propCurvePitch', String(cp.pitch))
+  const colorEl = overlayEl.querySelector<HTMLInputElement>('#propCurveColor')
+  if (colorEl) colorEl.value = bgrToHex(cp.colorBgr)
+  const lineEl = overlayEl.querySelector<HTMLSelectElement>('#propCurveLineType')
+  if (lineEl) lineEl.value = curveLineToName(cp.line)
+  const outEl = overlayEl.querySelector<HTMLInputElement>('#propCurveOutrange')
+  if (outEl) outEl.checked = cp.outrange
+  overlayEl.querySelectorAll<HTMLInputElement>('input[name="propCurveIncrement"]').forEach((r) => {
+    r.checked = (parseInt(r.value, 10) || 0) === cp.increment
+  })
+  const modelEl = overlayEl.querySelector<HTMLElement>('#propCurveModel')
+  if (modelEl) {
+    let label = analyzeTypeName(cp.analyzeType)
+    if (cp.analyzeType === 6 && dataset?.smpUserFunction) {
+      label += `: ${dataset.smpUserFunction.expr}`
+    }
+    modelEl.textContent = label
+  }
+  const banner = overlayEl.querySelector('#propCurveFilePathText')
+  if (banner) {
+    banner.textContent = dataset
+      ? dataset.filePath || dataset.fileName || `${dataset.name}.txt`
+      : 'No file loaded'
+  }
+}
+
+function applyCurveForm(overlayEl: HTMLElement): void {
+  if (!currentActiveDataset) return
+  const cp = readCurveForm(overlayEl)
+  const hadExtra = fixed5HasExtra(currentActiveDataset.smpSeriesFixed5)
+  currentActiveDataset.smpSeriesZerosLine = buildZerosLine(cp)
+  currentActiveDataset.smpSeriesFixed5 = buildFixed5(cp, hadExtra)
+  const svg = currentTargetSvg || getSelectedPlotSvg()
+  if (svg) updatePlotVisual(svg)
 }
 
 function renderSamplePreview(overlayEl: HTMLElement): void {
@@ -292,12 +402,7 @@ export function showPropertyDialog(
   let dataset: Dataset | undefined
 
   if (typeof datasetOrName === 'string') {
-    dataset = globalDataManager.getDatasets().find((d) =>
-      d.filePath === datasetOrName ||
-      d.fileName === datasetOrName ||
-      d.name === datasetOrName ||
-      `${d.name}.txt` === datasetOrName
-    )
+    dataset = globalDataManager.getDatasets().find((d) => datasetMatchesIdentifier(d, datasetOrName))
   } else if (datasetOrName) {
     dataset = datasetOrName
   } else {
@@ -359,6 +464,10 @@ export function showPropertyDialog(
 
     if (xColSelect) xColSelect.value = String(existingOpts.xColumn || 1)
     if (yColSelect) yColSelect.value = String(existingOpts.yColumn || 2)
+
+    populateCurveForm(overlayEl, dataset)
+  } else {
+    populateCurveForm(overlayEl, undefined)
   }
 
   const activeTabBtn = overlayEl.querySelector('.tab-btn.active')

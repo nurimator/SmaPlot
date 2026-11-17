@@ -1,9 +1,127 @@
-import { createSVGElement, starPoints } from './svg.ts'
+import { createSVGElement } from './svg.ts'
 import type { PlotRenderContext } from './svg.ts'
-import { getLineDashArray } from './symbols.ts'
+import { createSeriesSymbol, getLineDashArray } from './symbols.ts'
+import { resolveErrorBars } from '../../utils/analyze/errorBars.ts'
+import { computeCurvePoints, getCurveDrawStyle, shouldDrawCurve } from '../../utils/analyze/curveRender.ts'
+import { evaluateMathExpr } from '../../utils/dataset.ts'
+import { getRawDatasetCoords } from './dataset.ts'
+import { markerAnchorMap } from './state.ts'
+import type { Dataset, PlotVisualOptions } from '../../types.ts'
+
+function buildStepOverlayPath(
+  xs: number[],
+  ys: number[],
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  mode: 'step_h' | 'step_v'
+): string {
+  let d = `M ${dsSx(xs[0]).toFixed(1)},${dsSy(ys[0]).toFixed(1)}`
+  for (let i = 1; i < xs.length; i++) {
+    const px = dsSx(xs[i]).toFixed(1)
+    const py = dsSy(ys[i]).toFixed(1)
+    const prevPx = dsSx(xs[i - 1]).toFixed(1)
+    const prevPy = dsSy(ys[i - 1]).toFixed(1)
+    if (mode === 'step_h') d += ` L ${prevPx},${py} L ${px},${py}`
+    else d += ` L ${px},${prevPy} L ${px},${py}`
+  }
+  return d
+}
+
+function renderErrorBars(
+  ds: Dataset,
+  opts: PlotVisualOptions,
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  dsScaleGroup: SVGElement,
+  strokeColor: string
+): void {
+  const errBars = resolveErrorBars(ds)
+  if (!errBars) return
+  const raw = getRawDatasetCoords(ds)
+  const yTrans = opts.yTransCheck && opts.yExpr && opts.yExpr !== 'y'
+  const capHalf = 5
+  for (let i = 0; i < ds.x.length; i++) {
+    const up = errBars.yPlus[i]
+    const dn = errBars.yMinus[i]
+    if (typeof up !== 'number' || typeof dn !== 'number' || isNaN(up) || isNaN(dn)) continue
+    const rawY = raw.y[i] ?? ds.y[i]
+    let topV = ds.y[i] + up
+    let botV = ds.y[i] + dn
+    if (yTrans) {
+      const baseT = evaluateMathExpr(opts.yExpr as string, rawY, 'y')
+      topV = baseT + (evaluateMathExpr(opts.yExpr as string, rawY + up, 'y') - baseT)
+      botV = baseT + (evaluateMathExpr(opts.yExpr as string, rawY + dn, 'y') - baseT)
+    }
+    const px = dsSx(ds.x[i])
+    const pyTop = dsSy(topV)
+    const pyBot = dsSy(botV)
+    const barLine = createSVGElement('line')
+    barLine.setAttribute('x1', String(px))
+    barLine.setAttribute('y1', String(pyTop))
+    barLine.setAttribute('x2', String(px))
+    barLine.setAttribute('y2', String(pyBot))
+    barLine.setAttribute('stroke', strokeColor)
+    barLine.setAttribute('stroke-width', '1')
+    barLine.setAttribute('vector-effect', 'non-scaling-stroke')
+    dsScaleGroup.appendChild(barLine)
+    for (const py of [pyTop, pyBot]) {
+      const cap = createSVGElement('line')
+      cap.setAttribute('x1', String(px - capHalf))
+      cap.setAttribute('y1', String(py))
+      cap.setAttribute('x2', String(px + capHalf))
+      cap.setAttribute('y2', String(py))
+      cap.setAttribute('stroke', strokeColor)
+      cap.setAttribute('stroke-width', '1')
+      cap.setAttribute('vector-effect', 'non-scaling-stroke')
+      dsScaleGroup.appendChild(cap)
+    }
+  }
+}
+
+function renderCurveOverlay(
+  ds: Dataset,
+  dsSx: (v: number) => number,
+  dsSy: (v: number) => number,
+  dsScaleGroup: SVGElement,
+  scaleX: number
+): void {
+  if (!shouldDrawCurve(ds)) return
+  const curve = computeCurvePoints(ds)
+  if (!curve || curve.x.length <= 1) return
+  const style = getCurveDrawStyle(ds)
+  const curveWidthPx = Math.max(0.4, Number((style.width * scaleX).toFixed(2)))
+  const pts: string[] = []
+  for (let i = 0; i < curve.x.length; i++) {
+    const cx = curve.x[i]
+    const cy = curve.y[i]
+    if (!isFinite(cx) || !isFinite(cy)) continue
+    pts.push(`${dsSx(cx).toFixed(1)},${dsSy(cy).toFixed(1)}`)
+  }
+  if (pts.length <= 1) return
+  const path = createSVGElement('polyline')
+  path.setAttribute('points', pts.join(' '))
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', style.color)
+  path.setAttribute('stroke-width', String(curveWidthPx))
+  const dash = getLineDashArray(style.lineType, curveWidthPx, style.pitch * scaleX)
+  if (dash) path.setAttribute('stroke-dasharray', dash)
+  path.setAttribute('vector-effect', 'non-scaling-stroke')
+  dsScaleGroup.appendChild(path)
+}
+
+const FRAME_TOLERANCE_PX = 0.5
+
+export function seriesPitchMm(ds: Dataset): number {
+  const token = (ds.smpSeriesStyleLine || '').trim().split(/\s+/)[2]
+  const pitch = parseFloat(token || '')
+  return Number.isFinite(pitch) && pitch > 0 ? pitch / 100 : 3
+}
 
 export function renderSeries(ctx: PlotRenderContext): void {
-  const { processedDatasets, seriesGroup, plotW, scaleX, sx, sy, su, sr } = ctx
+  const { processedDatasets, seriesGroup, markerGroup, margin, plotW, plotH, scaleX, sx, sy, su, sr, xValueScale, yValueScale, uValueScale, rValueScale } = ctx
+  const insideFrame = (px: number, py: number): boolean =>
+    px >= margin.l - FRAME_TOLERANCE_PX && px <= margin.l + plotW + FRAME_TOLERANCE_PX &&
+    py >= margin.t - FRAME_TOLERANCE_PX && py <= margin.t + plotH + FRAME_TOLERANCE_PX
 
   for (let dIdx = 0; dIdx < processedDatasets.length; dIdx++) {
     const ds = processedDatasets[dIdx]
@@ -21,6 +139,10 @@ export function renderSeries(ctx: PlotRenderContext): void {
 
     const dsSx = opts.axisX === 'u' ? su : sx
     const dsSy = opts.axisY === 'r' ? sr : sy
+    const xScale = opts.axisX === 'u' ? uValueScale : xValueScale
+    const yScale = opts.axisY === 'r' ? rValueScale : yValueScale
+    const isValidPoint = (index: number): boolean =>
+      xScale.isValid(ds.x[index]) && yScale.isValid(ds.y[index])
 
     const strokeColor = opts.lineColor || ds.color
     const seriesWidthMm = opts.width ?? (ds.smpSeriesStylePrefix ? ds.smpSeriesStylePrefix / 100 : 0.6)
@@ -31,12 +153,13 @@ export function renderSeries(ctx: PlotRenderContext): void {
     const plotType = opts.plotType || 'no_dot'
     const lineType = opts.lineType || 'solid'
 
-    const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth))
+    const dashArray = getLineDashArray(lineType, parseFloat(strokeWidth), seriesPitchMm(ds) * scaleX)
 
     if (plotType === 'bar') {
       const barW = Math.max(2, Math.floor(plotW / (ds.x.length || 1) - 2))
       const zeroY = dsSy(0)
       for (let i = 0; i < ds.x.length; i++) {
+        if (!xScale.isValid(ds.x[i]) || !yScale.isValid(ds.y[i])) continue
         const px = dsSx(ds.x[i])
         const py = dsSy(ds.y[i])
         const bar = createSVGElement('rect')
@@ -52,131 +175,94 @@ export function renderSeries(ctx: PlotRenderContext): void {
       }
     } else {
       if (lineType !== 'no_line' && ds.x.length > 0) {
-        const points: string[] = []
+        const segments: string[][] = []
+        let current: string[] = []
         for (let i = 0; i < ds.x.length; i++) {
-          points.push(`${dsSx(ds.x[i]).toFixed(1)},${dsSy(ds.y[i]).toFixed(1)}`)
+          if (!isValidPoint(i)) {
+            if (current.length > 1) segments.push(current)
+            current = []
+            continue
+          }
+          current.push(`${dsSx(ds.x[i]).toFixed(1)},${dsSy(ds.y[i]).toFixed(1)}`)
         }
+        if (current.length > 1) segments.push(current)
 
         if (lineType === 'face') {
           const zeroY = dsSy(0).toFixed(1)
-          const firstX = dsSx(ds.x[0]).toFixed(1)
-          const lastX = dsSx(ds.x[ds.x.length - 1]).toFixed(1)
-
-          const areaPathD = `M ${firstX},${zeroY} L ${points.join(' L ')} L ${lastX},${zeroY} Z`
-          const areaPath = createSVGElement('path')
-          areaPath.setAttribute('d', areaPathD)
-          areaPath.setAttribute('fill', strokeColor)
-          areaPath.setAttribute('stroke', 'none')
-          dsScaleGroup.appendChild(areaPath)
+          segments.forEach((points) => {
+            const firstPoint = points[0].split(',')
+            const lastPoint = points[points.length - 1].split(',')
+            const areaPathD = `M ${firstPoint[0]},${zeroY} L ${points.join(' L ')} L ${lastPoint[0]},${zeroY} Z`
+            const areaPath = createSVGElement('path')
+            areaPath.setAttribute('d', areaPathD)
+            areaPath.setAttribute('fill', strokeColor)
+            areaPath.setAttribute('stroke', 'none')
+            dsScaleGroup.appendChild(areaPath)
+          })
         }
 
-        const path = createSVGElement('path')
-        path.setAttribute('d', `M ${points.join(' ')}`)
-        path.setAttribute('fill', 'none')
-        path.setAttribute('stroke', strokeColor)
-        path.setAttribute('stroke-width', strokeWidth)
-        path.setAttribute('vector-effect', 'non-scaling-stroke')
-        if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
-        path.setAttribute('stroke-linejoin', 'round')
-        path.setAttribute('stroke-linecap', 'round')
-        dsScaleGroup.appendChild(path)
+        segments.forEach((points) => {
+          const path = createSVGElement('path')
+          path.setAttribute('d', `M ${points.join(' ')}`)
+          path.setAttribute('fill', 'none')
+          path.setAttribute('stroke', strokeColor)
+          path.setAttribute('stroke-width', strokeWidth)
+          path.setAttribute('vector-effect', 'non-scaling-stroke')
+          if (dashArray !== 'none') path.setAttribute('stroke-dasharray', dashArray)
+          path.setAttribute('stroke-linejoin', 'round')
+          path.setAttribute('stroke-linecap', 'round')
+          dsScaleGroup.appendChild(path)
+        })
       }
 
-      if (plotType !== 'no_dot') {
+      // step
+      if ((plotType === 'step_h' || plotType === 'step_v') && ds.x.length > 1) {
+        const stepIndices: number[] = []
+        for (let i = 0; i < ds.x.length; i++) if (isValidPoint(i)) stepIndices.push(i)
+        if (stepIndices.length >= 2) {
+          const stepX = stepIndices.map((index) => ds.x[index])
+          const stepY = stepIndices.map((index) => ds.y[index])
+          const markerSw = parseFloat(strokeWidth)
+          const overlay = createSVGElement('path')
+          overlay.setAttribute('d', buildStepOverlayPath(stepX, stepY, dsSx, dsSy, plotType))
+          overlay.setAttribute('fill', 'none')
+          overlay.setAttribute('stroke', dotColor)
+          overlay.setAttribute('stroke-width', String(markerSw))
+          overlay.setAttribute('vector-effect', 'non-scaling-stroke')
+          overlay.setAttribute('stroke-linejoin', 'round')
+          overlay.setAttribute('stroke-linecap', 'round')
+          dsScaleGroup.appendChild(overlay)
+        }
+      }
+
+      if (
+        plotType !== 'no_dot' &&
+        plotType !== 'none' &&
+        plotType !== 'bar' &&
+        plotType !== 'step_h' &&
+        plotType !== 'step_v'
+      ) {
         const step = Math.max(1, opts.pitch || 1)
+        const markerSw = parseFloat(strokeWidth)
+        const markerParent = markerGroup ? createSVGElement('g') : dsGroup
+        if (markerGroup) {
+          markerParent.setAttribute('data-series-markers', String(dIdx))
+          markerGroup.appendChild(markerParent)
+        }
         for (let i = 0; i < ds.x.length; i += step) {
+          if (!isValidPoint(i)) continue
           const px = dsSx(ds.x[i])
           const py = dsSy(ds.y[i])
-
-          if (plotType === 'circle' || plotType === 'filled_circle') {
-            const circle = createSVGElement('circle')
-            circle.setAttribute('cx', String(px))
-            circle.setAttribute('cy', String(py))
-            circle.setAttribute('r', String(dotSize))
-            circle.setAttribute('fill', plotType === 'filled_circle' ? paintColor : dotColor)
-            circle.setAttribute('stroke', dotColor)
-            circle.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(circle)
-          } else if (plotType === 'square' || plotType === 'filled_square') {
-            const rect = createSVGElement('rect')
-            rect.setAttribute('x', String(px - dotSize))
-            rect.setAttribute('y', String(py - dotSize))
-            rect.setAttribute('width', String(dotSize * 2))
-            rect.setAttribute('height', String(dotSize * 2))
-            rect.setAttribute('fill', plotType === 'filled_square' ? paintColor : dotColor)
-            rect.setAttribute('stroke', dotColor)
-            rect.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(rect)
-          } else if (plotType === 'triangle' || plotType === 'filled_triangle') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px},${py - dotSize}`
-            const p2 = `${px - dotSize},${py + dotSize}`
-            const p3 = `${px + dotSize},${py + dotSize}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-            poly.setAttribute('fill', plotType === 'filled_triangle' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'triangle_down' || plotType === 'filled_triangle_down') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px - dotSize},${py - dotSize}`
-            const p2 = `${px + dotSize},${py - dotSize}`
-            const p3 = `${px},${py + dotSize}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3}`)
-            poly.setAttribute('fill', plotType === 'filled_triangle_down' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'diamond' || plotType === 'filled_diamond') {
-            const poly = createSVGElement('polygon')
-            const p1 = `${px},${py - dotSize}`
-            const p2 = `${px + dotSize},${py}`
-            const p3 = `${px},${py + dotSize}`
-            const p4 = `${px - dotSize},${py}`
-            poly.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`)
-            poly.setAttribute('fill', plotType === 'filled_diamond' ? paintColor : dotColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'star') {
-            const poly = createSVGElement('polygon')
-            poly.setAttribute('points', starPoints(px, py, dotSize))
-            poly.setAttribute('fill', paintColor)
-            poly.setAttribute('stroke', dotColor)
-            poly.setAttribute('stroke-width', '1')
-            dsGroup.appendChild(poly)
-          } else if (plotType === 'plus' || plotType === 'cross') {
-            const g = createSVGElement('g')
-            const l1 = createSVGElement('line')
-            const l2 = createSVGElement('line')
-            if (plotType === 'plus') {
-              l1.setAttribute('x1', String(px - dotSize))
-              l1.setAttribute('y1', String(py))
-              l1.setAttribute('x2', String(px + dotSize))
-              l1.setAttribute('y2', String(py))
-              l2.setAttribute('x1', String(px))
-              l2.setAttribute('y1', String(py - dotSize))
-              l2.setAttribute('x2', String(px))
-              l2.setAttribute('y2', String(py + dotSize))
-            } else {
-              l1.setAttribute('x1', String(px - dotSize))
-              l1.setAttribute('y1', String(py - dotSize))
-              l1.setAttribute('x2', String(px + dotSize))
-              l1.setAttribute('y2', String(py + dotSize))
-              l2.setAttribute('x1', String(px - dotSize))
-              l2.setAttribute('y1', String(py + dotSize))
-              l2.setAttribute('x2', String(px + dotSize))
-              l2.setAttribute('y2', String(py - dotSize))
-            }
-            for (const line of [l1, l2]) {
-              line.setAttribute('stroke', dotColor)
-              line.setAttribute('stroke-width', '1')
-              g.appendChild(line)
-            }
-            dsGroup.appendChild(g)
-          }
+          if (markerGroup && !insideFrame(px, py)) continue
+          const symbol = createSeriesSymbol(plotType, px, py, dotSize, dotColor, paintColor, markerSw)
+          if (!symbol) continue
+          markerAnchorMap.set(symbol, { px, py })
+          markerParent.appendChild(symbol)
         }
       }
+
+      renderErrorBars(ds, opts, dsSx, dsSy, dsScaleGroup, strokeColor)
+      renderCurveOverlay(ds, dsSx, dsSy, dsScaleGroup, scaleX)
     }
   }
 }

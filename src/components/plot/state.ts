@@ -1,6 +1,7 @@
 import type { Dataset, SmpMetadata, SmpPlotDoc } from '../../types.ts'
 
 export const svgDataMap = new WeakMap<SVGSVGElement, Dataset[]>()
+export const markerAnchorMap = new WeakMap<Element, { px: number; py: number }>()
 export const svgSmpMetaMap = new WeakMap<SVGSVGElement, SmpMetadata>()
 export const svgSmpDocMap = new WeakMap<SVGSVGElement, SmpPlotDoc>()
 export const svgBaseScaleMap = new WeakMap<
@@ -11,6 +12,15 @@ export const svgBaseScaleMap = new WeakMap<
 export const autoScaleSvgs = new WeakSet<SVGSVGElement>()
 export const svgOverlayMap = new WeakMap<SVGSVGElement, HTMLDivElement>()
 export const svgCrossbarMap = new WeakMap<SVGSVGElement, { xVal: number; yVal: number }>()
+
+export interface LegendCellBox {
+  dx: number
+  dy: number
+  w: number
+  h: number
+  rotation: number
+}
+export const svgLegendBoxMap = new WeakMap<SVGSVGElement, Map<number, LegendCellBox>>()
 
 export const allDatasets: Dataset[] = []
 export const activeSvgs: SVGSVGElement[] = []

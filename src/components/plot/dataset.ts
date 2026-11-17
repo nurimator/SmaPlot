@@ -1,5 +1,5 @@
 import type { Dataset } from '../../types.ts'
-import { evaluateMathExpr } from '../../utils/dataset.ts'
+import { evaluateMathExpr, readDataColumns } from '../../utils/dataset.ts'
 
 const processedCache = new WeakMap<Dataset, { key: string; x: number[]; y: number[] }>()
 
@@ -11,18 +11,7 @@ export function getRawDatasetCoords(ds: Dataset): { x: number[]; y: number[] } {
   if (ds.rawLines && ds.rawLines.length > 0) {
     const xIdx = Math.max(0, (opts.xColumn || 1) - 1)
     const yIdx = Math.max(0, (opts.yColumn || 2) - 1)
-    const px: number[] = []
-    const py: number[] = []
-    ds.rawLines.forEach((parts) => {
-      if (parts.length > Math.max(xIdx, yIdx)) {
-        const vx = parseFloat(parts[xIdx])
-        const vy = parseFloat(parts[yIdx])
-        if (!isNaN(vx) && !isNaN(vy)) {
-          px.push(vx)
-          py.push(vy)
-        }
-      }
-    })
+    const { x: px, y: py } = readDataColumns(ds.rawLines, xIdx, yIdx)
     if (px.length > 0 && py.length > 0) {
       sourceX = px
       sourceY = py
@@ -185,7 +174,25 @@ export function getProcessedDataset(ds: Dataset): Dataset {
 }
 
 export function datasetIdentifier(ds: Dataset): string {
-  return ds.filePath || ds.fileName || `${ds.name}.txt`
+  if (ds.seriesId) return ds.seriesId
+  const base = ds.filePath || ds.fileName || `${ds.name}.txt`
+  const seriesName = ds.smpSeriesName || ds.name
+  const seriesIndex = ds.seriesIndex !== undefined ? `#${ds.seriesIndex}` : ''
+  if (ds.dataId || ds.smpSeriesName || ds.seriesIndex !== undefined) {
+    return `${base}::${seriesName}${seriesIndex}::${ds.dataId || ''}`
+  }
+  return base
+}
+
+export function datasetMatchesIdentifier(ds: Dataset, identifier: string): boolean {
+  if (!identifier) return false
+  if (datasetIdentifier(ds) === identifier) return true
+  if (ds.seriesId && identifier === ds.seriesId) return true
+  return ds.filePath === identifier ||
+    ds.fileName === identifier ||
+    ds.name === identifier ||
+    `${ds.name}.txt` === identifier ||
+    (ds.smpSeriesName || '') === identifier
 }
 
 export function isSeriesLegendText(text: string): boolean {

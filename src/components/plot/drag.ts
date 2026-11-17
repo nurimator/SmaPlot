@@ -1,10 +1,9 @@
 import type { ActiveDrag } from '../../types.ts'
 import { getCanvasZoom } from '../../utils/canvasZoom.ts'
-import { formatLinearExpr } from './dataset.ts'
 import { getPlotSmpDoc, syncDocGeometry } from './smpDoc.ts'
-import { PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
+import { createSVGElement, PLOT_MARGIN, snapToGridThreshold } from './svg.ts'
 import { svgDataMap, syncPlotOverlay, getPlotOverlay } from './state.ts'
-import { applyTransDragVisual, clearActiveTransDrag, getActiveTransDrag, isPropertyTabMode } from './transform.ts'
+import { endTransDrag, getActiveTransDrag, isPropertyTabMode, moveTransDrag } from './transform.ts'
 import { isReadValueMode, isTrimmingMode } from './modes.ts'
 import { updatePlotVisual, drawPlot } from './drawPlot.ts'
 import { isShapeDrawing } from './../ShapeDraw.ts'
@@ -52,7 +51,7 @@ export interface GroupDragItem {
   startY1Norm?: number
   startX2Norm?: number
   startY2Norm?: number
-  targetType?: 'start' | 'end' | 'line'
+  targetType?: 'start' | 'end' | 'line' | 'x1y2' | 'x2y1'
   geom?: Array<{ el: HTMLElement; left: number; top: number }>
 }
 
@@ -77,6 +76,101 @@ export function capturePointerForDrag(pointerId: number, svg: SVGSVGElement): vo
     if (!svg.hasPointerCapture(pointerId)) svg.setPointerCapture(pointerId)
   } catch {
   }
+}
+
+// center snap
+const CENTER_SNAP_PX = 2
+type CenterSnapBox = { svg: SVGSVGElement; cx: number; cy: number }
+const centerSnapBoxes = new WeakMap<object, CenterSnapBox | null>()
+
+function getCenterSnapBox(dragRef: { items: GroupDragItem[] }): CenterSnapBox | null {
+  if (centerSnapBoxes.has(dragRef)) return centerSnapBoxes.get(dragRef) ?? null
+  let box: CenterSnapBox | null = null
+  const legends = dragRef.items.filter((it) => it.kind === 'legend')
+  const svg = legends[0]?.svg
+  if (svg && legends.length === dragRef.items.length && legends.every((it) => it.svg === svg)) {
+    let l = Infinity
+    let t = Infinity
+    let r = -Infinity
+    let b = -Infinity
+    for (const it of legends) {
+      const g = svg.querySelector<SVGGElement>(`g[data-legend-item="${it.itemIdx}"]`)
+      if (!g) continue
+      try {
+        const bb = g.getBBox()
+        if (bb.width <= 0 && bb.height <= 0) continue
+        l = Math.min(l, bb.x)
+        t = Math.min(t, bb.y)
+        r = Math.max(r, bb.x + bb.width)
+        b = Math.max(b, bb.y + bb.height)
+      } catch {
+      }
+    }
+    if (Number.isFinite(l)) box = { svg, cx: (l + r) / 2, cy: (t + b) / 2 }
+  }
+  centerSnapBoxes.set(dragRef, box)
+  return box
+}
+
+function setCenterSnapGuides(svg: SVGSVGElement | null, showV: boolean, showH: boolean, tx = 0, ty = 0): void {
+  document.querySelectorAll<SVGLineElement>('.plot-svg [data-center-snap-guide]').forEach((el) => {
+    if (!svg || el.ownerSVGElement !== svg) el.remove()
+  })
+  if (!svg) return
+  const w = parseFloat(svg.style.width) || 500
+  const h = parseFloat(svg.style.height) || 350
+  const plotW = Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r)
+  const plotH = Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b)
+  const fx = PLOT_MARGIN.l + plotW / 2
+  const fy = PLOT_MARGIN.t + plotH / 2
+  const specs: Array<['v' | 'h', boolean, number, number, number, number]> = [
+    ['v', showV, fx, Math.min(PLOT_MARGIN.t, ty), fx, Math.max(PLOT_MARGIN.t + plotH, ty)],
+    ['h', showH, Math.min(PLOT_MARGIN.l, tx), fy, Math.max(PLOT_MARGIN.l + plotW, tx), fy],
+  ]
+  for (const [dir, show, x1, y1, x2, y2] of specs) {
+    let line = svg.querySelector<SVGLineElement>(`line[data-center-snap-guide="${dir}"]`)
+    if (!show) {
+      line?.remove()
+      continue
+    }
+    if (!line) {
+      line = createSVGElement('line')
+      line.setAttribute('data-center-snap-guide', dir)
+      line.setAttribute('stroke', '#ff00ff')
+      line.setAttribute('stroke-width', '0.75')
+      line.setAttribute('stroke-dasharray', '4 3')
+      line.setAttribute('vector-effect', 'non-scaling-stroke')
+      line.style.pointerEvents = 'none'
+      svg.appendChild(line)
+    }
+    line.setAttribute('x1', String(x1))
+    line.setAttribute('y1', String(y1))
+    line.setAttribute('x2', String(x2))
+    line.setAttribute('y2', String(y2))
+  }
+}
+
+function applyCenterSnap(
+  dragRef: { items: GroupDragItem[] },
+  dx: number,
+  dy: number,
+  disabled: boolean
+): { dx: number; dy: number } {
+  const box = disabled ? null : getCenterSnapBox(dragRef)
+  if (!box) {
+    setCenterSnapGuides(null, false, false)
+    return { dx, dy }
+  }
+  const w = parseFloat(box.svg.style.width) || 500
+  const h = parseFloat(box.svg.style.height) || 350
+  const fx = PLOT_MARGIN.l + Math.max(10, w - PLOT_MARGIN.l - PLOT_MARGIN.r) / 2
+  const fy = PLOT_MARGIN.t + Math.max(10, h - PLOT_MARGIN.t - PLOT_MARGIN.b) / 2
+  const offX = fx - (box.cx + dx)
+  const offY = fy - (box.cy + dy)
+  const snapX = Math.abs(offX) <= CENTER_SNAP_PX
+  const snapY = Math.abs(offY) <= CENTER_SNAP_PX
+  setCenterSnapGuides(box.svg, snapX, snapY, box.cx + dx + (snapX ? offX : 0), box.cy + dy + (snapY ? offY : 0))
+  return { dx: snapX ? dx + offX : dx, dy: snapY ? dy + offY : dy }
 }
 
 let _cachedTitleOverlay: HTMLElement | null = null
@@ -273,151 +367,21 @@ function schedulePlotVisualSync(
 }
 
 export function initPlotDragListeners(onDragCommit?: () => void): void {
-  const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean) => {
+  const handleDragMove = (clientX: number, clientY: number, shiftKey: boolean, altKey = false) => {
     if (getActiveTransDrag()) {
-      const activeTransDrag = getActiveTransDrag()!
-      const zoom = getCanvasZoom()
-      const dxPx = (clientX - activeTransDrag.startX) / zoom
-      const dyPx = (clientY - activeTransDrag.startY) / zoom
-
-      const {
-        svg,
-        dataset,
-        dir,
-        xTransActive,
-        yTransActive,
-        startXLinear,
-        startYLinear,
-        rawXMin,
-        rawXMax,
-        rawYMin,
-        rawYMax,
-        startXTransMin,
-        startXTransMax,
-        startYTransMin,
-        startYTransMax,
-        xMin,
-        xMax,
-        yMin,
-        yMax,
-        plotW,
-        plotH,
-      } = activeTransDrag
-
-      const deltaVx = (dxPx / plotW) * (xMax - xMin)
-      const deltaVy = -(dyPx / plotH) * (yMax - yMin)
-
-      if (!dataset.options) dataset.options = {}
-
-      let curAx = startXLinear.a
-      let curBx = startXLinear.b
-      let curAy = startYLinear.a
-      let curBy = startYLinear.b
-
-      if (yTransActive) {
-        let newAy = startYLinear.a
-        let newBy = startYLinear.b
-        const isYInverted = startYLinear.a < 0
-
-        if (dir === 'box') {
-          newBy = startYLinear.b + deltaVy
-        } else if (dir === 'top' || dir === 'top-left' || dir === 'top-right') {
-          const rawYAnchor = isYInverted ? rawYMax : rawYMin
-          const rawYMoving = isYInverted ? rawYMin : rawYMax
-          const yBottom = startYTransMin
-          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
-          let yMovingNew = startYTransMax + deltaVy
-          if (yMovingNew < yBottom + minSpanY) yMovingNew = yBottom + minSpanY
-
-          const rawSpan = rawYMoving - rawYAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAy = (yMovingNew - yBottom) / rawSpan
-            newBy = yBottom - newAy * rawYAnchor
-          }
-        } else if (dir === 'bottom' || dir === 'bottom-left' || dir === 'bottom-right') {
-          const rawYAnchor = isYInverted ? rawYMin : rawYMax
-          const rawYMoving = isYInverted ? rawYMax : rawYMin
-          const yTop = startYTransMax
-          const minSpanY = Math.max(1e-8, Math.abs(yMax - yMin) * 0.0001)
-          let yMovingNew = startYTransMin + deltaVy
-          if (yMovingNew > yTop - minSpanY) yMovingNew = yTop - minSpanY
-
-          const rawSpan = rawYMoving - rawYAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAy = (yMovingNew - yTop) / rawSpan
-            newBy = yTop - newAy * rawYAnchor
-          }
-        }
-
-        const formattedY = formatLinearExpr(newAy, newBy, 'y')
-        dataset.options.yExpr = formattedY
-
-        const propYInput = document.querySelector<HTMLInputElement>('#propYTransExpr')
-        if (propYInput) propYInput.value = formattedY
-
-        curAy = newAy
-        curBy = newBy
-      }
-
-      if (xTransActive) {
-        let newAx = startXLinear.a
-        let newBx = startXLinear.b
-        const isXInverted = startXLinear.a < 0
-
-        if (dir === 'box') {
-          newBx = startXLinear.b + deltaVx
-        } else if (dir === 'right' || dir === 'top-right' || dir === 'bottom-right') {
-          const rawXAnchor = isXInverted ? rawXMax : rawXMin
-          const rawXMoving = isXInverted ? rawXMin : rawXMax
-          const xLeft = startXTransMin
-          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
-          let xMovingNew = startXTransMax + deltaVx
-          if (xMovingNew < xLeft + minSpanX) xMovingNew = xLeft + minSpanX
-
-          const rawSpan = rawXMoving - rawXAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAx = (xMovingNew - xLeft) / rawSpan
-            newBx = xLeft - newAx * rawXAnchor
-          }
-        } else if (dir === 'left' || dir === 'top-left' || dir === 'bottom-left') {
-          const rawXAnchor = isXInverted ? rawXMax : rawXMin
-          const rawXMoving = isXInverted ? rawXMax : rawXMin
-          const xRight = startXTransMax
-          const minSpanX = Math.max(1e-8, Math.abs(xMax - xMin) * 0.0001)
-          let xMovingNew = startXTransMin + deltaVx
-          if (xMovingNew > xRight - minSpanX) xMovingNew = xRight - minSpanX
-
-          const rawSpan = rawXMoving - rawXAnchor
-          if (Math.abs(rawSpan) > 1e-12) {
-            newAx = (xMovingNew - xRight) / rawSpan
-            newBx = xRight - newAx * rawXAnchor
-          }
-        }
-
-        const formattedX = formatLinearExpr(newAx, newBx, 'x')
-        dataset.options.xExpr = formattedX
-
-        const propXInput = document.querySelector<HTMLInputElement>('#propXTransExpr')
-        if (propXInput) propXInput.value = formattedX
-
-        curAx = newAx
-        curBx = newBx
-      }
-
-      if (!applyTransDragVisual(activeTransDrag, curAx, curBx, curAy, curBy)) {
-        schedulePlotVisualSync(svg)
-      }
+      moveTransDrag(clientX, clientY)
       return
     }
 
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
       const zoom = getCanvasZoom()
-      const dx = (clientX - dragRef.startX) / zoom
-      const dy = (clientY - dragRef.startY) / zoom
+      let dx = (clientX - dragRef.startX) / zoom
+      let dy = (clientY - dragRef.startY) / zoom
       const touchedSvgs = new Set<SVGSVGElement>()
 
       const liveLegendDrag = dragRef.items.every((it) => it.kind === 'legend' || it.kind === 'plot')
+      if (liveLegendDrag) ({ dx, dy } = applyCenterSnap(dragRef, dx, dy, altKey))
 
       for (const item of dragRef.items) {
         if (item.kind === 'plot') {
@@ -444,8 +408,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
             if (!smpDoc || !legendItem) continue
             const widthPx = parseFloat(item.svg.style.width) || 500
             const heightPx = parseFloat(item.svg.style.height) || 350
-            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
             legendItem.xNorm = Math.round(item.startXNorm! + (dx / plotW) * 10000)
             legendItem.yNorm = Math.round(item.startYNorm! + (dy / plotH) * 10000)
             touchedSvgs.add(item.svg)
@@ -456,8 +420,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (!smpDoc || !aLine) continue
           const widthPx = parseFloat(item.svg.style.width) || 500
           const heightPx = parseFloat(item.svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
           const docWidthMm = (smpDoc.width || 14000) / 100
           const docHeightMm = (smpDoc.height || 10000) / 100
           const scaleX = plotW / (docWidthMm || 140)
@@ -513,7 +477,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
               const angle = Math.atan2(dyPx, dxPx) * (180 / Math.PI)
               const snappedAngle = Math.round(angle / 90) * 90
               if (snappedAngle % 180 === 0) {
-                aLine.y1Norm = item.startY1Norm!
+                aLine.y2Norm = item.startY1Norm!
                 aLine.x2Norm = rawX2
               } else {
                 aLine.x2Norm = item.startX1Norm!
@@ -523,6 +487,12 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
               aLine.x2Norm = rawX2
               aLine.y2Norm = rawY2
             }
+          } else if (item.targetType === 'x1y2') {
+            aLine.x1Norm = item.startX1Norm! + dxNorm
+            aLine.y2Norm = item.startY2Norm! + dyNorm
+          } else if (item.targetType === 'x2y1') {
+            aLine.x2Norm = item.startX2Norm! + dxNorm
+            aLine.y1Norm = item.startY1Norm! + dyNorm
           } else {
             aLine.x1Norm = item.startX1Norm! + dxNorm
             aLine.y1Norm = item.startY1Norm! + dyNorm
@@ -540,8 +510,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (legendItem) {
             const widthPx = parseFloat(legendItem.svg.style.width) || 500
             const heightPx = parseFloat(legendItem.svg.style.height) || 350
-            const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-            const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+            const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+            const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
             const smpDoc = getPlotSmpDoc(legendItem.svg)
             const docWidthMm = ((smpDoc?.width || 10000) / 100) || 100
             const docHeightMm = ((smpDoc?.height || 10000) / 100) || 100
@@ -632,17 +602,13 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   const handleDragEnd = () => {
     let wasDragging = false
     if (getActiveTransDrag()) {
-      const { svg } = getActiveTransDrag()!
-      clearActiveTransDrag()
-      document.body.style.userSelect = ''
-      if (svgDataMap.get(svg)) {
-        updatePlotVisual(svg)
-      }
+      endTransDrag()
       wasDragging = true
     }
 
     if (activeGroupDrag) {
       const dragRef = activeGroupDrag
+      setCenterSnapGuides(null, false, false)
 
       const liveLegendDrag =
         dragRef.items.some((it) => it.kind === 'legend') &&
@@ -656,8 +622,8 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
           if (!smpDoc || !legendItem) continue
           const widthPx = parseFloat(item.svg.style.width) || 500
           const heightPx = parseFloat(item.svg.style.height) || 350
-          const plotW = Math.max(50, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
-          const plotH = Math.max(50, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
+          const plotW = Math.max(10, widthPx - PLOT_MARGIN.l - PLOT_MARGIN.r)
+          const plotH = Math.max(10, heightPx - PLOT_MARGIN.t - PLOT_MARGIN.b)
           legendItem.xNorm = Math.round(item.startXNorm! + ((dragRef.lastDx ?? 0) / plotW) * 10000)
           legendItem.yNorm = Math.round(item.startYNorm! + ((dragRef.lastDy ?? 0) / plotH) * 10000)
           committedSvgs.add(item.svg)
@@ -704,7 +670,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
   }
 
   document.addEventListener('mousemove', (e: MouseEvent) => {
-    if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey)
+    if (activePointerId === null) handleDragMove(e.clientX, e.clientY, e.shiftKey, e.altKey)
   })
 
   document.addEventListener(
@@ -754,7 +720,7 @@ export function initPlotDragListeners(onDragCommit?: () => void): void {
 
   document.addEventListener('pointermove', (e: PointerEvent) => {
     if (activePointerId !== null && e.pointerId === activePointerId) {
-      handleDragMove(e.clientX, e.clientY, e.shiftKey)
+      handleDragMove(e.clientX, e.clientY, e.shiftKey, e.altKey)
     }
   })
 

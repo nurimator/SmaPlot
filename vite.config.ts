@@ -22,13 +22,21 @@ export default defineConfig({
       manifest: {
         name: 'SmaPlot',
         short_name: 'SmaPlot',
-        description: 'Sma4Win-style scientific data analysis and plotting',
+        description: 'Desktop-style scientific data analysis and plotting',
         lang: 'en',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'fullscreen',
         display_override: ['window-controls-overlay'],
         start_url: './',
+        file_handlers: [
+          {
+            action: './',
+            accept: {
+              'application/x-smp-project': ['.smp', '.sma'],
+            },
+          },
+        ],
         icons: [
           {
             src: './favicon/web-app-manifest-192x192.png',

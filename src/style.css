@@ -12,6 +12,7 @@
   --slate-900: #0f172a;
   --blue-500: #3b82f6;
   --blue-600: #2563eb;
+  --blue-800: #1e40af;
   --sky-100: #e0f2fe;
   --sky-500: #0ea5e9;
   --sky-600: #0284c7;
@@ -373,6 +374,14 @@ body.accesskey-mode .menu-accel {
   color: var(--rose-500);
 }
 
+.toolbar-icon-arrow {
+  color: var(--red-600);
+}
+
+.toolbar-icon-rect {
+  color: var(--blue-800);
+}
+
 .toolbar-icon-help {
   color: var(--blue-500);
 }
@@ -621,13 +630,7 @@ body.accesskey-mode .menu-accel {
 .plot-svg .handle-bottom-left { cursor: nesw-resize; }
 .plot-svg .handle-bottom-right { cursor: nwse-resize; }
 
-/* Transform-box indicator drawn on the selected boxplot itself (via its overlay) */
-.plot-overlay.plot-overlay-selected {
-  border: 1px solid #00ffff;
-  box-sizing: border-box;
-}
-
-/* ===== Plot Control Overlay (HTML selection/transform aids, not exported) ===== */
+/* ===== Plot Control Overlay (invisible hit areas; visuals drawn by .selection-layer) ===== */
 .plot-overlay {
   position: absolute;
   z-index: 10;
@@ -636,91 +639,74 @@ body.accesskey-mode .menu-accel {
   box-sizing: border-box;
 }
 
-.ov-box-multi {
+.selection-layer {
   position: absolute;
-  border: 1px solid #00ffff;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ov-box,
+.ov-box-multi,
+.ov-trans-box,
+.ov-frame-border {
+  position: absolute;
+  border: none;
   background: transparent;
-  pointer-events: auto;
   box-sizing: border-box;
+}
+
+.ov-box,
+.ov-box-multi {
+  pointer-events: auto;
   cursor: move;
+}
+
+.ov-trans-box {
+  pointer-events: auto;
+  z-index: 14;
 }
 
 .ov-line {
   position: absolute;
-  height: 0;
-  border-top: 1px solid #00ffff;
-  pointer-events: auto;
-  cursor: move;
-}
-
-.ov-handle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #00ffff;
-  border: none;
-  pointer-events: auto;
-  cursor: crosshair;
-  z-index: 12;
-}
-
-.ov-box {
-  position: absolute;
-  border: 1px solid #00ffff;
+  height: var(--ov-hit, 8px);
+  margin-top: calc(var(--ov-hit, 8px) / -2);
   background: transparent;
   pointer-events: auto;
   cursor: move;
 }
 
-.ov-box-corner {
+.ov-handle,
+.ov-box-corner,
+.ov-trans-handle,
+.ov-dot {
   position: absolute;
-  width: 3px;
-  height: 3px;
-  background: #00ffff;
+  width: var(--ov-hit, 8px);
+  height: var(--ov-hit, 8px);
+  background: transparent;
   border: none;
+  transform: translate(-50%, -50%);
   pointer-events: auto;
+}
+
+.ov-handle {
+  cursor: crosshair;
+  z-index: 12;
+}
+
+.ov-trans-handle {
+  z-index: 16;
+}
+
+.ov-dot {
+  pointer-events: none;
 }
 
 .ov-rot-wrap {
   position: absolute;
   transform-origin: 0 0;
-}
-
-.ov-dot {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #00ffff;
-  border: none;
-  pointer-events: none;
-}
-
-.ov-trans-box {
-  position: absolute;
-  border: 1px solid #00ffff;
-  background: transparent;
-  pointer-events: auto;
-  box-sizing: border-box;
-  z-index: 14;
-}
-
-.ov-trans-handle {
-  position: absolute;
-  background: #00ffff;
-  border: none;
-  pointer-events: auto;
-  z-index: 16;
-  box-sizing: border-box;
-}
-
-.ov-trans-handle-h {
-  width: 10px;
-  height: 5px;
-}
-
-.ov-trans-handle-v {
-  width: 5px;
-  height: 10px;
 }
 
 .workspace-right {
@@ -978,7 +964,11 @@ body.accesskey-mode .menu-accel {
   mask: var(--icon-url) center / contain no-repeat;
 }
 
-.icon-photo-sensor-3 { --icon-url: url('/icons/photo-sensor-3.svg'); }
+.icon-read-value {
+  background: url('/icons/read-value.svg') center / contain no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
 .icon-menu { --icon-url: url('/icons/menu.svg'); }
 .icon-minus { --icon-url: url('/icons/minus.svg'); }
 .icon-plus { --icon-url: url('/icons/plus.svg'); }
@@ -987,7 +977,7 @@ body.accesskey-mode .menu-accel {
 .icon-chevron-right { --icon-url: url('/icons/chevron-right.svg'); }
 .icon-file-text { --icon-url: url('/icons/file-text.svg'); }
 .icon-square-plus-2 { --icon-url: url('/icons/square-plus-2.svg'); }
-.icon-circle-dashed-letter-c { --icon-url: url('/icons/circle-dashed-letter-c.svg'); }
+.icon-letter-c { --icon-url: url('/icons/letter-c.svg'); }
 .icon-folder-open { --icon-url: url('/icons/folder-open.svg'); }
 .icon-device-floppy { --icon-url: url('/icons/device-floppy.svg'); }
 .icon-printer { --icon-url: url('/icons/printer.svg'); }
@@ -1165,6 +1155,7 @@ body.accesskey-mode .menu-accel {
 .arrow-dialog,
 .rectangle-dialog,
 .read-value-dialog,
+.frame-dialog,
 .dialog-window {
   position: absolute;
   pointer-events: auto;
@@ -1223,7 +1214,11 @@ body.accesskey-mode .menu-accel {
   height: auto;
 }
 
-
+.frame-dialog {
+  width: 380px;
+  height: 390px;
+  max-height: 92vh;
+}
 
 .rect-dialog-body {
   padding: 12px 16px;
@@ -1911,6 +1906,94 @@ body.accesskey-mode .menu-accel {
   width: 100%;
 }
 
+/* ===== Custom Combobox (Editable Input + Custom Dropdown) ===== */
+.custom-combobox {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  border: 1px solid var(--slate-300);
+  border-radius: 4px;
+  transition: all 0.12s ease;
+}
+
+.custom-combobox.full-width {
+  width: 100%;
+}
+
+.custom-combobox.width-sm {
+  width: 78px;
+}
+
+.custom-combobox:focus-within {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.custom-combobox-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 6px 0 8px !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--slate-800);
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hide native browser spin buttons (up/down arrows on number inputs) */
+.custom-combobox-input::-webkit-outer-spin-button,
+.custom-combobox-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-combobox-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 100%;
+  border: none;
+  border-left: 1px solid var(--slate-200);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s;
+}
+
+.custom-combobox-toggle:hover {
+  background-color: var(--slate-100);
+}
+
+.custom-combobox-toggle::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.6px solid var(--slate-500);
+  border-bottom: 1.6px solid var(--slate-500);
+  transform: translateY(-25%) rotate(45deg);
+  pointer-events: none;
+  transition: transform 0.12s ease;
+}
+
+.custom-combobox-toggle.open::after {
+  transform: translateY(25%) rotate(-135deg);
+}
+
 /* Single Unified Button Style */
 .btn,
 .btn-sm {
@@ -2091,6 +2174,54 @@ body.shape-drawing * {
 .pwa-update-actions {
   display: flex;
   gap: 6px;
+}
+
+/* ===== App Notice ===== */
+.app-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 42px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  background-color: var(--slate-900);
+  color: var(--white);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
+  font-size: 12px;
+  z-index: 9998;
+}
+
+.app-notice[hidden] {
+  display: none;
+}
+
+.app-notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-notice-detail {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.app-notice-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 0 2px;
+}
+
+.app-notice-close:hover {
+  opacity: 1;
 }
 
 /* ===== Custom Color Picker Dialog ===== */
@@ -2583,7 +2714,7 @@ body.shape-drawing * {
 
   /* Submenu: in-flow block — no position, no border, no background box.
      Explicitly set display:none here so the rule takes effect even when
-     the touch :hover pseudo-class sticks after a tap (see override below). */
+     the touch :hover state sticks after a tap (see override below). */
   .menubar.menu-drawer-open .menu-submenu {
     display: none;
     position: static;
