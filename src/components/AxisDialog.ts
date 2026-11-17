@@ -101,19 +101,25 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
   const axisAddPlusSign = overlayEl.querySelector<HTMLInputElement>('#axisAddPlusSign')
   const axisMergeZeroLabels = overlayEl.querySelector<HTMLInputElement>('#axisMergeZeroLabels')
 
-  const resolveTargetSpec = (smpDoc: SmpPlotDoc): SmpAxisSpec => {
-    if (currentAxisTarget === 'x') return smpDoc.axisX
-    if (currentAxisTarget === 'y') return smpDoc.axisY
-    if (currentAxisTarget === 'u') {
-      if (!smpDoc.axisTop) {
-        smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
-      }
-      return smpDoc.axisTop
+  const ensureTopAxis = (smpDoc: SmpPlotDoc): SmpAxisSpec => {
+    if (!smpDoc.axisTop) {
+      smpDoc.axisTop = { ...smpDoc.axisX, showLabels: false, isSynced: smpDoc.syncWithU !== false }
     }
+    return smpDoc.axisTop
+  }
+
+  const ensureRightAxis = (smpDoc: SmpPlotDoc): SmpAxisSpec => {
     if (!smpDoc.axisRight) {
       smpDoc.axisRight = { ...smpDoc.axisY, showLabels: false, isSynced: smpDoc.syncWithR !== false }
     }
     return smpDoc.axisRight
+  }
+
+  const resolveTargetSpec = (smpDoc: SmpPlotDoc): SmpAxisSpec => {
+    if (currentAxisTarget === 'x') return smpDoc.axisX
+    if (currentAxisTarget === 'y') return smpDoc.axisY
+    if (currentAxisTarget === 'u') return ensureTopAxis(smpDoc)
+    return ensureRightAxis(smpDoc)
   }
 
   // Runs on change (blur/Enter/radio toggle) only: writing back to #axisFrom/#axisTo
@@ -205,7 +211,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
 
     if (currentAxisTarget === 'x' || currentAxisTarget === 'u') {
       const isSynced = axisSync ? axisSync.checked : true
-      const axisTop = smpDoc.axisTop!
+      const axisTop = ensureTopAxis(smpDoc)
       if (isSynced) {
         if (currentAxisTarget === 'x') {
           syncAxisPair(smpDoc.axisX, axisTop)
@@ -216,7 +222,7 @@ export function initAxisDialog(overlayEl: HTMLElement): void {
       setAxisSync(smpDoc, 'u', isSynced)
     } else if (currentAxisTarget === 'y' || currentAxisTarget === 'r') {
       const isSynced = axisSync ? axisSync.checked : true
-      const axisRight = smpDoc.axisRight!
+      const axisRight = ensureRightAxis(smpDoc)
       if (isSynced) {
         if (currentAxisTarget === 'y') {
           syncAxisPair(smpDoc.axisY, axisRight)
