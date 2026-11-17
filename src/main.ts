@@ -87,12 +87,10 @@ import {
   canPickFiles,
   collectDroppedFiles,
   fileExtension,
-  getProjectFileHandle,
   initLaunchQueue,
   pickFilesToOpen,
   pickSaveHandle,
   readFileText,
-  setProjectFileHandle,
   writeToHandle,
 } from './utils/fileAccess.ts'
 import type { IncomingFile } from './utils/fileAccess.ts'
@@ -217,9 +215,8 @@ function buildProjectContent(): string | null {
   return serializeSmpProject(docs)
 }
 
-function finishSave(fileName: string, content: string, handle: FileSystemFileHandle | null): void {
+function finishSave(fileName: string, content: string): void {
   setCurrentProjectFileName(fileName)
-  setProjectFileHandle(handle)
   addRecentFile(fileName, content)
   updateRecentFilesMenu()
   markProjectClean()
@@ -230,19 +227,9 @@ async function handleSaveProject(customFileName?: string): Promise<boolean> {
   const content = buildProjectContent()
   if (content === null) return false
 
-  const handle = customFileName ? null : getProjectFileHandle()
-  if (handle) {
-    if (await writeToHandle(handle, encodeWindows1252(content))) {
-      finishSave(handle.name, content, handle)
-      showNotice(`Saved ${handle.name}`, '', 2500)
-      return true
-    }
-    showNotice(`Could not write to ${handle.name}`, 'A copy was downloaded instead.')
-  }
-
   const fileName = customFileName || getCurrentProjectFileName()
   downloadFile(content, fileName)
-  finishSave(fileName, content, null)
+  finishSave(fileName, content)
   return true
 }
 
@@ -255,7 +242,7 @@ async function handleSaveAsProject(): Promise<boolean> {
   if (handle === null) return false
   if (handle) {
     if (await writeToHandle(handle, encodeWindows1252(content))) {
-      finishSave(handle.name, content, handle)
+      finishSave(handle.name, content)
       return true
     }
     showNotice(`Could not write to ${handle.name}`, 'Enter a file name to download a copy instead.')
@@ -275,7 +262,6 @@ async function handleNewProject(): Promise<void> {
   hideNotice()
   setCurrentProjectFileName('untitled.SMP')
   setProjectUntitled(true)
-  setProjectFileHandle(null)
   clearAllPlots(graphAreaEl)
   await createDefaultPlot(graphAreaEl)
   pushUndoState()
@@ -295,7 +281,7 @@ function reportProjectFeatures(fileName: string): void {
   showNotice(`${fileName} uses features SmaPlot cannot show yet`, parts.join(' '), 15000)
 }
 
-async function openProjectContent(content: string, fileName: string, handle: FileSystemFileHandle | null): Promise<void> {
+async function openProjectContent(content: string, fileName: string): Promise<void> {
   const proceed = await confirmDiscardChanges(
     `The current project has unsaved changes. Do you want to save it before opening ${fileName}?`
   )
@@ -306,7 +292,6 @@ async function openProjectContent(content: string, fileName: string, handle: Fil
     showNotice(`Could not open ${fileName}`, 'The file does not look like an SMP project.')
     return
   }
-  setProjectFileHandle(handle)
   updateRecentFilesMenu()
   pushUndoState()
   markProjectClean()
@@ -330,7 +315,7 @@ async function handleIncomingFiles(entries: IncomingFile[], target?: SVGSVGEleme
 
   if (projects.length > 0) {
     const [first] = projects
-    await openProjectContent(await readFileText(first.file), first.file.name, first.handle ?? null)
+    await openProjectContent(await readFileText(first.file), first.file.name)
     if (projects.length > 1) {
       showNotice(`Opened ${first.file.name} only`, 'A project replaces the workspace, so the other project files were skipped.')
     }
@@ -656,7 +641,7 @@ if (menubarEl) {
         alert(`The local copy of "${recent.name}" is not available.`)
         return
       }
-      await openProjectContent(recent.content, recent.name, null)
+      await openProjectContent(recent.content, recent.name)
     } else if (action === 'property') {
       showPropertyDialog(propOverlayEl)
     } else if (action === 'about') {

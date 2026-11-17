@@ -1,13 +1,5 @@
 export interface IncomingFile {
   file: File
-  handle?: FileSystemFileHandle
-}
-
-type PermissionMode = { mode: 'read' | 'readwrite' }
-
-interface PermissionedHandle extends FileSystemFileHandle {
-  queryPermission?: (opts: PermissionMode) => Promise<PermissionState>
-  requestPermission?: (opts: PermissionMode) => Promise<PermissionState>
 }
 
 interface PickerType {
@@ -33,16 +25,6 @@ const SAVE_TYPES: PickerType[] = [
   { description: 'SMP Project (*.SMP)', accept: { 'application/octet-stream': ['.smp', '.SMP'] } },
 ]
 
-let projectHandle: FileSystemFileHandle | null = null
-
-export function getProjectFileHandle(): FileSystemFileHandle | null {
-  return projectHandle
-}
-
-export function setProjectFileHandle(handle: FileSystemFileHandle | null): void {
-  projectHandle = handle
-}
-
 export function fileExtension(name: string): string {
   const dot = name.lastIndexOf('.')
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : ''
@@ -58,7 +40,7 @@ export async function pickFilesToOpen(): Promise<IncomingFile[] | null> {
   if (!picker) return null
   try {
     const handles = await picker({ multiple: true, types: OPEN_TYPES })
-    return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), handle })))
+    return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile() })))
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') return []
     return null
@@ -67,23 +49,7 @@ export async function pickFilesToOpen(): Promise<IncomingFile[] | null> {
 
 export function collectDroppedFiles(dataTransfer: DataTransfer | null): Promise<IncomingFile[]> {
   if (!dataTransfer) return Promise.resolve([])
-  const items = Array.from(dataTransfer.items || []).filter((item) => item.kind === 'file')
-  if (items.length === 0) {
-    return Promise.resolve(Array.from(dataTransfer.files || []).map((file) => ({ file })))
-  }
-  const entries = items.map((item) => {
-    const file = item.getAsFile()
-    const withHandle = item as DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }
-    const handle = withHandle.getAsFileSystemHandle ? withHandle.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null)
-    return { file, handle }
-  })
-  return Promise.all(
-    entries.map(async ({ file, handle }): Promise<IncomingFile | null> => {
-      if (!file) return null
-      const resolved = await handle
-      return { file, handle: resolved && resolved.kind === 'file' ? (resolved as FileSystemFileHandle) : undefined }
-    })
-  ).then((list) => list.filter((entry): entry is IncomingFile => entry !== null))
+  return Promise.resolve(Array.from(dataTransfer.files || []).map((file) => ({ file })))
 }
 
 export function initLaunchQueue(consumer: (files: IncomingFile[]) => void): void {
@@ -92,7 +58,7 @@ export function initLaunchQueue(consumer: (files: IncomingFile[]) => void): void
   queue.setConsumer(async (params) => {
     const handles = (params.files || []).filter((h): h is FileSystemFileHandle => h.kind === 'file')
     if (handles.length === 0) return
-    const files = await Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), handle })))
+    const files = await Promise.all(handles.map(async (handle) => ({ file: await handle.getFile() })))
     consumer(files)
   })
 }
@@ -115,18 +81,12 @@ export async function pickSaveHandle(suggestedName: string): Promise<FileSystemF
 
 export async function writeToHandle(handle: FileSystemFileHandle, data: ArrayBuffer): Promise<boolean> {
   try {
-    const permissioned = handle as PermissionedHandle
-    if (permissioned.queryPermission && permissioned.requestPermission) {
-      let state = await permissioned.queryPermission({ mode: 'readwrite' })
-      if (state === 'prompt') state = await permissioned.requestPermission({ mode: 'readwrite' })
-      if (state !== 'granted') return false
-    }
     const writable = await handle.createWritable()
     await writable.write(data)
     await writable.close()
     return true
   } catch (err) {
-    console.warn('Writing to the opened file failed:', err)
+    console.warn('Writing to the chosen file failed:', err)
     return false
   }
 }
